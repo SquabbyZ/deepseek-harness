@@ -14,18 +14,22 @@ macOS.
 - `sidecar-runtime/` — dependency-only manifest whose closure the sidecar
   deploys (see `pnpm-workspace.yaml`).
 
-`desktop/` is a standalone package, not a pnpm workspace member. Its
-`@tauri-apps/cli` devDependency must be installed before `tauri build`:
+`desktop/` is a standalone package — its own pnpm workspace
+(`desktop/pnpm-workspace.yaml`), not a member of the root workspace. Its
+`@tauri-apps/cli` devDependency is pinned by the committed
+`desktop/pnpm-lock.yaml` and must be installed before `tauri build`:
 
 ```bash
-pnpm --dir desktop install
+pnpm --dir desktop install --frozen-lockfile
 ```
 
 ## Build locally
 
 ```bash
-pnpm run build:lib                  # shared library (also run inside build:sidecar)
-pnpm --dir desktop run build:sidecar # materialize resources/dsh-runtime/
+pnpm install                              # workspace deps (root lockfile)
+pnpm --dir desktop install --frozen-lockfile  # desktop deps incl. @tauri-apps/cli
+pnpm run build:lib                        # shared library (also run inside build:sidecar)
+pnpm --dir desktop run build:sidecar      # materialize resources/dsh-runtime/
 pnpm --dir desktop exec tauri build
 ```
 
@@ -80,6 +84,3 @@ updater (`tauri-plugin-updater`) then discovers new versions from
 
 - Icons are placeholders (`whale-on-indigo`) — replace with final brand assets
   via `pnpm --dir desktop exec tauri icon <source.png>`.
-- `desktop/` has no committed `pnpm-lock.yaml`; `@tauri-apps/cli` is installed
-  with an unpinned `pnpm --dir desktop install`. Pin it before relying on a
-  reproducible CI build.

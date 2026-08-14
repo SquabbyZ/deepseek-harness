@@ -61,6 +61,14 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      # desktop/ is a standalone package (its own pnpm workspace, not a member
+      # of the root workspace), so its own deps — notably @tauri-apps/cli — are
+      # not covered by the root install. Install them explicitly from the
+      # committed desktop/pnpm-lock.yaml so tauri-action has the CLI present
+      # instead of falling back to a global, unpinned one.
+      - name: Install desktop dependencies
+        run: pnpm --dir desktop install --frozen-lockfile
+
       - name: Build shared library
         run: pnpm run build:lib
 
