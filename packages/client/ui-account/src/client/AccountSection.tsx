@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 
 export type AccountSectionProps = PropsRuntime<'settings.section'> & PropsLocale<'account'>
@@ -9,31 +9,51 @@ export function AccountSection({ t }: AccountSectionProps) {
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const mounted = useRef(true)
 
   const refresh = useCallback(async () => {
-    const res = await fetch('/auth/github/status')
-    setIdentity(await res.json())
-  }, [])
+    try {
+      const res = await fetch('/auth/github/status')
+      if (mounted.current) setIdentity(await res.json())
+    } catch {
+      if (mounted.current) setError(t('error'))
+    }
+  }, [t])
 
-  useEffect(() => { void refresh() }, [refresh])
+  useEffect(() => {
+    mounted.current = true
+    void refresh()
+    return () => { mounted.current = false }
+  }, [refresh])
 
   const login = async () => {
     setBusy(true)
     setError(null)
-    await fetch('/auth/github/start', { method: 'POST' })
-    for (let i = 0; i < 300; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      const res = await fetch('/auth/github/status')
-      const current = await res.json() as Identity | null
-      if (current !== null) { setIdentity(current); setBusy(false); return }
+    try {
+      await fetch('/auth/github/start', { method: 'POST' })
+      for (let i = 0; i < 300; i++) {
+        if (!mounted.current) return
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        if (!mounted.current) return
+        const res = await fetch('/auth/github/status')
+        const current = await res.json() as Identity | null
+        if (current !== null) { setIdentity(current); return }
+      }
+      if (mounted.current) setError(t('timeout'))
+    } catch {
+      if (mounted.current) setError(t('error'))
+    } finally {
+      if (mounted.current) setBusy(false)
     }
-    setError('github oauth: timed out waiting for authorization')
-    setBusy(false)
   }
 
   const logout = async () => {
-    await fetch('/auth/github/logout', { method: 'POST' })
-    setIdentity(null)
+    try {
+      await fetch('/auth/github/logout', { method: 'POST' })
+      if (mounted.current) setIdentity(null)
+    } catch {
+      if (mounted.current) setError(t('error'))
+    }
   }
 
   if (identity !== null) {
