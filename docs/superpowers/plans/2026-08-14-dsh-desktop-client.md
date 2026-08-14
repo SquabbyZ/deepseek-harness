@@ -114,8 +114,8 @@ git commit -m "docs: record Node SEA feasibility spike for dsh sidecar"
 - Create: `packages/identity/github-oauth/src/pkce.ts`
 - Create: `packages/identity/github-oauth/src/identity.ts`
 - Create: `packages/identity/github-oauth/src/github.ts`
-- Test: `packages/identity/github-oauth/tests/pkce.test.ts`
-- Test: `packages/identity/github-oauth/tests/github.test.ts`
+- Test: `packages/identity/github-oauth/tests/pkce.spec.ts`
+- Test: `packages/identity/github-oauth/tests/github.spec.ts`
 
 **Interfaces:**
 - Produces（Task 3/4 依赖）:
@@ -172,7 +172,7 @@ git commit -m "docs: record Node SEA feasibility spike for dsh sidecar"
 cp packages/identity/anonymous-user-id/tsconfig.json packages/identity/github-oauth/tsconfig.json
 ```
 
-- [ ] **Step 3: 写失败测试 `tests/pkce.test.ts`**
+- [ ] **Step 3: 写失败测试 `tests/pkce.spec.ts`**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -195,7 +195,7 @@ describe('pkce', () => {
 - [ ] **Step 4: 运行测试确认失败**
 
 ```bash
-pnpm exec vitest run packages/identity/github-oauth/tests/pkce.test.ts
+pnpm exec vitest run packages/identity/github-oauth/tests/pkce.spec.ts
 ```
 
 Expected: FAIL，`Cannot find module '../src/pkce.ts'`。
@@ -216,9 +216,9 @@ export function computeS256Challenge(verifier: string): string {
 }
 ```
 
-- [ ] **Step 6: 运行测试确认通过** → `pnpm exec vitest run packages/identity/github-oauth/tests/pkce.test.ts`，Expected: PASS（2 passed）。
+- [ ] **Step 6: 运行测试确认通过** → `pnpm exec vitest run packages/identity/github-oauth/tests/pkce.spec.ts`，Expected: PASS（2 passed）。
 
-- [ ] **Step 7: 写失败测试 `tests/github.test.ts`**
+- [ ] **Step 7: 写失败测试 `tests/github.spec.ts`**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -286,7 +286,7 @@ describe('GitHubIdentityProvider', () => {
 })
 ```
 
-- [ ] **Step 8: 运行测试确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/github.test.ts`，Expected: FAIL（模块缺失）。
+- [ ] **Step 8: 运行测试确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/github.spec.ts`，Expected: FAIL（模块缺失）。
 
 - [ ] **Step 9: 实现 `src/identity.ts` 与 `src/github.ts`**
 
@@ -424,15 +424,15 @@ git commit -m "feat(identity): add GitHub OAuth PKCE domain (pkce + provider)"
 **Files:**
 - Create: `packages/identity/github-oauth/src/loopback.ts`
 - Create: `packages/identity/github-oauth/src/persistence.ts`
-- Test: `packages/identity/github-oauth/tests/loopback.test.ts`
-- Test: `packages/identity/github-oauth/tests/persistence.test.ts`
+- Test: `packages/identity/github-oauth/tests/loopback.spec.ts`
+- Test: `packages/identity/github-oauth/tests/persistence.spec.ts`
 
 **Interfaces:**
 - Produces（Task 4 依赖）:
   - `class LoopbackCallbackServer { constructor(port?: number); listen(): Promise<void>; waitForCallback(timeoutMs?): Promise<CallbackResult>; close(): Promise<void> }`，`CallbackResult = { code: string; state: string }`
   - `loadIdentity(home?): Identity | null` / `saveIdentity(identity, home?): void` / `clearIdentity(home?): void`，`IDENTITY_FILE = '.identity.json'`
 
-- [ ] **Step 1: 写失败测试 `tests/persistence.test.ts`**
+- [ ] **Step 1: 写失败测试 `tests/persistence.spec.ts`**
 
 ```ts
 import { mkdtempSync, readFileSync } from 'node:fs'
@@ -473,7 +473,7 @@ describe('identity persistence', () => {
 })
 ```
 
-- [ ] **Step 2: 运行确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/persistence.test.ts`。
+- [ ] **Step 2: 运行确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/persistence.spec.ts`。
 
 - [ ] **Step 3: 实现 `src/persistence.ts`**
 
@@ -506,9 +506,9 @@ export function clearIdentity(home: string = resolveDshHome()): void {
 }
 ```
 
-- [ ] **Step 4: 运行确认通过** → `pnpm exec vitest run packages/identity/github-oauth/tests/persistence.test.ts`，Expected: PASS。
+- [ ] **Step 4: 运行确认通过** → `pnpm exec vitest run packages/identity/github-oauth/tests/persistence.spec.ts`，Expected: PASS。
 
-- [ ] **Step 5: 写失败测试 `tests/loopback.test.ts`**
+- [ ] **Step 5: 写失败测试 `tests/loopback.spec.ts`**
 
 ```ts
 import { afterEach, describe, expect, it } from 'vitest'
@@ -524,7 +524,7 @@ describe('LoopbackCallbackServer', () => {
     servers.push(server)
     await server.listen()
     const waiting = server.waitForCallback(1000)
-    const res = await fetch(`http://127.0.0.1:${server.port}/callback?code=c1&state=s1`)
+    const res = await fetch(`http://127.0.0.1:${server.boundPort}/callback?code=c1&state=s1`)
     expect(res.status).toBe(200)
     await expect(waiting).resolves.toEqual({ code: 'c1', state: 's1' })
   })
@@ -538,9 +538,9 @@ describe('LoopbackCallbackServer', () => {
 })
 ```
 
-**注意**：`loopback.ts` 需暴露 `port`（绑定后的实际端口），测试用 `port 0` 走 OS 分配端口；生产用固定 `3846`。
+**注意**：`loopback.ts` 暴露 `boundPort`（绑定后的实际端口），测试用 `new LoopbackCallbackServer(0)` 走 OS 分配端口；生产用固定 `3846`。
 
-- [ ] **Step 6: 运行确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/loopback.test.ts`。
+- [ ] **Step 6: 运行确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/loopback.spec.ts`。
 
 - [ ] **Step 7: 实现 `src/loopback.ts`**
 
@@ -608,8 +608,9 @@ export class LoopbackCallbackServer {
 
   close(): Promise<void> {
     if (this.timer !== undefined) clearTimeout(this.timer)
-    if (this.server === undefined) return Promise.resolve()
-    return new Promise((resolve) => { this.server!.close(() => resolve()) })
+    const server = this.server
+    if (server === undefined) return Promise.resolve()
+    return new Promise((resolve) => { server.close(() => resolve()) })
   }
 
   private settle(result: CallbackResult): void {
@@ -620,7 +621,7 @@ export class LoopbackCallbackServer {
 }
 ```
 
-- [ ] **Step 8: 运行确认通过** → `pnpm exec vitest run packages/identity/github-oauth/tests/loopback.test.ts`，Expected: PASS。
+- [ ] **Step 8: 运行确认通过** → `pnpm exec vitest run packages/identity/github-oauth/tests/loopback.spec.ts`，Expected: PASS。
 
 - [ ] **Step 9: 提交**
 
@@ -637,7 +638,7 @@ git commit -m "feat(identity): add loopback callback server and identity persist
 
 **Files:**
 - Create: `packages/identity/github-oauth/src/index.ts`
-- Test: `packages/identity/github-oauth/tests/service.test.ts`
+- Test: `packages/identity/github-oauth/tests/service.spec.ts`
 
 **Interfaces:**
 - Consumes: Task 2 的 `GitHubIdentityProvider`/`Identity`，Task 3 的 `LoopbackCallbackServer`/持久化，`ctx.webServer`（来自 `@deepseek-ai/dsh-host-webserver`，服务名 `webServer`）。
@@ -647,7 +648,7 @@ git commit -m "feat(identity): add loopback callback server and identity persist
   - HTTP 路由：`POST /auth/github/start`（202 + 后台登录）、`GET /auth/github/status`（200 `Identity|null`）、`POST /auth/github/logout`（200）。
   - `interface GithubOauthConfig { clientId?: string; redirectUri: string; callbackPort?: number }`
 
-- [ ] **Step 1: 写失败测试 `tests/service.test.ts`**
+- [ ] **Step 1: 写失败测试 `tests/service.spec.ts`**
 
 用 mock `webServer` 与 mock provider 验证「登录后持久化 + 路由注册」。为可测，`IdentityService` 接受注入的 provider 工厂与 `openBrowser`：
 
@@ -713,7 +714,7 @@ describe('IdentityService', () => {
 
 **注意**：为了让 `IdentityService` 可单测，其构造第二参是注入的 `{ load, save, clear, providerFactory, loopbackFactory, openBrowser }`。真实 `apply()` 用生产实现装配。若嫌注入面太宽，可只注入 `providerFactory` + `loopbackFactory` + `openBrowser`，`load/save/clear` 用 `resolveDshHome` + 临时目录——这里按上面设计写。
 
-- [ ] **Step 2: 运行确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/service.test.ts`。
+- [ ] **Step 2: 运行确认失败** → `pnpm exec vitest run packages/identity/github-oauth/tests/service.spec.ts`。
 
 - [ ] **Step 3: 实现 `src/index.ts`**
 
@@ -780,11 +781,12 @@ export class IdentityService {
   }
 
   private async runLogin(): Promise<Identity> {
-    if (!this.config.clientId) {
+    const clientId = this.config.clientId
+    if (!clientId) {
       throw new Error('github oauth: client id not configured (set DSH_GITHUB_CLIENT_ID)')
     }
     const provider = (this.deps.providerFactory ?? (() => new GitHubIdentityProvider({
-      clientId: this.config.clientId!,
+      clientId,
       redirectUri: this.config.redirectUri,
     })))()
     const { verifier, state, authorizeUrl } = provider.begin()
@@ -854,7 +856,7 @@ export function apply(ctx: Context, config: GithubOauthConfig): void {
 - [ ] **Step 5: 提交**
 
 ```bash
-git add packages/identity/github-oauth/src/index.ts packages/identity/github-oauth/tests/service.test.ts
+git add packages/identity/github-oauth/src/index.ts packages/identity/github-oauth/tests/service.spec.ts
 git commit -m "feat(identity): add IdentityService plugin and /auth/github/* routes"
 ```
 
