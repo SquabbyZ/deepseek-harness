@@ -197,15 +197,37 @@ describe('IdentityService', () => {
 })
 
 describe('openInSystemBrowser', () => {
-  it('quotes the url for the Windows cmd opener', async () => {
+  it('passes a percent-encoded url intact to rundll32 on Windows (no cmd %-expansion)', async () => {
+    const url = 'https://github.com/login/oauth/authorize?client_id=c&redirect_uri=http%3A%2F%2F127.0.0.1%3A3846%2Fcallback&scope=read%3Auser%20user%3Aemail&state=s'
+    const service = new IdentityService(
+      { redirectUri: 'http://127.0.0.1:3846/callback', clientId: 'c' },
+      {
+        load: () => null,
+        save: () => {},
+        clear: () => {},
+        providerFactory: () => ({
+          begin: () => ({ verifier: 'v', state: 's', authorizeUrl: url }),
+          exchangeCodeForToken: async () => 'tok',
+          fetchIdentity: async () => identity,
+        }),
+        loopbackFactory: () => ({
+          listen: async () => {},
+          boundPort: 3846,
+          waitForCallback: async () => ({ code: 'c', state: 's' }),
+          close: async () => {},
+        }),
+      },
+    )
     await withPlatform('win32', async () => {
       spawnMock.mockClear()
-      await makeBrowserService().login()
+      await service.login()
       expect(spawnMock).toHaveBeenCalledWith(
-        'cmd',
-        ['/c', 'start', '', '"https://a.b/authorize?client_id=c&state=s"'],
+        'rundll32',
+        ['url.dll,FileProtocolHandler', url],
         { detached: true, stdio: 'ignore' },
       )
+      // cmd.exe must not be involved: its `%var%` expansion would mangle the URL.
+      expect(spawnMock).not.toHaveBeenCalledWith('cmd', expect.anything(), expect.anything())
     })
   })
 

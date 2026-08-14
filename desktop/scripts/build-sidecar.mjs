@@ -24,6 +24,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
 } from 'node:fs'
 import { dirname, join, sep } from 'node:path'
@@ -80,34 +81,43 @@ function materializeLinks(directory) {
 }
 
 /**
- * Prune the lazily-loaded Mistral SDK from the deployed runtime.
+ * Hoist the lazily-loaded Mistral SDK into the deploy's top-level node_modules.
  *
  * `@mistralai/mistralai` is a hard dependency of `@earendil-works/pi-ai` (the
- * pi-ai LLM provider), but pi-ai only reaches it through a dynamic import:
- * `dist/api/mistral-conversations.lazy.js` wraps
- * `import("./mistral-conversations.js")`, and that module alone does
- * `import { Mistral } from "@mistralai/mistralai"`. The web profile never
- * routes a model to Mistral, so the SDK is dead weight in the deploy.
+ * pi-ai LLM provider); pi-ai reaches it through a dynamic import
+ * (`dist/api/mistral-conversations.lazy.js` -> `import("./mistral-conversations.js")`
+ * -> `import { Mistral } from "@mistralai/mistralai"`). The web Models-settings
+ * page still lists a `mistral` provider, so the SDK must stay loadable rather
+ * than be pruned.
  *
- * It is also a Windows distribution blocker: its OpenAPI-generated
- * `esm/models/operations/*` files have filenames long enough that, nested
- * under `pi-ai/node_modules/` (a peer-dep forced by `@opentelemetry/api@1.9.0`),
- * their absolute paths exceed MAX_PATH (260) and abort NSIS. Removing the
- * package removes the only importer of it; boot is unaffected because the
- * import is lazy.
+ * pnpm's legacy deploy nests mistral beside pi-ai
+ * (`pi-ai/node_modules/@mistralai/mistralai`) because mistral peers on the
+ * optional `@opentelemetry/api@^1.9.0`. That deep nesting pushes its
+ * OpenAPI-generated `esm/models/operations/*` files past Windows MAX_PATH and
+ * aborts NSIS. Moving the package to the deploy root shortens the path below
+ * MAX_PATH AND keeps the provider functional: Node resolves the bare-name import
+ * by walking up from `pi-ai/.../mistral-conversations.js` to the top-level
+ * `node_modules/@mistralai/mistralai`, and mistral's dependencies (`ws`, `zod`,
+ * `zod-to-json-schema`, `@opentelemetry/semantic-conventions`) plus the optional
+ * `@opentelemetry/api` peer are already hoisted at the deploy root.
  */
-function pruneLazyMistral(dshDir) {
-  for (const mistral of [
-    // Hoisted layout (if the peer resolves to the shared tree).
-    join(dshDir, 'node_modules', '@mistralai', 'mistralai'),
-    // Nested layout: pnpm keeps it beside pi-ai to satisfy its
-    // `@opentelemetry/api@1.9.0` peer without clashing with the root.
-    join(dshDir, 'node_modules', '@earendil-works', 'pi-ai', 'node_modules', '@mistralai', 'mistralai'),
-  ]) {
-    if (existsSync(mistral)) {
-      rmSync(mistral, { recursive: true, force: true })
-      console.log(`  pruned lazy-loaded @mistralai/mistralai (MAX_PATH): ${mistral}`)
+function hoistLazyMistral(dshDir) {
+  const hoisted = join(dshDir, 'node_modules', '@mistralai', 'mistralai')
+  const nested = join(dshDir, 'node_modules', '@earendil-works', 'pi-ai', 'node_modules', '@mistralai', 'mistralai')
+
+  if (existsSync(nested)) {
+    if (!existsSync(hoisted)) {
+      mkdirSync(dirname(hoisted), { recursive: true })
+      renameSync(nested, hoisted)
+      console.log(`  hoisted @mistralai/mistralai to deploy root (MAX_PATH)`)
+    } else {
+      // The peer already resolved to the shared tree: the nested copy is
+      // redundant dead weight carrying the long path — drop it.
+      rmSync(nested, { recursive: true, force: true })
+      console.log(`  dropped redundant nested @mistralai/mistralai (already hoisted)`)
     }
+  } else if (!existsSync(hoisted)) {
+    console.log('  note: @mistralai/mistralai absent from deploy (mistral provider unavailable)')
   }
 }
 
@@ -169,7 +179,7 @@ run(
 )
 restoreLegacyHoists(dshDir)
 materializeLinks(join(dshDir, 'node_modules'))
-pruneLazyMistral(dshDir)
+hoistLazyMistral(dshDir)
 
 // 4. Lay the dsh app files (lib/*.js + config/) over the deployed manifest,
 //    matching @deepseek-ai/dsh's `files` field so bin.js + shipped presets

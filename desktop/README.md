@@ -40,13 +40,14 @@ The GitHub login flow is a PKCE client, so the OAuth App client id is public
 `src-tauri/src/config.rs`:
 
 ```rust
-pub const GITHUB_CLIENT_ID: &str = "REPLACE_WITH_YOUR_GITHUB_OAUTH_CLIENT_ID";
+pub const GITHUB_CLIENT_ID: &str = "";
 ```
 
-Before a release build, replace `REPLACE_WITH_YOUR_GITHUB_OAUTH_CLIENT_ID` with
-your OAuth App's client id. The desktop shell passes this value to the sidecar as
-the `DSH_GITHUB_CLIENT_ID` environment variable at startup, so it is injected
-into every packaged build — there is nothing to set at runtime.
+Before a release, set `GITHUB_CLIENT_ID` in `src/config.rs` to your GitHub OAuth
+App's client id (a public PKCE value); left empty, login reports "client id not
+configured". The desktop shell passes this value to the sidecar as the
+`DSH_GITHUB_CLIENT_ID` environment variable at startup, so it is injected into
+every packaged build — there is nothing to set at runtime.
 
 ## Release & updater
 
@@ -160,10 +161,10 @@ Run the following end-to-end before shipping. Steps 1–4 are the automated
 7. Single instance: launch the app a second time. Expected: no second window;
    the existing window is shown and focused instead.
 
-8. GitHub login: replace the `GITHUB_CLIENT_ID` placeholder in
-   `src-tauri/src/config.rs` with a GitHub OAuth app whose dsh loopback redirect
-   is registered, rebuild, then relaunch. Expected: the UI Sign in flow
-   completes the PKCE exchange and establishes a session.
+8. GitHub login: set `GITHUB_CLIENT_ID` in `src-tauri/src/config.rs` to a GitHub
+   OAuth app whose dsh loopback redirect is registered, rebuild, then relaunch.
+   Expected: the UI Sign in flow completes the PKCE exchange and establishes a
+   session. (Left empty, login reports "client id not configured".)
 
 9. Update check (manual): with a signed build (see Release & updater above),
    trigger "Check for updates" in the app and confirm it queries
@@ -194,11 +195,14 @@ Real releases are signed per the one-time setup in Release & updater (Task 11).
 
 - Icons are placeholders (`whale-on-indigo`) — replace with final brand assets
   via `pnpm --dir desktop exec tauri icon <source.png>`.
-- Windows installer bundling currently fails (the Rust compile and
-  `dsh-desktop.exe` still build fine): the sidecar runtime contains 72 files
-  whose full paths exceed Windows `MAX_PATH` (260 chars) — long auto-generated
+- Windows installer bundling previously failed (the Rust compile and
+  `dsh-desktop.exe` still built fine): the sidecar runtime shipped ~72 files
+  whose full paths exceeded Windows `MAX_PATH` (260 chars) — long auto-generated
   filenames under
-  `@earendil-works/pi-ai/node_modules/@mistralai/mistralai/...` — which makes
-  NSIS `makensis` abort ("failed opening file ..."). The MSI path additionally
-  fails at WiX `light.exe`. Fix by pruning the redundant nested `node_modules`
-  in the runtime, relocating the resource root, or enabling long paths.
+  `@earendil-works/pi-ai/node_modules/@mistralai/mistralai/...` — which made
+  NSIS `makensis` abort ("failed opening file ..."). `scripts/build-sidecar.mjs`
+  now hoists `@mistralai/mistralai` into the deploy root
+  (`dsh/node_modules/@mistralai/mistralai`), shortening those paths below
+  `MAX_PATH` while keeping the Mistral provider functional (its dependencies
+  are already hoisted at the deploy root). The MSI path also depended on WiX
+  `light.exe`; the smoke test above does not exercise installer bundling.
