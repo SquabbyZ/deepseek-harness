@@ -868,17 +868,53 @@ git commit -m "feat(identity): add IdentityService plugin and /auth/github/* rou
 
 ### Task 5: 接入 web 组合
 
-把 `github-oauth` 挂进 `web` 组合，让 `dsh web` 启动即带身份服务与登录路由。
+把 `github-oauth` 挂进 `web` 组合（构建图 + 组合层），让 `dsh web` 启动即带身份服务与登录路由。tsdown 会通过其 `workspace` glob 自动拾取新包，但 `tsc -b` 需要显式注册包与修正其项目引用。
 
 **Files:**
+- Modify: `packages/identity/github-oauth/tsconfig.json`（修正 references）
+- Modify: `tsconfig.host.json`（加 reference）
 - Modify: `packages/bundle/web-app/cordis.patch.yml`
 - Modify: `packages/bundle/web-app/package.json`
+- Modify: `pnpm-lock.yaml`（`pnpm install` 生成）
 
 **Interfaces:**
-- Consumes: `@deepseek-ai/dsh-github-oauth` 的插件名 `github-oauth`、服务名 `identity`、`webServer`（已由 `webserver` 行提供）。
-- Produces: `dsh web` 运行时多出 `ctx.identity` 与 `/auth/github/*` 三个路由。
+- Consumes: `@deepseek-ai/dsh-github-oauth` 的插件名 `github-oauth`、服务名 `identity`、`webServer`（已由 `webserver` 行提供；本包已在 Task 4 声明 `export const inject = ['webServer']`）。
+- Produces: `dsh web` 运行时多出 `ctx.identity` 与 `/auth/github/*` 三个路由，且新包经 `tsc -b` + tsdown 产出 `lib/index.js`。
 
-- [ ] **Step 1: 加依赖**
+- [ ] **Step 1: 修正包 tsconfig references**
+
+`packages/identity/github-oauth/tsconfig.json` 是从 `anonymous-user-id` 复制的，其 references 是 `brand`/`home-paths`/`invariants`。本包用到 `brand`（`Branded` 类型）、`home-paths`（persistence）、`cordis`（`Context` 类型）、`host-webserver`（`ctx.webServer` 类型增补），不用 `invariants`。改为：
+
+```json
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    { "path": "../../util/brand" },
+    { "path": "../../util/home-paths" },
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../host/webserver" }
+  ]
+}
+```
+
+（路径相对本 tsconfig 所在目录；`../../../` = 仓库根。若 `tsc -b` 报某引用缺失/多余，按报错收敛。）
+
+- [ ] **Step 2: 加入 host 构建图**
+
+在 `tsconfig.host.json` 的 `references` 数组里，`packages/identity/anonymous-user-id` 条目之后加入：
+
+```json
+    { "path": "./packages/identity/github-oauth" },
+```
+
+- [ ] **Step 3: 加依赖**
 
 在 `packages/bundle/web-app/package.json` 的 `dependencies` 中按字母序加入：
 
@@ -886,9 +922,9 @@ git commit -m "feat(identity): add IdentityService plugin and /auth/github/* rou
 "@deepseek-ai/dsh-github-oauth": "workspace:^",
 ```
 
-- [ ] **Step 2: 加 host 行**
+- [ ] **Step 4: 加 host 行**
 
-在 `cordis.patch.yml` 的 host `insert` 块里，`api-gateway` 行之后、`cordis-host-runner` 行之前加入（`inject` 用服务名 `webServer`，不是行 id `webserver`）：
+在 `cordis.patch.yml` 的 host `insert` 块里，`api-gateway` 行之后、`cordis-host-runner` 行之前加入（本包已在 Task 4 声明 `export const inject = ['webServer']`，行内 `inject` 可省略；保留也无害）：
 
 ```yaml
     # GitHub OAuth identity: provides `identity` and registers /auth/github/*
@@ -896,16 +932,23 @@ git commit -m "feat(identity): add IdentityService plugin and /auth/github/* rou
     # the launcher (desktop sets DSH_GITHUB_CLIENT_ID before spawning the sidecar).
     - id: github-oauth
       name: '@deepseek-ai/dsh-github-oauth'
-      inject: [webServer]
       config:
         clientId: !!js process.env.DSH_GITHUB_CLIENT_ID
         redirectUri: 'http://127.0.0.1:3846/callback'
 ```
 
-- [ ] **Step 3: 构建并冒烟**
+- [ ] **Step 5: 装依赖并构建**
 
 ```bash
+pnpm install
 pnpm run build:lib
+```
+
+Expected: `tsc -b` 无类型错误，tsdown 为新包产出 `packages/identity/github-oauth/lib/index.js`。
+
+- [ ] **Step 6: 构建并冒烟**
+
+```bash
 DSH_GITHUB_CLIENT_ID=test pnpm dsh --profile web --port 0 --help >/dev/null 2>&1; echo "boot exit: $?"
 ```
 
@@ -916,17 +959,17 @@ DSH_GITHUB_CLIENT_ID=test pnpm dsh web --port 0
 # 观察日志无 FAILED fiber；Ctrl+C 退出
 ```
 
-- [ ] **Step 4: 验证路由**（起服务后另开终端）
+- [ ] **Step 7: 验证路由**（起服务后另开终端）
 
 ```bash
 curl -s http://127.0.0.1:<port>/auth/github/status
 # Expected: null（未登录）
 ```
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 8: 提交**
 
 ```bash
-git add packages/bundle/web-app/cordis.patch.yml packages/bundle/web-app/package.json pnpm-lock.yaml
+git add packages/identity/github-oauth/tsconfig.json tsconfig.host.json packages/bundle/web-app/cordis.patch.yml packages/bundle/web-app/package.json pnpm-lock.yaml
 git commit -m "feat(web): mount github-oauth identity into the web composition"
 ```
 
