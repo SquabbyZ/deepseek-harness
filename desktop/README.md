@@ -80,6 +80,107 @@ Release and that `latest.json` includes both platform entries. The in-app
 updater (`tauri-plugin-updater`) then discovers new versions from
 `https://github.com/deepseek-ai/deepseek-harness/releases/latest/download/latest.json`.
 
+## Smoke test (冒烟)
+
+Run the following end-to-end before shipping. Steps 1–4 are the automated
+(non-GUI) gate; steps 5–9 launch the GUI and must be checked manually.
+
+1. Install desktop deps:
+
+   ```bash
+   pnpm --dir desktop install
+   ```
+
+   Expected: `Already up to date` (or installs `@tauri-apps/cli`); finishes in
+   seconds.
+
+2. Build the shared library:
+
+   ```bash
+   pnpm run build:lib
+   ```
+
+   Expected: `tsc` + `tsdown` complete for the host and client faces with no
+   errors. (Also run automatically inside step 3.)
+
+3. Materialize the portable-Node sidecar runtime:
+
+   ```bash
+   pnpm --dir desktop run build:sidecar
+   ```
+
+   Expected: logs `sidecar runtime ready at .../desktop/src-tauri/resources/dsh-runtime`;
+   the directory then contains `node.exe` (Windows) / `node` (macOS), plus
+   `dsh/lib/bin.js` and a populated `node_modules`.
+
+4. Full Tauri release build (Rust release compile + bundling — SLOW, several
+   minutes):
+
+   ```bash
+   pnpm --dir desktop run build
+   ```
+
+   Expected: `tauri build` completes and emits installers under
+   `desktop/src-tauri/target/release/bundle/` and the raw executable
+   `desktop/src-tauri/target/release/dsh-desktop(.exe)`. If it instead fails
+   on the updater pubkey (`REPLACE_WITH_PUBLIC_KEY`) or
+   `createUpdaterArtifacts`, that is a signing-only blocker, not an
+   integration failure — see the workaround below.
+
+5. Launch the packaged app (or `tauri dev` for a quick local run):
+
+   ```bash
+   pnpm --dir desktop run dev
+   ```
+
+   Expected: a splash window opens, then the WebView navigates to the dsh web
+   UI served by the sidecar on loopback (`http://127.0.0.1:3080`, or the first
+   free port above it). The window title is "DeepSeek Harness" and the UI
+   renders (the HTTP-200 equivalent: a real page, not a connection-error
+   screen).
+
+6. Tray icon: a "DeepSeek Harness" icon appears in the system tray. Left-click
+   opens a Show/Quit menu — Show focuses the window, Quit exits the app.
+
+7. Single instance: launch the app a second time. Expected: no second window;
+   the existing window is shown and focused instead.
+
+8. GitHub login: set `DSH_GITHUB_CLIENT_ID` to a GitHub OAuth app whose dsh
+   loopback redirect is registered, then relaunch:
+
+   ```powershell
+   $env:DSH_GITHUB_CLIENT_ID = "<your client id>"
+   pnpm --dir desktop run dev
+   ```
+
+   Expected: the UI Sign in flow completes the PKCE exchange and establishes a
+   session.
+
+9. Update check (manual): with a signed build (see Release & updater above),
+   trigger "Check for updates" in the app and confirm it queries
+   `.../releases/latest/download/latest.json` and reports up-to-date or
+   prompts to install.
+
+### Updater pubkey workaround for local builds
+
+`src-tauri/tauri.conf.json` sets `bundle.createUpdaterArtifacts: true` and
+`plugins.updater.pubkey: "REPLACE_WITH_PUBLIC_KEY"`, so a release build needs a
+real Ed25519 keypair. For a local smoke build without shipping an updater,
+either:
+
+- generate a dev keypair once and fill in the pubkey:
+
+  ```bash
+  pnpm --dir desktop exec tauri signer generate -w ~/.tauri/dsh-desktop.key
+  ```
+
+  then paste the printed public key over `REPLACE_WITH_PUBLIC_KEY`; or
+
+- temporarily set `"createUpdaterArtifacts": false` under `bundle` (leave
+  `pubkey` untouched) for the local build only.
+
+Real releases are signed per the one-time setup in Release & updater (Task 11).
+
 ## Known gaps
 
 - Icons are placeholders (`whale-on-indigo`) — replace with final brand assets

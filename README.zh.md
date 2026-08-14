@@ -34,6 +34,10 @@ pnpm run build
 pnpm dsh web
 ```
 
+### 桌面客户端
+
+桌面客户端（Tauri）见 [`desktop/README.md`](desktop/README.md)：本地运行用 `pnpm --dir desktop run dev`，打包用 `pnpm --dir desktop run build`。
+
 ## 社区与支持
 
 - 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。
