@@ -110,7 +110,14 @@ function restoreLegacyHoists(dshDir) {
 // 1. Build the dsh library so every package has its lib/ output.
 run('pnpm run build:lib')
 
-// 2. Deploy the web-profile closure self-contained (manifest + node_modules).
+// 2. Verify the dependency-only manifest's closure is complete before deploy:
+//    a missing required workspace peer would otherwise surface only at runtime
+//    when Cordis loads the packaged plugin (ERR_MODULE_NOT_FOUND), so fail the
+//    build here rather than ship a broken runtime. `--manifest` is forwarded
+//    verbatim (no `--` separator: pnpm 11 would pass the literal `--` through).
+run('pnpm run verify-runtime-closure --manifest desktop/sidecar-runtime/package.json')
+
+// 3. Deploy the web-profile closure self-contained (manifest + node_modules).
 const dshDir = join(runtime, 'dsh')
 rmSync(dshDir, { recursive: true, force: true })
 mkdirSync(runtime, { recursive: true })
@@ -131,13 +138,13 @@ run(
 restoreLegacyHoists(dshDir)
 materializeLinks(join(dshDir, 'node_modules'))
 
-// 3. Lay the dsh app files (lib/*.js + config/) over the deployed manifest,
+// 4. Lay the dsh app files (lib/*.js + config/) over the deployed manifest,
 //    matching @deepseek-ai/dsh's `files` field so bin.js + shipped presets
 //    resolve from the same install anchor Task 8 expects.
 cpSync(join(dshApp, 'lib'), join(dshDir, 'lib'), { recursive: true })
 cpSync(join(dshApp, 'config'), join(dshDir, 'config'), { recursive: true })
 
-// 4. Copy the Node runtime binary.
+// 5. Copy the Node runtime binary.
 copyFileSync(process.execPath, join(runtime, isWin ? 'node.exe' : 'node'))
 
 console.log(`sidecar runtime ready at ${runtime}`)
