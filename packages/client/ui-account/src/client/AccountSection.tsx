@@ -1,74 +1,63 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+/**
+ * Account settings section: the linked GitHub identity and the login/logout
+ * controls. Pure presentation — identity, status, and actions arrive through
+ * the four props shares (the inject face); the wire and the polling loop live
+ * in the registrant's {@link AccountController}, never here.
+ */
 
-export type AccountSectionProps = PropsRuntime<'settings.section'> & PropsLocale<'account'>
+import { useEffect } from 'react'
+import type { ReactNode } from 'react'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { AccountState } from './account-store.ts'
 
-interface Identity { id: string; provider: string; name: string; email?: string; avatar?: string }
+/** Registrant-owned dependencies of {@link AccountSection}. */
+export interface AccountSectionInjected {
+  hooks: {
+    /** Account snapshot bound by the renderer as `useAccount`. */
+    account: SnapshotStore<AccountState>
+  }
+  /** Read the linked identity once when the section first renders. */
+  load: () => Promise<void>
+  /** Start the GitHub OAuth flow and poll until it settles. */
+  login: () => Promise<void>
+  /** Unlink the GitHub identity. */
+  logout: () => Promise<void>
+}
 
-export function AccountSection({ t }: AccountSectionProps) {
-  const [identity, setIdentity] = useState<Identity | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const mounted = useRef(true)
+/** Section owner share, localized copy, and the registrant's account face. */
+export type AccountSectionProps =
+  PropsRuntime<'settings.section'> & PropsLocale<'account'> & InjectFace<AccountSectionInjected>
 
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch('/auth/github/status')
-      if (mounted.current) setIdentity(await res.json())
-    } catch {
-      if (mounted.current) setError(t('error'))
-    }
-  }, [t])
+/**
+ * Render the account section.
+ * @param props - composed slot props.
+ * @returns the signed-in identity row or the sign-in control.
+ */
+export function AccountSection({ t, useAccount, login, logout, load }: AccountSectionProps): ReactNode {
+  const state = useAccount(snapshot => snapshot)
 
   useEffect(() => {
-    mounted.current = true
-    void refresh()
-    return () => { mounted.current = false }
-  }, [refresh])
+    void load()
+  }, [load])
 
-  const login = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      await fetch('/auth/github/start', { method: 'POST' })
-      for (let i = 0; i < 300; i++) {
-        if (!mounted.current) return
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        if (!mounted.current) return
-        const res = await fetch('/auth/github/status')
-        const current = await res.json() as Identity | null
-        if (current !== null) { setIdentity(current); return }
-      }
-      if (mounted.current) setError(t('timeout'))
-    } catch {
-      if (mounted.current) setError(t('error'))
-    } finally {
-      if (mounted.current) setBusy(false)
-    }
-  }
+  const signingIn = state.status === 'signing-in'
 
-  const logout = async () => {
-    try {
-      await fetch('/auth/github/logout', { method: 'POST' })
-      if (mounted.current) setIdentity(null)
-    } catch {
-      if (mounted.current) setError(t('error'))
-    }
-  }
-
-  if (identity !== null) {
+  if (state.identity !== null) {
     return (
       <div>
-        <p>{t('signedIn', { name: identity.name })}</p>
-        <button type="button" onClick={logout}>{t('logout')}</button>
+        <p>{t('signedIn', { name: state.identity.name })}</p>
+        <button type="button" onClick={() => { void logout() }}>{t('logout')}</button>
       </div>
     )
   }
 
   return (
     <div>
-      <button type="button" onClick={login} disabled={busy}>{busy ? t('waiting') : t('login')}</button>
-      {error !== null && <p>{error}</p>}
+      <button type="button" onClick={() => { void login() }} disabled={signingIn}>
+        {signingIn ? t('waiting') : t('login')}
+      </button>
+      {state.error === null ? null : <p role="alert">{t(state.error)}</p>}
     </div>
   )
 }
