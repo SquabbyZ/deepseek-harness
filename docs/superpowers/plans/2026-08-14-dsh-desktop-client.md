@@ -1751,86 +1751,93 @@ git commit -m "feat(desktop): add tray, single-instance, updater, autostart, ope
 
 ---
 
-### Task 10: SEA 打包脚本 + desktop 脚本
+### Task 10: portable-Node sidecar 打包
 
-依据 Task 1 结论选路线。**若 Task 1 = 可行**，用 SEA；**否则**走 portable-Node 回退（`build-sidecar.mjs` 输出一个含 `node.exe` + `lib/` + 入口脚本的目录，`tauri.conf.json` 的 `externalBin` 改成入口 `.cmd`/`.sh` 包装）。下面按 SEA 路线写；回退仅替换 Step 2 的打包方式，壳层不变。
+依据 Task 1 结论（SEA 不可行），把 dsh 打成「portable Node + lib」目录，作为 Tauri **resource** 打包。Task 8 已按此约定 spawn：`<resource_dir>/dsh-runtime/{node(.exe), dsh/lib/bin.js}`。
 
 **Files:**
 - Create: `desktop/scripts/build-sidecar.mjs`
+- Modify: `desktop/src-tauri/tauri.conf.json`（加 `bundle.resources`）
+- Modify: `desktop/.gitignore`（加 `src-tauri/resources/`）
+- `desktop/package.json` 的 `build:sidecar` 脚本 Task 7 已就位（`node scripts/build-sidecar.mjs`），无需改。
 
 **Interfaces:**
-- Consumes: Task 1 的 SEA 结论、`apps/cli/lib/bin.js`（`pnpm run build:lib` 产出）、Node SEA/postject。
-- Produces: `desktop/src-tauri/binaries/dsh-desktop-<target-triple>[.exe]`，供 Tauri `externalBin` 打包。
+- Consumes: `pnpm run build:lib`（产出各包 `lib/`）、`process.execPath`（Node 运行时）。
+- Produces: `desktop/src-tauri/resources/dsh-runtime/{node(.exe), dsh/lib/bin.js + dsh/node_modules}`，供 Tauri `bundle.resources` 打包。
 
-- [ ] **Step 1: 写 `build-sidecar.mjs`**
+- [ ] **Step 1: 写 `desktop/scripts/build-sidecar.mjs`**
 
 ```js
 #!/usr/bin/env node
 /**
- * Build the dsh sidecar: esbuild-bundle apps/cli/lib/bin.js into one CJS file,
- * then inject it into a copy of the Node binary via SEA, landing the result at
- * src-tauri/binaries/dsh-desktop-<target-triple>[.exe].
+ * Build the portable-Node sidecar: deploy @deepseek-ai/dsh self-contained and
+ * copy the Node runtime, landing at src-tauri/resources/dsh-runtime/.
+ * Task 8 spawns `node dsh/lib/bin.js web --port <p>` from this directory.
  */
 import { execSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const buildDir = join(root, 'desktop', 'build', 'sea')
-const triple = process.env.TAURI_ENV_TARGET_TRIPLE ?? process.platform
-const exe = process.platform === 'win32' ? 'dsh-desktop.exe' : 'dsh-desktop'
+const runtime = join(root, 'desktop', 'src-tauri', 'resources', 'dsh-runtime')
+const isWin = process.platform === 'win32'
 
 function run(cmd) {
   console.log(`> ${cmd}`)
   execSync(cmd, { stdio: 'inherit', cwd: root })
 }
 
-mkdirSync(buildDir, { recursive: true })
+// 1. Build the dsh library so every package has its lib/ output.
+run('pnpm run build:lib')
 
-// 1. Bundle to a single CJS file.
-run(`pnpm exec esbuild apps/cli/lib/bin.js --bundle --platform=node --format=cjs --target=node22 --outfile=${buildDir}/bundle.cjs`)
+// 2. Deploy @deepseek-ai/dsh self-contained (package + production node_modules).
+rmSync(join(runtime, 'dsh'), { recursive: true, force: true })
+mkdirSync(runtime, { recursive: true })
+run(`pnpm --filter @deepseek-ai/dsh deploy --prod ${join(runtime, 'dsh')}`)
 
-// 2. SEA blob.
-writeFileSync(join(buildDir, 'sea-config.json'), JSON.stringify({
-  main: join(buildDir, 'bundle.cjs'),
-  output: join(buildDir, 'sea-prep.blob'),
-}, null, 2))
-run(`node --experimental-sea-config ${join(buildDir, 'sea-config.json')}`)
+// 3. Copy the Node runtime binary.
+copyFileSync(process.execPath, join(runtime, isWin ? 'node.exe' : 'node'))
 
-// 3. Copy the Node binary and inject the blob.
-const nodePath = execSync('node -e "console.log(process.execPath)"', { encoding: 'utf8' }).trim()
-const out = join(buildDir, exe)
-copyFileSync(nodePath, out)
-if (process.platform === 'win32') {
-  run(`signtool remove /s ${out}`)
-}
-run(`npx --yes postject ${out} NODE_SEA_BLOB ${join(buildDir, 'sea-prep.blob')} --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2`)
-
-// 4. Land where Tauri's externalBin expects it.
-const destDir = join(root, 'desktop', 'src-tauri', 'binaries')
-mkdirSync(destDir, { recursive: true })
-const dest = join(destDir, `dsh-desktop-${triple}${process.platform === 'win32' ? '.exe' : ''}`)
-copyFileSync(out, dest)
-rmSync(buildDir, { recursive: true, force: true })
-console.log(`sidecar ready at ${dest}`)
+console.log(`sidecar runtime ready at ${runtime}`)
 ```
 
-- [ ] **Step 2: 运行并验证**
+> 若 `pnpm deploy` 的路径参数在 Windows 下有问题，或 `pnpm deploy` 对本 monorepo 的 `workspace:^` 依赖未正确打包，改用 `pnpm --filter @deepseek-ai/dsh pack` + 解包 + `pnpm install --prod` 的等价做法。目标始终是：`dsh/` 目录内含 `lib/bin.js` + 完整 `node_modules`（运行时 `node dsh/lib/bin.js web --port 0` 能起服务）。
+
+- [ ] **Step 2: 加 `bundle.resources`**
+
+`desktop/src-tauri/tauri.conf.json` 的 `bundle` 里加：
+
+```json
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": ["resources/dsh-runtime/*"],
+    "icon": ["icons/icon.ico", "icons/icon.icns"],
+    "createUpdaterArtifacts": true
+  },
+```
+
+> 若 `resources/*` 通配把 `dsh-runtime/` 目录拍平，导致 `app.path().resource_dir()/dsh-runtime/node` 解析不到，改用映射语法（如 `{ "resources/dsh-runtime/": "resources/dsh-runtime/" }`）或核对 Tauri v2 resource 文档的实际语义，确保 Task 8 的 `resource_dir().join("dsh-runtime").join("node")` 能命中。
+
+- [ ] **Step 3: 运行并验证**
 
 ```bash
 pnpm run build:lib
 pnpm --dir desktop run build:sidecar
-desktop/src-tauri/binaries/dsh-desktop-<triple> web --port 0
+# 直接跑 runtime 里的 dsh，验证 deploy 自包含（与 sidecar 的 spawn 完全一致）：
+desktop/src-tauri/resources/dsh-runtime/node desktop/src-tauri/resources/dsh-runtime/dsh/lib/bin.js web --port 0
 ```
 
-Expected: 打印 URL 且健康检查 200（与 Task 1 spike 结论一致）。
+Expected: 打印 URL 且健康检查 200（Windows 用 `curl --noproxy '*' -s http://127.0.0.1:<port>/`）。若失败（如 `ERR_MODULE_NOT_FOUND` 缺插件），说明 deploy 漏了 `workspace:^` 依赖——回 Step 1 的替代做法补齐。
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 4: 加 `.gitignore` 并提交**
+
+`desktop/.gitignore` 加一行 `src-tauri/resources/`（构建产物不入库）。
 
 ```bash
-git add desktop/scripts/build-sidecar.mjs desktop/package.json
-git commit -m "feat(desktop): SEA sidecar build script"
+git add desktop/scripts/build-sidecar.mjs desktop/src-tauri/tauri.conf.json desktop/.gitignore
+git commit -m "feat(desktop): portable-Node sidecar packaging"
 ```
 
 ---
