@@ -986,6 +986,7 @@ git commit -m "feat(web): mount github-oauth identity into the web composition"
 - Create: `packages/client/ui-account/src/client/index.ts`
 - Create: `packages/client/ui-account/src/client/AccountSection.tsx`
 - Create: `packages/client/ui-account/src/client/locales.ts`
+- Modify: `tsconfig.client.json`（加 reference）
 - Modify: `packages/bundle/web-app/cordis.patch.yml`（加 `dsh.client` 行 `ui-account`）
 - Modify: `packages/bundle/web-app/package.json`（加依赖）
 
@@ -1176,13 +1177,20 @@ export function apply(ctx: ClientContext): void {
       name: '@deepseek-ai/dsh-client-ui-account'
 ```
 
-- [ ] **Step 8: 构建并验证**
+`tsconfig.client.json` 的 `references` 里（`ui-settings-general` 附近）加：
+
+```json
+    { "path": "./packages/client/ui-account" },
+```
+
+- [ ] **Step 8: 类型检查并构建**
 
 ```bash
+pnpm run typecheck:contracts-ready
 pnpm run build:web
 ```
 
-Expected: `apps/web/dist` 产出且无 TS/打包错误。再 `pnpm dsh web --port 0` 后浏览器打开，Settings 面板应出现「账户」段；点「登录 GitHub」应打开系统浏览器到 GitHub 授权页（`clientId` 未配时会报「client id not configured」——这正是预期的缺省行为）。
+Expected: `tsc -b tsconfig.client.json` 无类型错误；`apps/web/dist` 产出且无打包错误。再 `pnpm dsh web --port 0` 后浏览器打开，Settings 面板应出现「账户」段；点「登录 GitHub」应打开系统浏览器到 GitHub 授权页（`clientId` 未配时会报「client id not configured」——这正是预期的缺省行为）。
 
 - [ ] **Step 9: 提交**
 
