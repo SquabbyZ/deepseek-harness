@@ -99,6 +99,15 @@
     - id: api-gateway
       name: '@deepseek-ai/dsh-host-apiproxy'
 
+    # GitHub OAuth identity: provides `identity` and registers /auth/github/*
+    # routes on the webserver. The client id is an assembly secret supplied by
+    # the launcher (desktop sets DSH_GITHUB_CLIENT_ID before spawning the sidecar).
+    - id: github-oauth
+      name: '@deepseek-ai/dsh-github-oauth'
+      config:
+        clientId: !!js process.env.DSH_GITHUB_CLIENT_ID
+        redirectUri: 'http://127.0.0.1:3846/callback'
+
     - id: cordis-host-runner
       name: '@deepseek-ai/dsh-cordis-host-runner'
 

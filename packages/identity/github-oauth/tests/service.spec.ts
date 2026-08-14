@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { IdentityService, type IdentityServiceDeps } from '../src/index.ts'
-import type { Identity } from '../src/identity.ts'
+import type { Identity, IdentityId } from '../src/identity.ts'
 
 function makeService(overrides: Partial<IdentityServiceDeps> = {}) {
   const store: { value: Identity | null } = { value: null }
@@ -13,7 +13,7 @@ function makeService(overrides: Partial<IdentityServiceDeps> = {}) {
       providerFactory: () => ({
         begin: () => ({ verifier: 'v', state: 's', authorizeUrl: 'https://a.b/authorize' }),
         exchangeCodeForToken: async (_c, _v) => 'tok',
-        fetchIdentity: async () => ({ id: 'github:1', provider: 'github', name: 'Octo' }),
+        fetchIdentity: async () => ({ id: 'github:1' as IdentityId, provider: 'github', name: 'Octo' }),
       }),
       loopbackFactory: () => ({
         listen: async () => {},

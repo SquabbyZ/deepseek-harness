@@ -30,8 +30,8 @@ export interface IdentityServiceDeps {
   load?: () => Identity | null
   save?: (identity: Identity) => void
   clear?: () => void
-  providerFactory?: () => GitHubIdentityProvider
-  loopbackFactory?: () => LoopbackCallbackServer
+  providerFactory?: () => Pick<GitHubIdentityProvider, 'begin' | 'exchangeCodeForToken' | 'fetchIdentity'>
+  loopbackFactory?: () => Pick<LoopbackCallbackServer, 'listen' | 'boundPort' | 'waitForCallback' | 'close'>
   openBrowser?: (url: string) => void
 }
 
