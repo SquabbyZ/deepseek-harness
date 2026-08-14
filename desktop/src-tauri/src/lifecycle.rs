@@ -72,13 +72,19 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<SidecarHandle, String> {
         forward_pipe(stderr, app.clone());
     }
 
-    // Wait for the loopback port to come up (bounded retry).
-    wait_healthy(port, 120).await?;
-
+    // Wrap the child and register it in state BEFORE the health check so no
+    // failure path can leave it orphaned: shutdown can always reach it via
+    // `SidecarState`, and we kill it explicitly if `wait_healthy` fails.
     let child = Arc::new(Mutex::new(child));
-
-    // Register the child in state so shutdown can kill it (Task 8 Step 6).
     app.manage(SidecarState(child.clone()));
+
+    // Wait for the loopback port to come up (bounded retry).
+    if let Err(e) = wait_healthy(port, 120).await {
+        if let Ok(mut guard) = child.lock() {
+            let _ = guard.kill();
+        }
+        return Err(e);
+    }
 
     // Supervise the child: emit "dsh-exit" if it terminates unexpectedly.
     supervise(app.clone(), child.clone());
