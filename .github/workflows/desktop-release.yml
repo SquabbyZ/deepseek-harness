@@ -1,0 +1,86 @@
+# Build, sign, and publish the DeepSeek Harness desktop client (Windows + macOS).
+#
+# Triggered by pushing a `dsh-desktop-v*` tag (or a manual run). Each matrix leg
+# builds the portable-Node sidecar and the Tauri app for one platform, signs the
+# installers, and uploads them to a GitHub Release. tauri-action merges each
+# leg's platform entry into a single `latest.json` updater manifest, which
+# `plugins.updater.endpoints` in tauri.conf.json points at.
+#
+# ONE-TIME SIGNING SETUP (full walkthrough in desktop/README.md):
+#   1. Generate a key locally:
+#        pnpm --dir desktop exec tauri signer generate -w ~/.tauri/dsh-desktop.key
+#   2. Paste the printed PUBLIC key into `plugins.updater.pubkey` in
+#      desktop/src-tauri/tauri.conf.json (it currently holds the
+#      `REPLACE_WITH_PUBLIC_KEY` placeholder).
+#   3. Store the PRIVATE key as the repository secret TAURI_SIGNING_PRIVATE_KEY
+#      and its password (may be empty) as TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
+#   The workflow only ever reads the private key from these secrets — never
+#   commit it.
+name: desktop-release
+
+on:
+  push:
+    tags: ['dsh-desktop-v*']
+  workflow_dispatch:
+
+# tauri-action creates the GitHub Release and uploads the signed artifacts, so
+# it needs write access to repository contents.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ''
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version matches the `packageManager` field in package.json.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The macOS leg cross-builds aarch64; installing the extra Rust target on
+      # the Windows leg is a harmless no-op.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared library
+        run: pnpm run build:lib
+
+      # The sidecar (portable-Node + dsh web profile) is a Tauri resource, so
+      # it must exist before `tauri build` bundles it.
+      - name: Build portable-Node sidecar
+        run: pnpm --dir desktop run build:sidecar
+
+      - name: Build, sign, and publish
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # The Tauri project lives in desktop/, not the repo root.
+          projectPath: desktop
+          tagName: dsh-desktop-v__VERSION__
+          releaseName: 'DeepSeek Harness Desktop v__VERSION__'
+          args: ${{ matrix.args }}
+          # uploadUpdaterJson defaults to true; stated here for clarity. Each
+          # leg merges its own platform entry into the shared latest.json.
+          uploadUpdaterJson: true
