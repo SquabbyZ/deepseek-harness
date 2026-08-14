@@ -18,6 +18,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "resources/dsh-runtime/": "dsh-runtime/"
+    },
     "icon": ["icons/icon.ico", "icons/icon.icns"],
     "createUpdaterArtifacts": true
   },
