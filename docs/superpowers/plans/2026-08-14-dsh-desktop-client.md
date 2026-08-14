@@ -1342,11 +1342,12 @@ fn main() {
     "opener:default",
     "notification:default",
     "autostart:default",
-    "updater:default",
-    "single-instance:default"
+    "updater:default"
   ]
 }
 ```
+
+> `tauri-plugin-single-instance` 是纯 Rust 插件，无 JS API、无权限面，故 **不**在 permissions 里加 `single-instance:*`（加了会让 `tauri_build::build()` 报 `Permission single-instance:default not found`）。
 
 - [ ] **Step 7: 写 `desktop/src-tauri/src/lib.rs`（骨架，Task 8/9 会填充 lifecycle/commands）**
 
@@ -1465,9 +1466,20 @@ pub struct SidecarHandle {
 /// Spawn the bundled `dsh-desktop` sidecar and wait until it answers on loopback.
 pub fn spawn_sidecar(app: &AppHandle) -> Result<SidecarHandle, String> {
     let port = pick_port_after(DEFAULT_PORT, &HashSet::new());
-    let (mut rx, child) = Command::new_sidecar("dsh-desktop")
-        .map_err(|e| e.to_string())?
-        .args(["web", "--port", &port.to_string()])
+    // portable-Node sidecar (SEA was ruled infeasible): the runtime is bundled as
+    // a resource directory `resources/dsh-runtime/` (Task 10), holding `node(.exe)`
+    // and `dsh/lib/bin.js` + node_modules. Spawn `node <entry> web --port <p>`.
+    let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
+    let runtime = resource_dir.join("dsh-runtime");
+    let node = runtime.join(if cfg!(windows) { "node.exe" } else { "node" });
+    let entry = runtime.join("dsh").join("lib").join("bin.js");
+    let (mut rx, child) = Command::new(node)
+        .args([
+            entry.to_string_lossy().into_owned(),
+            "web".to_string(),
+            "--port".to_string(),
+            port.to_string(),
+        ])
         .env("DSH_GITHUB_CLIENT_ID", std::env::var("DSH_GITHUB_CLIENT_ID").unwrap_or_default())
         .spawn()
         .map_err(|e| e.to_string())?;
