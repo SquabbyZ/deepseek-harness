@@ -80,6 +80,38 @@ function materializeLinks(directory) {
 }
 
 /**
+ * Prune the lazily-loaded Mistral SDK from the deployed runtime.
+ *
+ * `@mistralai/mistralai` is a hard dependency of `@earendil-works/pi-ai` (the
+ * pi-ai LLM provider), but pi-ai only reaches it through a dynamic import:
+ * `dist/api/mistral-conversations.lazy.js` wraps
+ * `import("./mistral-conversations.js")`, and that module alone does
+ * `import { Mistral } from "@mistralai/mistralai"`. The web profile never
+ * routes a model to Mistral, so the SDK is dead weight in the deploy.
+ *
+ * It is also a Windows distribution blocker: its OpenAPI-generated
+ * `esm/models/operations/*` files have filenames long enough that, nested
+ * under `pi-ai/node_modules/` (a peer-dep forced by `@opentelemetry/api@1.9.0`),
+ * their absolute paths exceed MAX_PATH (260) and abort NSIS. Removing the
+ * package removes the only importer of it; boot is unaffected because the
+ * import is lazy.
+ */
+function pruneLazyMistral(dshDir) {
+  for (const mistral of [
+    // Hoisted layout (if the peer resolves to the shared tree).
+    join(dshDir, 'node_modules', '@mistralai', 'mistralai'),
+    // Nested layout: pnpm keeps it beside pi-ai to satisfy its
+    // `@opentelemetry/api@1.9.0` peer without clashing with the root.
+    join(dshDir, 'node_modules', '@earendil-works', 'pi-ai', 'node_modules', '@mistralai', 'mistralai'),
+  ]) {
+    if (existsSync(mistral)) {
+      rmSync(mistral, { recursive: true, force: true })
+      console.log(`  pruned lazy-loaded @mistralai/mistralai (MAX_PATH): ${mistral}`)
+    }
+  }
+}
+
+/**
  * Restore direct dependencies that pnpm's legacy deploy omits: packages in
  * workspace cycles (the `dsh-base`/`dsh-web-app`/`dsh-headless` bundles and
  * the shell family) are left beside the manifest instead of copied into the
@@ -137,6 +169,7 @@ run(
 )
 restoreLegacyHoists(dshDir)
 materializeLinks(join(dshDir, 'node_modules'))
+pruneLazyMistral(dshDir)
 
 // 4. Lay the dsh app files (lib/*.js + config/) over the deployed manifest,
 //    matching @deepseek-ai/dsh's `files` field so bin.js + shipped presets
