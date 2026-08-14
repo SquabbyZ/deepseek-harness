@@ -185,3 +185,11 @@ Real releases are signed per the one-time setup in Release & updater (Task 11).
 
 - Icons are placeholders (`whale-on-indigo`) — replace with final brand assets
   via `pnpm --dir desktop exec tauri icon <source.png>`.
+- Windows installer bundling currently fails (the Rust compile and
+  `dsh-desktop.exe` still build fine): the sidecar runtime contains 72 files
+  whose full paths exceed Windows `MAX_PATH` (260 chars) — long auto-generated
+  filenames under
+  `@earendil-works/pi-ai/node_modules/@mistralai/mistralai/...` — which makes
+  NSIS `makensis` abort ("failed opening file ..."). The MSI path additionally
+  fails at WiX `light.exe`. Fix by pruning the redundant nested `node_modules`
+  in the runtime, relocating the resource root, or enabling long paths.
