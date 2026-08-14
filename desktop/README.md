@@ -33,6 +33,21 @@ pnpm --dir desktop run build:sidecar      # materialize resources/dsh-runtime/
 pnpm --dir desktop exec tauri build
 ```
 
+## GitHub OAuth client id
+
+The GitHub login flow is a PKCE client, so the OAuth App client id is public
+(there is no client secret) and can live in the repo. It is defined in
+`src-tauri/src/config.rs`:
+
+```rust
+pub const GITHUB_CLIENT_ID: &str = "REPLACE_WITH_YOUR_GITHUB_OAUTH_CLIENT_ID";
+```
+
+Before a release build, replace `REPLACE_WITH_YOUR_GITHUB_OAUTH_CLIENT_ID` with
+your OAuth App's client id. The desktop shell passes this value to the sidecar as
+the `DSH_GITHUB_CLIENT_ID` environment variable at startup, so it is injected
+into every packaged build — there is nothing to set at runtime.
+
 ## Release & updater
 
 Releases are produced by `.github/workflows/desktop-release.yml`, triggered by
@@ -145,16 +160,10 @@ Run the following end-to-end before shipping. Steps 1–4 are the automated
 7. Single instance: launch the app a second time. Expected: no second window;
    the existing window is shown and focused instead.
 
-8. GitHub login: set `DSH_GITHUB_CLIENT_ID` to a GitHub OAuth app whose dsh
-   loopback redirect is registered, then relaunch:
-
-   ```powershell
-   $env:DSH_GITHUB_CLIENT_ID = "<your client id>"
-   pnpm --dir desktop run dev
-   ```
-
-   Expected: the UI Sign in flow completes the PKCE exchange and establishes a
-   session.
+8. GitHub login: replace the `GITHUB_CLIENT_ID` placeholder in
+   `src-tauri/src/config.rs` with a GitHub OAuth app whose dsh loopback redirect
+   is registered, rebuild, then relaunch. Expected: the UI Sign in flow
+   completes the PKCE exchange and establishes a session.
 
 9. Update check (manual): with a signed build (see Release & updater above),
    trigger "Check for updates" in the app and confirm it queries

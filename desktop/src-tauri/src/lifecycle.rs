@@ -1,8 +1,8 @@
 //! Sidecar lifecycle: port selection, spawn, health polling, graceful shutdown.
 
 use std::collections::HashSet;
-use std::io::{BufRead, BufReader, Read};
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::process::{Child, Command as StdCommand, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -14,11 +14,14 @@ pub const MAX_PORT_PROBES: u16 = 32;
 
 /// Lowest free port at or after `start`, skipping `taken`.
 ///
-/// Probes at most [`MAX_PORT_PROBES`] ports; falls back to `start` if all are taken.
+/// For each candidate, ports listed in `taken` are skipped and the OS is probed by
+/// binding a loopback [`TcpListener`]: a successful bind means the port is free, so
+/// the listener is dropped and the port returned. Probes at most
+/// [`MAX_PORT_PROBES`] candidates; falls back to `start` if none are free.
 pub fn pick_port_after(start: u16, taken: &HashSet<u16>) -> u16 {
     let mut port = start;
     for _ in 0..MAX_PORT_PROBES {
-        if !taken.contains(&port) {
+        if !taken.contains(&port) && TcpListener::bind(("127.0.0.1", port)).is_ok() {
             return port;
         }
         port = port.wrapping_add(1);
@@ -55,10 +58,7 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<SidecarHandle, String> {
         .arg("web")
         .arg("--port")
         .arg(port.to_string())
-        .env(
-            "DSH_GITHUB_CLIENT_ID",
-            std::env::var("DSH_GITHUB_CLIENT_ID").unwrap_or_default(),
-        )
+        .env("DSH_GITHUB_CLIENT_ID", crate::config::GITHUB_CLIENT_ID)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -119,12 +119,12 @@ fn supervise(app: AppHandle, child: Arc<Mutex<Child>>) {
     });
 }
 
-/// Wait until the sidecar answers on loopback (bounded retry).
+/// Wait until the sidecar answers `GET /` with HTTP 200 on loopback (bounded retry).
 async fn wait_healthy(port: u16, attempts: usize) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
         for _ in 0..attempts {
-            if TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok() {
+            if http_status_is_200(addr) {
                 return Ok(());
             }
             std::thread::sleep(Duration::from_millis(250));
@@ -133,6 +133,43 @@ async fn wait_healthy(port: u16, attempts: usize) -> Result<(), String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Minimal raw-HTTP `GET /` over a [`TcpStream`]; true only on an HTTP 200 status
+/// line, so a foreign service that happens to listen is not mistaken for ours.
+fn http_status_is_200(addr: std::net::SocketAddr) -> bool {
+    let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(250)) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
+
+    let request = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+
+    let mut buf = Vec::with_capacity(1024);
+    let mut chunk = [0u8; 512];
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) => {
+                buf.extend_from_slice(&chunk[..n]);
+                if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
+    let head = String::from_utf8_lossy(&buf);
+    head.lines()
+        .next()
+        .map(|line| line.starts_with("HTTP/1.1 200") || line.starts_with("HTTP/1.0 200"))
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -157,5 +194,16 @@ mod tests {
     fn falls_back_to_start_when_exhausted() {
         let taken: HashSet<u16> = (0..MAX_PORT_PROBES).collect();
         assert_eq!(pick_port_after(0, &taken), 0);
+    }
+
+    #[test]
+    fn skips_os_occupied_port() {
+        // Occupy an ephemeral port, then assert real OS probing never returns it.
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let occupied = listener.local_addr().unwrap().port();
+        let taken = HashSet::new();
+        let picked = pick_port_after(occupied, &taken);
+        assert_ne!(picked, occupied);
+        drop(listener);
     }
 }
