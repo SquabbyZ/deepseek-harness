@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -24,8 +24,27 @@ describe('identity persistence', () => {
     expect(loadIdentity(home)).toEqual(identity)
   })
 
+  it('creates the home directory when missing', () => {
+    const home = join(freshHome(), 'nested', 'home')
+    const identity = { id: 'github:1' as IdentityId, provider: 'github', name: 'Octo' }
+    saveIdentity(identity, home)
+    expect(loadIdentity(home)).toEqual(identity)
+  })
+
   it('returns null when nothing is stored', () => {
     expect(loadIdentity(freshHome())).toBeNull()
+  })
+
+  it('returns null when the stored file is not valid JSON', () => {
+    const home = freshHome()
+    writeFileSync(join(home, IDENTITY_FILE), 'not json', 'utf8')
+    expect(loadIdentity(home)).toBeNull()
+  })
+
+  it('returns null when the stored identity lacks a string id', () => {
+    const home = freshHome()
+    writeFileSync(join(home, IDENTITY_FILE), JSON.stringify({ id: 42, provider: 'github', name: 'Octo' }), 'utf8')
+    expect(loadIdentity(home)).toBeNull()
   })
 
   it('clearIdentity removes the stored identity', () => {

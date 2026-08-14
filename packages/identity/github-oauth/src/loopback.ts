@@ -29,6 +29,7 @@ export class LoopbackCallbackServer {
   listen(): Promise<void> {
     return new Promise((resolve, reject) => {
       const server = createServer((req, res) => {
+        /* v8 ignore next -- inbound HTTP requests always carry a url; the fallback answers the optional type */
         const url = new URL(req.url ?? '/', 'http://127.0.0.1')
         if (url.pathname !== '/callback') {
           res.writeHead(404)
@@ -55,19 +56,28 @@ export class LoopbackCallbackServer {
     if (this.result !== undefined) return Promise.resolve(this.result)
     return new Promise((resolve, reject) => {
       this.waiter = { resolve, reject }
-      this.timer = setTimeout(() => reject(new Error('github oauth: callback timed out')), timeoutMs)
+      this.timer = setTimeout(() => {
+        // A late callback must not settle a later attempt's waiter, so clear
+        // the waiter along with the timer when the window closes.
+        this.waiter = undefined
+        this.timer = undefined
+        reject(new Error('github oauth: callback timed out'))
+      }, timeoutMs)
     })
   }
 
   close(): Promise<void> {
-    if (this.timer !== undefined) clearTimeout(this.timer)
+    clearTimeout(this.timer)
+    this.timer = undefined
     const server = this.server
+    this.server = undefined
     if (server === undefined) return Promise.resolve()
-    return new Promise((resolve) => { server.close(() => resolve()) })
+    return new Promise((resolve) => { server.close(() => { resolve() }) })
   }
 
   private settle(result: CallbackResult): void {
-    if (this.timer !== undefined) clearTimeout(this.timer)
+    clearTimeout(this.timer)
+    this.timer = undefined
     this.waiter?.resolve(result)
     this.waiter = undefined
   }

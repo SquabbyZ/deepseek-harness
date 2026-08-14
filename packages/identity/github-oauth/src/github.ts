@@ -41,16 +41,16 @@ export class GitHubIdentityProvider {
   begin(): AuthorizationRequest {
     const verifier = generateCodeVerifier()
     const state = (this.deps.randomUUIDImpl ?? randomUUID)()
-    const params = new URLSearchParams({
-      client_id: this.config.clientId,
-      redirect_uri: this.config.redirectUri,
-      scope: this.config.scope ?? 'read:user user:email',
-      state,
-      code_challenge: computeS256Challenge(verifier),
-      code_challenge_method: 'S256',
-    })
-    const authorizeUrl = `${this.config.authorizeUrl ?? 'https://github.com/login/oauth/authorize'}?${params}`
-    return { verifier, state, authorizeUrl }
+    // Built on `URL` so an already-query-stringed authorizeUrl is preserved
+    // rather than clobbered by a naive `?${params}` concat.
+    const authorize = new URL(this.config.authorizeUrl ?? 'https://github.com/login/oauth/authorize')
+    authorize.searchParams.set('client_id', this.config.clientId)
+    authorize.searchParams.set('redirect_uri', this.config.redirectUri)
+    authorize.searchParams.set('scope', this.config.scope ?? 'read:user user:email')
+    authorize.searchParams.set('state', state)
+    authorize.searchParams.set('code_challenge', computeS256Challenge(verifier))
+    authorize.searchParams.set('code_challenge_method', 'S256')
+    return { verifier, state, authorizeUrl: authorize.toString() }
   }
 
   async exchangeCodeForToken(code: string, verifier: string): Promise<string> {
