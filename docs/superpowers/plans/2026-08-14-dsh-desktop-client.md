@@ -721,6 +721,7 @@ describe('IdentityService', () => {
 ```ts
 import { spawn } from 'node:child_process'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-host-webserver'
 import { GitHubIdentityProvider } from './github.ts'
 import type { Identity } from './identity.ts'
 import { LoopbackCallbackServer, type CallbackResult } from './loopback.ts'
@@ -734,6 +735,9 @@ declare module '@deepseek-ai/cordis' {
 
 /** Stable Cordis plugin name. */
 export const name = 'github-oauth'
+
+/** Services required before the auth routes can be registered. */
+export const inject = ['webServer']
 
 export interface GithubOauthConfig {
   /** OAuth App client id; login throws a clear error when empty. */
