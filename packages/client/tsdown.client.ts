@@ -183,7 +183,6 @@ function clientConfig(id: string, entry: string): UserConfig {
     // must carry the TS/TSX mapping consumed by browser profiling tools.
     sourcemap: true,
     clean: false,
-    external: [...CLIENT_EXTERNALS],
     // Browser bundles inline node-idiom deps (zustand/immer read
     // process.env.NODE_ENV; zustand's esm build also probes
     // import.meta.env.MODE, which a CJS output cannot carry — rolldown flags
@@ -209,7 +208,10 @@ function clientConfig(id: string, entry: string): UserConfig {
     // negative-lookahead that bundles every remaining non-platform module
     // (npm deps like zod/clsx and any @deepseek-ai dep outside the platform
     // seed list). react/react-dom and @deepseek-ai/* stay external via `external`.
-    noExternal: [INLINE_SAFE, VENDORED_LIBRARY, GENERATED_REMOTE, /^(?!(?:react|react-dom)(?:\/|$)|@deepseek-ai\/)/],
+    deps: {
+      neverBundle: [...CLIENT_EXTERNALS],
+      alwaysBundle: [INLINE_SAFE, VENDORED_LIBRARY, GENERATED_REMOTE, /^(?!(?:react|react-dom)(?:\/|$)|@deepseek-ai\/)/],
+    },
     plugins: [{
       // Bundle purity gate (build-time mirror of the module-edge rules):
       // platform seed entries stay external, inline-safe wire layers inline,
