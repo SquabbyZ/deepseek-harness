@@ -6,8 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BackgroundCrop, SkinId, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { cropToBackground } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { BACKGROUND_IMAGE_PROPERTY, BACKGROUND_POSITION_PROPERTY, BACKGROUND_SIZE_PROPERTY, DARK_ATTRIBUTE, SKIN_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
+import { BACKGROUND_IMAGE_PROPERTY, BACKGROUND_POSITION_PROPERTY, BACKGROUND_SIZE_PROPERTY, cropToBackground, DARK_ATTRIBUTE, SKIN_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
 
 const LIGHT_THEME_COLOR = 'rgb(255, 255, 255)'
 const DARK_THEME_COLOR = 'rgb(21, 21, 23)'

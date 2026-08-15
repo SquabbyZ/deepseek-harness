@@ -39,7 +39,7 @@ export type { AppearanceRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
 export type { BackgroundCrop, SkinId, ThemePreference, ThemeSettings } from '../theme-settings.ts'
 export {
-  BACKGROUND_CROP_FIELD, BACKGROUND_FIELD, BACKGROUND_NAME_FIELD, cropToBackground,
+  BACKGROUND_CROP_FIELD, BACKGROUND_FIELD, BACKGROUND_NAME_FIELD,
   DEFAULT_SKIN, isBackgroundCrop, isSkinId, SKIN_FIELD, SKIN_IDS,
 } from '../theme-settings.ts'
 export { SKIN_PRESETS } from '../skins.ts'
