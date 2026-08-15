@@ -204,9 +204,12 @@ function clientConfig(id: string, entry: string): UserConfig {
     // answers their require(); every other @deepseek-ai dependency is a
     // wire/type layer or generated contribution that must be inlined (a
     // require() the table cannot answer is a guaranteed runtime throw).
-    // npm deps (zod/clsx/…) are bundled by default. A function form does not
-    // reliably match workspace SUBPATH imports, so this is a regex list.
-    noExternal: [INLINE_SAFE, VENDORED_LIBRARY, GENERATED_REMOTE],
+    // A function form is not reliably applied to workspace SUBPATH imports, so
+    // this is a regex list: the inline-safe/remote patterns plus a
+    // negative-lookahead that bundles every remaining non-platform module
+    // (npm deps like zod/clsx and any @deepseek-ai dep outside the platform
+    // seed list). react/react-dom and @deepseek-ai/* stay external via `external`.
+    noExternal: [INLINE_SAFE, VENDORED_LIBRARY, GENERATED_REMOTE, /^(?!(?:react|react-dom)(?:\/|$)|@deepseek-ai\/)/],
     plugins: [{
       // Bundle purity gate (build-time mirror of the module-edge rules):
       // platform seed entries stay external, inline-safe wire layers inline,
