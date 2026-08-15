@@ -5,6 +5,7 @@ import { SettingsProvider, settingsNamespace, type SettingsNamespace } from '@de
 import {
   DEFAULT_PREFERENCE, THEME_SETTINGS_NAMESPACE, apply,
 } from '@deepseek-ai/dsh-client-ui-theme'
+import { DEFAULT_SKIN } from '../src/theme-settings.ts'
 
 class MemorySettings extends SettingsProvider {
   readonly writable = true
@@ -21,9 +22,9 @@ describe('ui-theme host', () => {
     const fiber = ctx.plugin({ apply })
     await fiber.await()
     const ns = settingsNamespace(THEME_SETTINGS_NAMESPACE)
-    expect(ctx.settings.get(ns)).toEqual({ preference: DEFAULT_PREFERENCE })
+    expect(ctx.settings.get(ns)).toEqual({ preference: DEFAULT_PREFERENCE, skin: DEFAULT_SKIN })
     await ctx.settings.update(ns, { preference: 'dark' })
-    expect(ctx.settings.get(ns)).toEqual({ preference: 'dark' })
+    expect(ctx.settings.get(ns)).toEqual({ preference: 'dark', skin: DEFAULT_SKIN })
     await expect(ctx.settings.update(ns, { preference: 'sepia' })).rejects.toThrow()
     await fiber.dispose()
     expect(ctx.settings.describe().map(row => row.ns)).not.toContain(ns)

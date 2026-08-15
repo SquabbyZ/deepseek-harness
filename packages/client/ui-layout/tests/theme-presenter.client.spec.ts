@@ -5,16 +5,16 @@
 // retracts everything the presenter wrote.
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { DARK_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
+import type { SkinId, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { DARK_ATTRIBUTE, SKIN_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
 
 const LIGHT_THEME_COLOR = 'rgb(255, 255, 255)'
 const DARK_THEME_COLOR = 'rgb(21, 21, 23)'
 
-function snapshot(colorScheme: 'light' | 'dark', tokens: Record<string, string> = {}): ThemeSnapshot {
+function snapshot(colorScheme: 'light' | 'dark', tokens: Record<string, string> = {}, skin: SkinId = 'default'): ThemeSnapshot {
   // The presenter must key off colorScheme, not the id — keep them distinct.
   const active = { id: `${colorScheme}-test`, colorScheme, tokens }
-  return { preference: colorScheme, active, themes: [active], revision: 1 }
+  return { preference: colorScheme, skin, active, themes: [active], revision: 1 }
 }
 
 function clearThemePresentation(): void {
@@ -29,6 +29,7 @@ beforeEach(() => {
   clearThemePresentation()
   document.documentElement.style.removeProperty('color-scheme')
   document.body.removeAttribute(DARK_ATTRIBUTE)
+  document.body.removeAttribute(SKIN_ATTRIBUTE)
   document.body.removeAttribute('style')
   const style = document.createElement('style')
   style.dataset.themePresenterTest = ''
@@ -87,5 +88,17 @@ describe('ThemePresenter', () => {
     expect(document.body.style.getPropertyValue('--dsw-alias-bg')).toBe('')
     expect(document.body.style.getPropertyValue('--foreign')).toBe('kept')
     expect(meta?.isConnected).toBe(false)
+  })
+
+  it('sets and clears the skin attribute independently of the dark attribute', () => {
+    const presenter = new ThemePresenter()
+    presenter.apply(snapshot('dark', {}, 'cyber'))
+    expect(document.body.getAttribute(SKIN_ATTRIBUTE)).toBe('cyber')
+    expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(true)
+    presenter.apply(snapshot('light', {}, 'glass'))
+    expect(document.body.getAttribute(SKIN_ATTRIBUTE)).toBe('glass')
+    expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
+    presenter.dispose()
+    expect(document.body.hasAttribute(SKIN_ATTRIBUTE)).toBe(false)
   })
 })

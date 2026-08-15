@@ -3,11 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { stubSettingsScope, type StubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import type {
+  SkinId,
   ThemeSettings,
   ThemeSnapshot,
   ThemeTokenOverrides,
 } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
+import {
+  DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, SKIN_PRESETS, ThemeRuntime,
+} from '@deepseek-ai/dsh-client-ui-theme/client'
 
 const make = (host = stubSettingsScope<ThemeSettings>()): {
   ctx: Context
@@ -197,6 +200,62 @@ describe('ThemeRuntime', () => {
     expect(host.listenerCount()).toBe(1)
     await ctx.fiber.dispose()
     expect(host.listenerCount()).toBe(0)
+  })
+
+  it('defaults to the default skin and carries it in the snapshot', () => {
+    const { theme } = make()
+    expect(theme.getTheme().skin).toBe(DEFAULT_SKIN)
+    // The default skin overrides nothing.
+    expect(theme.getTheme().active.tokens).toEqual({})
+  })
+
+  it('setSkin switches the skin, persists it, and is a no-op when unchanged', () => {
+    const { theme, events, host } = make()
+    theme.setSkin('glass')
+    expect(theme.getTheme().skin).toBe('glass')
+    expect(host.set).toHaveBeenCalledWith(SKIN_FIELD, 'glass')
+    const count = events.length
+    theme.setSkin('glass')
+    expect(events).toHaveLength(count)
+    expect(host.set).toHaveBeenCalledTimes(1)
+  })
+
+  it('folds the active skin tokens with the active color scheme', () => {
+    const { theme } = make()
+    theme.setSkin('cyber')
+    const token = '--dsw-alias-bg-base'
+    expect(SKIN_PRESETS.cyber[token]!.light).not.toBe(SKIN_PRESETS.cyber[token]!.dark)
+    expect(theme.getTheme().active.tokens[token]).toBe(SKIN_PRESETS.cyber[token]!.light)
+    theme.setTheme('dark')
+    expect(theme.getTheme().active.tokens[token]).toBe(SKIN_PRESETS.cyber[token]!.dark)
+  })
+
+  it('rejects unknown skin ids', () => {
+    const { theme } = make()
+    expect(() => { theme.setSkin('neon' as SkinId) }).toThrow('skin')
+  })
+
+  it('adopts a persisted skin alongside the preference without writing it back', () => {
+    const { theme, events, host } = make()
+    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'cyber' }, revision: 1, writable: true })
+    expect(theme.getTheme().preference).toBe('dark')
+    expect(theme.getTheme().skin).toBe('cyber')
+    expect(host.set).not.toHaveBeenCalled()
+    expect(events).toHaveLength(1)
+  })
+
+  it('every skin preset overrides surface tokens only, as { light, dark } pairs', () => {
+    expect(SKIN_PRESETS.default).toEqual({})
+    for (const skin of SKIN_IDS) {
+      if (skin === 'default') continue
+      const tokens = SKIN_PRESETS[skin]
+      expect(Object.keys(tokens).length).toBeGreaterThan(0)
+      for (const [name, modes] of Object.entries(tokens)) {
+        expect(name).toMatch(/^--dsw-(?:alias-bg-|alias-border-l|specific-sidebar-fill)/)
+        expect(typeof modes.light).toBe('string')
+        expect(typeof modes.dark).toBe('string')
+      }
+    }
   })
 
   describe('prefers-color-scheme resolution (stubbed matchMedia)', () => {

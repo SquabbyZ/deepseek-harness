@@ -20,14 +20,18 @@ import { AppearanceRow } from './AppearanceRow.tsx'
 import { createAppearanceRowStore } from './settings-store.ts'
 import { en, zh, type ThemeKey } from './locales.ts'
 import {
-  DEFAULT_PREFERENCE, isThemePreference, THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
-  type ThemePreference, type ThemeSettings,
+  DEFAULT_PREFERENCE, DEFAULT_SKIN, isSkinId, isThemePreference, SKIN_FIELD,
+  THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
+  type SkinId, type ThemePreference, type ThemeSettings,
 } from '../theme-settings.ts'
+import { SKIN_PRESETS } from '../skins.ts'
 
 export type { AppearanceRowComponentProps, AppearanceRowInjected } from './AppearanceRow.tsx'
 export type { AppearanceRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
-export type { ThemePreference, ThemeSettings } from '../theme-settings.ts'
+export type { SkinId, ThemePreference, ThemeSettings } from '../theme-settings.ts'
+export { DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, isSkinId } from '../theme-settings.ts'
+export { SKIN_PRESETS } from '../skins.ts'
 
 /** Namespace owning this feature's settings-row copy. */
 export const SETTINGS_NS = 'settings.theme'
@@ -74,6 +78,8 @@ export interface ThemeDefinition {
 export interface ThemeSnapshot {
   /** The persisted preference (may be `system`). */
   preference: ThemePreference
+  /** The selected skin layer id (`default`/`glass`/`cyber`). */
+  skin: SkinId
   /**
    * The resolved active theme (`system` resolved via prefers-color-scheme)
    * with override layers folded into its tokens (seq order, later layers win
@@ -115,6 +121,9 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
+/** Override-layer source id for the skin dimension (one layer per skin switch). */
+const SKIN_SOURCE = 'ui-theme:skin'
+
 const BUILTIN_THEMES: readonly ThemeDefinition[] = Object.freeze([
   Object.freeze({ id: 'light', colorScheme: 'light' as const, tokens: Object.freeze({}) }),
   Object.freeze({ id: 'dark', colorScheme: 'dark' as const, tokens: Object.freeze({}) }),
@@ -152,6 +161,7 @@ export class ThemeRuntime {
   private readonly host: SettingsScope<ThemeSettings>
   private themes: ThemeDefinition[] = [...BUILTIN_THEMES]
   private preference: ThemePreference
+  private skin: SkinId = DEFAULT_SKIN
   private revision = 0
   private snapshot: ThemeSnapshot
   private readonly media: MediaQueryList | undefined
@@ -170,6 +180,10 @@ export class ThemeRuntime {
     this.preference = DEFAULT_PREFERENCE
     // Non-browser runs (node e2e booting the client tree) have no matchMedia.
     this.media = typeof matchMedia === 'undefined' ? undefined : matchMedia('(prefers-color-scheme: dark)')
+    // Mount the (empty) default skin layer before the first snapshot so the
+    // skin dimension is present from the start; no publish here, so no event
+    // fires at construction.
+    this.mountSkinLayer(this.skin)
     this.snapshot = this.buildSnapshot()
     if (this.media !== undefined) {
       const media = this.media
@@ -229,11 +243,40 @@ export class ThemeRuntime {
     this.publish()
   }
 
+  /**
+   * Switch the skin layer — the alias-token override dimension orthogonal to
+   * the preference. The skin never changes the resolved color scheme:
+   * `composeActive` picks each token's light/dark value by the active scheme.
+   * @param id - a built-in skin id; unknown ids throw.
+   */
+  setSkin(id: SkinId): void {
+    if (!isSkinId(id)) throw new Error(`skin "${String(id)}" is not a skin id`)
+    if (this.skin === id) return
+    this.skin = id
+    this.overrideTokens(SKIN_SOURCE, SKIN_PRESETS[id])
+    void this.host.set(SKIN_FIELD, id)
+  }
+
+  /**
+   * Mount one skin's override layer without publishing. Used at construction so
+   * the initial snapshot already carries the skin layer, and by {@link adopt}
+   * so a persisted skin change folds into the same publish as the preference.
+   */
+  private mountSkinLayer(id: SkinId): void {
+    this.skin = id
+    this.overrides.set(SKIN_SOURCE, { seq: this.overrideSeq++, tokens: validateOverrides(SKIN_SOURCE, SKIN_PRESETS[id]) })
+  }
+
   /** Adopt the scope's accepted durable preference without writing it back. */
   private adopt(): void {
     const section = this.host.getSnapshot().value
-    if (section === undefined || this.preference === section.preference) return
-    this.preference = section.preference
+    if (section === undefined) return
+    const preferenceChanged = this.preference !== section.preference
+    const skin = isSkinId(section.skin) ? section.skin : DEFAULT_SKIN
+    const skinChanged = this.skin !== skin
+    if (!preferenceChanged && !skinChanged) return
+    if (preferenceChanged) this.preference = section.preference
+    if (skinChanged) this.mountSkinLayer(skin)
     this.publish()
   }
 
@@ -300,6 +343,7 @@ export class ThemeRuntime {
     if (active === undefined) throw new Error(`theme registry lost "${resolvedId}"`)
     return Object.freeze({
       preference: this.preference,
+      skin: this.skin,
       active: this.composeActive(active),
       themes: Object.freeze([...this.themes]),
       revision: this.revision,
