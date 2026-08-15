@@ -120,10 +120,10 @@ export class IdentityService {
 function openInSystemBrowser(url: string): void {
   const platform = process.platform
   if (platform === 'win32') {
-    // `explorer` opens the URL in the default browser via ShellExecute, with no
-    // cmd.exe `%`/`&` parsing and no manual quoting (which otherwise corrupts the
-    // percent-encoded authorize URL or splits it at `&`).
-    spawn('explorer', [url], { detached: true, stdio: 'ignore' }).unref()
+    // `rundll32 url.dll,FileProtocolHandler` opens the URL in the default browser
+    // via ShellExecute, spawned directly (no cmd.exe), so the percent-encoded
+    // authorize URL's `%`/`&` are passed through intact.
+    spawn('rundll32', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' }).unref()
     return
   }
   const command = platform === 'darwin' ? 'open' : 'xdg-open'

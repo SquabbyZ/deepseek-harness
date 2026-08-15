@@ -197,7 +197,7 @@ describe('IdentityService', () => {
 })
 
 describe('openInSystemBrowser', () => {
-  it('opens the url via explorer on Windows (no cmd %/&-parsing)', async () => {
+  it('opens the url via rundll32 FileProtocolHandler on Windows (no cmd parsing)', async () => {
     const url = 'https://github.com/login/oauth/authorize?client_id=c&redirect_uri=http%3A%2F%2F127.0.0.1%3A3846%2Fcallback&scope=read%3Auser%20user%3Aemail&state=s'
     const service = new IdentityService(
       { redirectUri: 'http://127.0.0.1:3846/callback', clientId: 'c' },
@@ -222,8 +222,8 @@ describe('openInSystemBrowser', () => {
       spawnMock.mockClear()
       await service.login()
       expect(spawnMock).toHaveBeenCalledWith(
-        'explorer',
-        [url],
+        'rundll32',
+        ['url.dll,FileProtocolHandler', url],
         { detached: true, stdio: 'ignore' },
       )
     })
