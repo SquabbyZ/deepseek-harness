@@ -260,27 +260,34 @@
   padding-left: 0;
 }
 
-/* Footer seats: additive actions stack above Settings. Each occupant owns its
-   button geometry and hover chrome. */
+/* Footer seats: the account avatar sits to the left of the settings trigger,
+   which stays at the far right edge (both are right-aligned as one group in
+   the wide column; the rail stacks the avatar above the settings circle). */
 .footArea {
   flex: none;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
-.settingsArea,
-.footerActions {
+.settingsArea {
   flex: none;
   min-width: 0;
-  width: 100%;
 }
 
 .footerActions {
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
 }
 
 .collapsed .footArea {
+  flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
 }
 
 .collapsed .settingsArea,

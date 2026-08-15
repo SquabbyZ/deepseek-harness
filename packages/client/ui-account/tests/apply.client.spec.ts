@@ -1,12 +1,11 @@
-/** Account registrations: the settings section seat, its dictionaries, and the inject face. */
+/** Account registrations: the sidebar footer seat, its dictionaries, and the inject face. */
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { apply, inject } from '../src/client/index.ts'
-import { AccountSection } from '../src/client/AccountSection.tsx'
-import type { AccountSectionInjected } from '../src/client/AccountSection.tsx'
+import { SidebarAccount } from '../src/client/SidebarAccount.tsx'
+import type { SidebarAccountInjected } from '../src/client/SidebarAccount.tsx'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -26,20 +25,20 @@ async function bench() {
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale }
 }
 
-/** Declare the settings section the way ui-settings' entry does. */
+/** Declare the sidebar footer.action seat the way ui-sidebar's entry does. */
 function declare(slots: SlotRegistry): () => void {
   return slots.register(
-    { name: 'root', children: { 'settings.section': { kind: 'list', scope: 'root' } } } as never,
+    { name: 'root', children: { 'sidebar.footer.action': { kind: 'list', scope: 'root' } } } as never,
     () => null,
   )
 }
 
 function accountEntry(slots: SlotRegistry) {
-  return slots.entries('settings.section')[0]!
+  return slots.entries('sidebar.footer.action')[0]!
 }
 
-function injectedOf(slots: SlotRegistry): AccountSectionInjected {
-  return (accountEntry(slots).inject as unknown as () => AccountSectionInjected)()
+function injectedOf(slots: SlotRegistry): SidebarAccountInjected {
+  return (accountEntry(slots).inject as unknown as () => SidebarAccountInjected)()
 }
 
 describe('ui-account apply', () => {
@@ -47,22 +46,21 @@ describe('ui-account apply', () => {
     expect(inject).toEqual(['slots', 'locale'])
   })
 
-  it('fills the section seat for declarations before or after apply', async () => {
+  it('fills the sidebar foot seat for declarations before or after apply', async () => {
     const before = await bench()
     declare(before.slots)
     await before.ctx.plugin({ inject: [...inject], apply }).await()
     const entry = accountEntry(before.slots)
-    expect(entry.component).toBe(AccountSection)
-    expect(entry.options).toMatchObject({ id: 'account', order: 100 })
-    expect(resolveSlotLabel(entry.options.label)).toBe('账户')
+    expect(entry.component).toBe(SidebarAccount)
+    expect(entry.options).toMatchObject({ id: 'account', order: 0 })
     expect(entry.locale).toBe('account')
 
     const after = await bench()
     await after.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(after.slots.entries('settings.section')).toHaveLength(0)
+    expect(after.slots.entries('sidebar.footer.action')).toHaveLength(0)
     declare(after.slots)
     await Promise.resolve()
-    expect(accountEntry(after.slots).component).toBe(AccountSection)
+    expect(accountEntry(after.slots).component).toBe(SidebarAccount)
   })
 
   it('exposes the account snapshot and routes the injected actions to the controller', async () => {
@@ -103,22 +101,22 @@ describe('ui-account apply', () => {
     declare(b.slots)
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.locale.bind('account')('nav')).toBe('账户')
+    expect(b.locale.bind('account')('notSignedIn')).toBe('未登录')
     b.locale.setLocale('en')
-    expect(b.locale.bind('account')('nav')).toBe('Account')
+    expect(b.locale.bind('account')('notSignedIn')).toBe('Not signed in')
     b.locale.setLocale('zh')
     await fiber.dispose()
     expect(() => b.locale.register('account', 'zh', {})).not.toThrow()
     expect(() => b.locale.register('account', 'en', {})).not.toThrow()
   })
 
-  it('removes the section seat on teardown', async () => {
+  it('removes the seat on teardown', async () => {
     const b = await bench()
     declare(b.slots)
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.slots.entries('settings.section')).toHaveLength(1)
+    expect(b.slots.entries('sidebar.footer.action')).toHaveLength(1)
     await fiber.dispose()
-    expect(b.slots.entries('settings.section')).toHaveLength(0)
+    expect(b.slots.entries('sidebar.footer.action')).toHaveLength(0)
   })
 })

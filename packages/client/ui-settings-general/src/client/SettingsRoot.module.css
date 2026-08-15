@@ -4,16 +4,16 @@
    panel is a two-column layout — 188px nav rail + content column with a
    54px header and the 24px-padded options area. */
 
-/* Trigger row: match the other wide sidebar controls' compact vertical rhythm. */
+/* Trigger pill: compact content-width row (icon + label) pinned to the
+   footer's far right, matching the account seat's 34px rhythm. */
 .trigger {
   flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  width: calc(100% + 8px);
   height: 34px;
-  margin: 4px -4px 4px;
-  padding: 6px 2px 6px 10px;
+  margin: 0;
+  padding: 6px 10px;
   box-sizing: border-box;
   border: none;
   border-radius: 12px;

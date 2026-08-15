@@ -51,3 +51,10 @@ export * from './icons/index.tsx'
 export { cn } from './components/ui/cn.ts'
 export { ShadcnButton } from './components/ui/button.tsx'
 export type { ShadcnButtonProps, ShadcnButtonVariant, ShadcnButtonSize } from './components/ui/button.tsx'
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuPortal,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from './components/ui/dropdown-menu.tsx'

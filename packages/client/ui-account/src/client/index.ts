@@ -1,11 +1,10 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: pulls ctx.locale into this program.
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-// Type-only: pulls the settings slot declarations (the `settings.section`
-// SlotMap entry) into this program.
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import { AccountSection } from './AccountSection.tsx'
-import type { AccountSectionInjected } from './AccountSection.tsx'
+// Type-only: pulls the sidebar footer.action slot declaration into this program.
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+import { SidebarAccount } from './SidebarAccount.tsx'
+import type { SidebarAccountInjected } from './SidebarAccount.tsx'
 import { AccountController, fetchAccountApi } from './account-store.ts'
 import { en, zh, type AccountKey } from './locales.ts'
 
@@ -21,27 +20,27 @@ export const inject = ['slots', 'locale']
 
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-account: dictionaries')
-  const t = ctx.locale.bind(NS)
 
   // The account lifecycle (identity read, login poll, logout) lives in a
-  // registrant-owned controller; the section renders its snapshot and calls
-  // its actions only. Disposal stops any in-flight poll on unload.
+  // registrant-owned controller; the seat renders its snapshot and calls its
+  // actions only. Disposal stops any in-flight poll on unload.
   const controller = new AccountController(fetchAccountApi())
   ctx.effect(() => () => { controller.dispose() }, 'ui-account: controller')
 
-  const injected = (): AccountSectionInjected => ({
+  const injected = (): SidebarAccountInjected => ({
     hooks: { account: controller.store },
     load: () => controller.load(),
     login: () => controller.login(),
     logout: () => controller.logout(),
   })
 
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
+  // The account seat is a sidebar foot action (beside Settings). It is the
+  // single account surface now — the settings-section page is gone.
+  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+    name: 'sidebar.footer.action',
     id: 'account',
-    order: 100,
-    label: () => t('nav'),
+    order: 0,
     locale: NS,
     inject: injected,
-  }, AccountSection))
+  }, SidebarAccount))
 }
