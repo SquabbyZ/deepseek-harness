@@ -1,4 +1,4 @@
-<div class="_markdown_404681">
+<div class="prose">
   <h1>
     #text "H1 with "
     <code>

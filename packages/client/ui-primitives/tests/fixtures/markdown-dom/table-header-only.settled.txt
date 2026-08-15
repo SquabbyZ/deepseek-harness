@@ -1,5 +1,5 @@
-<div class="_markdown_404681">
-  <div class="_tableScroll_404681">
+<div class="prose">
+  <div class="max-w-full overflow-x-auto overscroll-x-contain prose-table-scroll">
     <table>
       <thead>
         <tr>

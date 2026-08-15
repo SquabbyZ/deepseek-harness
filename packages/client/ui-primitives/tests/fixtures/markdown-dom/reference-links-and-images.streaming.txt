@@ -1,4 +1,4 @@
-<div class="_markdown_404681">
+<div class="prose">
   <p>
     #text "A "
     <a href="https://example.com/ref" rel="noopener noreferrer" target="_blank">
@@ -13,4 +13,4 @@
   <p>
     #text "[missing full][nope], [missing collapsed][], ![missing image][gone]."
   <p>
-    <img alt="ref image" class="_image_404681" decoding="async" loading="lazy" referrerpolicy="no-referrer" src="https://example.com/ref.png">
+    <img alt="ref image" class="block w-auto max-w-full h-auto m-0 rounded-[8px] bg-[var(--dsw-alias-bg-base)] object-contain" decoding="async" loading="lazy" referrerpolicy="no-referrer" src="https://example.com/ref.png">

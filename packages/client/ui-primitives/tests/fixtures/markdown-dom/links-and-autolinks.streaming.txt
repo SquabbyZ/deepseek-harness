@@ -1,4 +1,4 @@
-<div class="_markdown_404681">
+<div class="prose">
   <p>
     <a href="https://example.com" rel="noopener noreferrer" target="_blank">
       #text "https ok"
