@@ -89,3 +89,38 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
+
+/* --- Global background / watermark slots --- */
+
+/* Reserved app-level slots. The tiled background is applied by the theme
+ * presenter as an inline `url(...)` on body (overriding this `none`); the
+ * watermark slot is reserved for a later pass and left unset here. */
+:root {
+  --app-background-image: none;
+  --app-watermark: none;
+}
+
+/* Full-viewport tiled background layer, mounted as the first child of the app
+ * shell so it sits behind the AppFrame. #root creates no stacking context, so
+ * z-index: -1 keeps the layer in the root stacking context — behind all
+ * content, above the canvas background. It never intercepts pointer events. */
+.app-background-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--app-background-image);
+  background-repeat: repeat;
+  background-size: auto;
+}
+
+/* Reserved bottom-right anchor for a future Live2D avatar. Empty for now; sits
+ * above app content (the frame overlay layer uses z-index 20) but below modal
+ * surfaces, and never intercepts pointer events. */
+.app-live2d-anchor {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  pointer-events: none;
+}

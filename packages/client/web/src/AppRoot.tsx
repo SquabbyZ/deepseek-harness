@@ -32,7 +32,16 @@ export function AppRoot(props: AppRootProps) {
   const error = useSyncExternalStore(props.error.subscribe, props.error.getSnapshot)
   const failed = Object.entries(status).filter(([, s]) => s === 'failed')
 
-  if (settled) return <>{props.renderApp()}</>
+  if (settled) return (
+    <>
+      {/* Global background layer + reserved Live2D anchor, mounted before the
+          real UI (renderApp → the 'root' slot / AppFrame). Both are
+          non-focusable and never intercept pointer events. */}
+      <div className="app-background-layer" aria-hidden="true" />
+      <div className="app-live2d-anchor" data-live2d-mount />
+      {props.renderApp()}
+    </>
+  )
 
   const loud = error !== undefined || failed.length > 0
 

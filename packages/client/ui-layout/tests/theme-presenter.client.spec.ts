@@ -6,15 +6,20 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { SkinId, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { DARK_ATTRIBUTE, SKIN_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
+import { BACKGROUND_IMAGE_PROPERTY, DARK_ATTRIBUTE, SKIN_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
 
 const LIGHT_THEME_COLOR = 'rgb(255, 255, 255)'
 const DARK_THEME_COLOR = 'rgb(21, 21, 23)'
 
-function snapshot(colorScheme: 'light' | 'dark', tokens: Record<string, string> = {}, skin: SkinId = 'default'): ThemeSnapshot {
+function snapshot(
+  colorScheme: 'light' | 'dark',
+  tokens: Record<string, string> = {},
+  skin: SkinId = 'default',
+  background = '',
+): ThemeSnapshot {
   // The presenter must key off colorScheme, not the id — keep them distinct.
   const active = { id: `${colorScheme}-test`, colorScheme, tokens }
-  return { preference: colorScheme, skin, active, themes: [active], revision: 1 }
+  return { preference: colorScheme, skin, background, active, themes: [active], revision: 1 }
 }
 
 function clearThemePresentation(): void {
@@ -100,5 +105,15 @@ describe('ThemePresenter', () => {
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
     presenter.dispose()
     expect(document.body.hasAttribute(SKIN_ATTRIBUTE)).toBe(false)
+  })
+
+  it('applies the background image as inline url(...), clears to none when empty, and removes on dispose', () => {
+    const presenter = new ThemePresenter()
+    presenter.apply(snapshot('light', {}, 'default', 'https://example.com/bg.png'))
+    expect(document.body.style.getPropertyValue(BACKGROUND_IMAGE_PROPERTY)).toBe('url(https://example.com/bg.png)')
+    presenter.apply(snapshot('light', {}, 'default', ''))
+    expect(document.body.style.getPropertyValue(BACKGROUND_IMAGE_PROPERTY)).toBe('none')
+    presenter.dispose()
+    expect(document.body.style.getPropertyValue(BACKGROUND_IMAGE_PROPERTY)).toBe('')
   })
 })

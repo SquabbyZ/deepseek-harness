@@ -2,10 +2,11 @@
  * Global theme DOM applier: projects the resolved ThemeSnapshot onto the
  * document — `html { color-scheme }` for native UA chrome (scrollbars, form
  * controls), `body[data-ds-dark-theme]` for the token palette, the active
- * theme's alias-token overrides as inline CSS variables on body, and one
- * presenter-owned `meta[name="theme-color"]` for surrounding browser UI. Pure
- * DOM writes, no React involvement; the presenter only ever retracts what it
- * wrote itself, so foreign attributes, metadata, and inline styles survive.
+ * theme's alias-token overrides as inline CSS variables on body, the global
+ * tiled background image as `--app-background-image` (`url(...)` wrapped), and
+ * one presenter-owned `meta[name="theme-color"]` for surrounding browser UI.
+ * Pure DOM writes, no React involvement; the presenter only ever retracts what
+ * it wrote itself, so foreign attributes, metadata, and inline styles survive.
  */
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 
@@ -14,6 +15,9 @@ export const DARK_ATTRIBUTE = 'data-ds-dark-theme'
 
 /** Body attribute selecting the skin layer (default/glass/cyber). */
 export const SKIN_ATTRIBUTE = 'data-skin'
+
+/** Body inline property carrying the global tiled background image (`url(...)` wrapped). */
+export const BACKGROUND_IMAGE_PROPERTY = '--app-background-image'
 
 /** Applies theme snapshots to the document; one instance per plugin fiber. */
 export class ThemePresenter {
@@ -34,7 +38,9 @@ export class ThemePresenter {
    * resolved upstream), then replace the previously applied token variables
    * with `active.tokens`. Browser theme-color metadata follows the computed
    * body background after those writes, so the rendered palette remains the
-   * color authority.
+   * color authority. The tiled background image rides the same pass: the
+   * snapshot's raw URL/data-URL is wrapped in `url(...)` here (the service
+   * stores it bare) and `none` clears it.
    * @param snapshot - resolved theme snapshot from ctx.theme.
    */
   apply(snapshot: ThemeSnapshot): void {
@@ -44,6 +50,7 @@ export class ThemePresenter {
     if (scheme === 'dark') body.setAttribute(DARK_ATTRIBUTE, '')
     else body.removeAttribute(DARK_ATTRIBUTE)
     body.setAttribute(SKIN_ATTRIBUTE, snapshot.skin)
+    body.style.setProperty(BACKGROUND_IMAGE_PROPERTY, snapshot.background ? `url(${snapshot.background})` : 'none')
     for (const name of this.appliedTokens) body.style.removeProperty(name)
     this.appliedTokens = []
     for (const [name, value] of Object.entries(snapshot.active.tokens)) {
@@ -60,6 +67,7 @@ export class ThemePresenter {
     const body = document.body
     body.removeAttribute(DARK_ATTRIBUTE)
     body.removeAttribute(SKIN_ATTRIBUTE)
+    body.style.removeProperty(BACKGROUND_IMAGE_PROPERTY)
     for (const name of this.appliedTokens) body.style.removeProperty(name)
     this.appliedTokens = []
     this.themeColorMeta.remove()
