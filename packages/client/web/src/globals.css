@@ -1,0 +1,89 @@
+/* Tailwind v4 entry (spike): shadcn-style semantic tokens mapped onto the
+ * existing --dsw-* design tokens. The --dsw-alias-* variables already flip
+ * with body[data-ds-dark-theme], so the semantic colors track light/dark
+ * without a second theme mechanism; the .dark block below is the canonical
+ * shadcn surface and mirrors :root for the same reason. */
+@import 'tailwindcss';
+
+/* Required: ui-primitives source lives OUTSIDE apps/web (the Vite root), so
+ * Tailwind's automatic source detection does not reach it. Explicitly register
+ * the package source tree (resolved relative to this CSS file). */
+@source "../../ui-primitives/src";
+
+/* Class-based dark variant (canonical shadcn); the app itself toggles dark via
+ * body[data-ds-dark-theme], which the --dsw-* aliases already respect. */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: var(--dsw-alias-bg-base);
+  --foreground: var(--dsw-alias-label-primary);
+  --card: var(--dsw-alias-bg-layer-1);
+  --card-foreground: var(--dsw-alias-label-primary);
+  --popover: var(--dsw-alias-bg-layer-3);
+  --popover-foreground: var(--dsw-alias-label-primary);
+  --primary: var(--dsw-static-deepseek-500);
+  --primary-foreground: var(--dsw-static-neutral-bluish-00);
+  --secondary: var(--dsw-static-neutral-bluish-100);
+  --secondary-foreground: var(--dsw-static-neutral-bluish-1000);
+  --muted: var(--dsw-static-neutral-bluish-100);
+  --muted-foreground: var(--dsw-alias-label-secondary);
+  --accent: var(--dsw-static-neutral-bluish-100);
+  --accent-foreground: var(--dsw-static-neutral-bluish-1000);
+  --destructive: var(--dsw-alias-state-error-primary);
+  --destructive-foreground: var(--dsw-static-neutral-bluish-00);
+  --border: var(--dsw-alias-border-l2);
+  --input: var(--dsw-alias-border-l3);
+  --ring: var(--dsw-static-deepseek-500);
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: var(--dsw-alias-bg-base);
+  --foreground: var(--dsw-alias-label-primary);
+  --card: var(--dsw-alias-bg-layer-1);
+  --card-foreground: var(--dsw-alias-label-primary);
+  --popover: var(--dsw-alias-bg-layer-3);
+  --popover-foreground: var(--dsw-alias-label-primary);
+  --primary: var(--dsw-static-deepseek-400);
+  --primary-foreground: var(--dsw-static-neutral-bluish-1000);
+  --secondary: var(--dsw-static-neutral-bluish-800);
+  --secondary-foreground: var(--dsw-static-neutral-bluish-50);
+  --muted: var(--dsw-static-neutral-bluish-800);
+  --muted-foreground: var(--dsw-static-neutral-bluish-400);
+  --accent: var(--dsw-static-neutral-bluish-800);
+  --accent-foreground: var(--dsw-static-neutral-bluish-50);
+  --destructive: var(--dsw-alias-state-error-secondary);
+  --destructive-foreground: var(--dsw-static-neutral-bluish-50);
+  --border: var(--dsw-alias-border-l2);
+  --input: var(--dsw-alias-border-l3);
+  --ring: var(--dsw-static-deepseek-400);
+}
+
+/* Map shadcn semantic colors to Tailwind theme colors. `inline` keeps the
+ * var() reference at the usage site so bg-primary resolves to the runtime
+ * --primary (which itself tracks the --dsw-* aliases). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}

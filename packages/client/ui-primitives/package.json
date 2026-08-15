@@ -46,13 +46,14 @@
     "micromark-util-types": "^2.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "shiki": "^4.3.1"
+    "shiki": "^4.3.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@types/react": "~18.3.1",
-    "@types/react-dom": "~18.3.0",
-    "@deepseek-ai/cordis": "workspace:^"
+    "@types/react-dom": "~18.3.0"
   },
   "files": [
     "lib/index.js",
@@ -60,7 +61,7 @@
     "lib/types/**/*.d.ts"
   ],
   "peerDependencies": {
-    "@deepseek-ai/dsh-invariants": "workspace:^",
-    "@deepseek-ai/cordis": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-invariants": "workspace:^"
   }
 }
