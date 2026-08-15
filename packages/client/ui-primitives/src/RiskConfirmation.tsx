@@ -5,7 +5,6 @@
 import { Button } from './Button.tsx'
 import { IconWarningOutline16 } from './icons/index.tsx'
 import { Modal } from './Modal.tsx'
-import css from './RiskConfirmation.module.css'
 
 export interface RiskConfirmationProps {
   open: boolean
@@ -43,16 +42,16 @@ export function RiskConfirmation({
       open={open}
       onClose={onCancel}
       title={title}
-      className={css.confirmation ?? ''}
-      contentClassName={css.confirmationContent ?? ''}
+      className={CONFIRMATION}
+      contentClassName={CONFIRMATION_CONTENT}
       footer={(
         <>
-          <Button variant="outline" className={css.modalAction} onClick={onCancel}>
+          <Button variant="outline" className={MODAL_ACTION} onClick={onCancel}>
             {cancelLabel}
           </Button>
           <Button
             variant="primary"
-            className={css.confirmAction}
+            className={CONFIRM_ACTION}
             disabled={disabled || !acknowledged}
             onClick={onConfirm}
           >
@@ -61,13 +60,14 @@ export function RiskConfirmation({
         </>
       )}
     >
-      <div className={css.warning}>
-        <IconWarningOutline16 size={18} className={css.warningIcon} />
-        <p>{description}</p>
+      <div className={WARNING}>
+        <IconWarningOutline16 size={18} className={WARNING_ICON} />
+        <p className="m-0">{description}</p>
       </div>
-      <label className={css.acknowledgement}>
+      <label className={ACKNOWLEDGEMENT}>
         <input
           type="checkbox"
+          className={ACKNOWLEDGEMENT_INPUT}
           checked={acknowledged}
           disabled={disabled}
           autoFocus
@@ -78,3 +78,22 @@ export function RiskConfirmation({
     </Modal>
   )
 }
+
+const CONFIRMATION =
+  'w-[min(440px,100%)] max-h-[calc(100vh_-_48px)] supports-[height:100dvh]:max-h-[calc(100dvh_-_48px)] overflow-hidden'
+
+const CONFIRMATION_CONTENT = 'min-h-0 overflow-y-auto overscroll-contain'
+
+const WARNING = 'flex items-start gap-2.5 text-[var(--dsw-alias-label-secondary)] text-sm leading-[22px]'
+
+const WARNING_ICON = 'flex-none mt-0.5 text-[var(--dsw-alias-state-error-primary)]'
+
+const ACKNOWLEDGEMENT =
+  'flex items-start gap-2.5 mt-5 text-[var(--dsw-alias-label-primary)] text-sm leading-[22px] cursor-pointer'
+
+const ACKNOWLEDGEMENT_INPUT =
+  'flex-none size-4 mt-[3px] accent-[var(--dsw-alias-button-primary-fill)] cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--dsw-alias-border-l4)] focus-visible:outline-offset-2 disabled:cursor-default'
+
+const MODAL_ACTION = 'min-w-[72px]'
+
+const CONFIRM_ACTION = 'min-w-[136px]'

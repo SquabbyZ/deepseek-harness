@@ -13,7 +13,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { writeClipboard } from './clipboard.ts'
 import { usePointerGrace } from './pointer-grace.ts'
-import css from './HoverCard.module.css'
+import { cn } from './components/ui/cn.ts'
 
 /**
  * Render an anchor with a hover-triggered preview card.
@@ -149,7 +149,7 @@ export function HoverCard({
   const card = open && pos !== null && (
     <div
       ref={cardRef}
-      className={`${css.card}${copyable ? ` ${css.copyable}` : ''}${copied ? ` ${css.feedback}` : ''}`}
+      className={cn(CARD, copyable && COPYABLE, copied && FEEDBACK)}
       style={{ ...pos, minHeight: copied && copyHeightRef.current !== null ? copyHeightRef.current : undefined }}
       role={copyable ? 'button' : undefined}
       tabIndex={copyable ? 0 : undefined}
@@ -173,14 +173,14 @@ export function HoverCard({
         }
         : undefined}
     >
-      {copied ? <span className={css.copied} aria-hidden="true">{copiedLabel}</span> : content}
+      {copied ? <span className={COPIED} aria-hidden="true">{copiedLabel}</span> : content}
     </div>
   )
 
   return (
     <span
       ref={rootRef}
-      className={css.root}
+      className={ROOT}
       onPointerEnter={() => {
         if (disabled) return
         // Coming back inside during the grace (the gap, or the card itself)
@@ -209,8 +209,27 @@ export function HoverCard({
       }}
     >
       {anchor}
-      {open && copyable && <span className={css.status} role="status">{copied ? copiedLabel : ''}</span>}
+      {open && copyable && <span className={STATUS} role="status">{copied ? copiedLabel : ''}</span>}
       {card !== false && createPortal(card, document.body)}
     </span>
   )
 }
+
+const ROOT = 'relative block'
+
+// Preview card (figma session hover card): 244 wide, r12, pad 12/16, the menu
+// card's elevation. Surface is #2C2C2E in both themes (figma value, light/dark
+// identical), so it is a constant, not a theme token. Hit-testable on purpose:
+// resting the pointer on the card holds it open (HoverCard's grace close),
+// which a `pointer-events: none` card cannot do.
+const CARD =
+  'fixed z-[100] w-[244px] px-4 py-3 rounded-[12px] bg-[#2C2C2E] shadow-[var(--dsw-shadow-lv3)]'
+
+const COPYABLE =
+  'cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--dsw-alias-state-business-primary)] focus-visible:outline-offset-2'
+
+const FEEDBACK = 'flex items-center justify-center'
+
+const COPIED = 'text-[#FFFFFF] text-sm leading-5 text-center'
+
+const STATUS = 'absolute w-px h-px overflow-hidden [clip:rect(0_0_0_0)] whitespace-nowrap'

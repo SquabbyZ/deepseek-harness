@@ -3,8 +3,6 @@
 // A null/connecting state upstream should stay quiet too — only an actual
 // outage (reconnect backoff in progress) shows the strip.
 
-import css from './ConnectionBanner.module.css'
-
 /**
  * Render the reconnecting banner.
  * @param props.reconnecting - true while the connection is in backoff/retry.
@@ -17,5 +15,8 @@ export function ConnectionBanner({ reconnecting, label = '连接已断开，正�
   label?: string | undefined
 }) {
   if (!reconnecting) return null
-  return <div className={css.banner}>{label}</div>
+  return <div className={BANNER}>{label}</div>
 }
+
+const BANNER =
+  'fixed top-0 left-0 right-0 z-[100] py-1 px-3 text-center text-xs leading-[18px] bg-[var(--dsw-alias-state-error-primary)] text-[var(--dsw-alias-label-primary-foreground)]'

@@ -9,7 +9,6 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import css from './OnboardingSurface.module.css'
 
 /**
  * Render the onboarding takeover chrome (mask + opaque stage) around one
@@ -26,9 +25,15 @@ export function OnboardingSurface({ children }: { children: ReactNode }) {
   }, [])
 
   return createPortal((
-    <div className={css.onboardingOverlay} role="presentation">
-      <div className={css.onboardingMask} aria-hidden="true" />
-      <div className={css.onboardingStage}>{children}</div>
+    <div className={OVERLAY} role="presentation">
+      <div className={MASK} aria-hidden="true" />
+      <div className={STAGE}>{children}</div>
     </div>
   ), document.body)
 }
+
+const OVERLAY = 'fixed inset-0 z-[1100]'
+
+const MASK = 'absolute left-0 right-0 top-20 bottom-0 bg-[rgba(0,0,0,0.24)] backdrop-blur-[2px]'
+
+const STAGE = 'absolute z-[1] inset-0 flex justify-center overflow-hidden bg-[var(--dsw-alias-bg-layer-1)]'

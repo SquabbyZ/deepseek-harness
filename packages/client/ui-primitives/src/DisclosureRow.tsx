@@ -1,7 +1,6 @@
 import { type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
-import clsx from 'clsx'
+import { cn } from './components/ui/cn.ts'
 import { IconChevronDownOutline14 } from './icons/index.tsx'
-import css from './DisclosureRow.module.css'
 
 /** Shared 24px disclosure chrome for compact flow rows. */
 export interface DisclosureRowProps {
@@ -60,8 +59,8 @@ export function DisclosureRow({
   const collapsedLeading = previewChevron
     ? (
       <>
-        <span className={css.iconIdle}>{icon}</span>
-        <IconChevronDownOutline14 className={clsx(chevronClassName, css.chevronHover)} />
+        <span className={ICON_IDLE}>{icon}</span>
+        <IconChevronDownOutline14 className={cn(chevronClassName, CHEVRON_HOVER)} />
       </>
     )
     : icon
@@ -70,9 +69,9 @@ export function DisclosureRow({
     : collapsedLeading
 
   return (
-    <div className={clsx(css.root, className)} data-open={open || undefined}>
+    <div className={cn(ROOT, className)} data-open={open || undefined}>
       <div
-        className={clsx(css.row, rowClassName)}
+        className={cn(ROW, rowClassName)}
         data-disclosure-row
         data-expandable={rowExpands || undefined}
         role={rowExpands ? 'button' : undefined}
@@ -84,21 +83,37 @@ export function DisclosureRow({
         {expandable && !rowExpands ? (
           <button
             type="button"
-            className={clsx(css.leading, leadingClassName)}
+            className={cn(LEADING, 'cursor-pointer', leadingClassName)}
             aria-expanded={open}
             onClick={toggleFromLeading}
           >
             {leading}
           </button>
         ) : (
-          <span className={clsx(css.leading, leadingClassName)}>
+          <span className={cn(LEADING, leadingClassName)}>
             {leading}
           </span>
         )}
-        <span className={clsx(css.title, titleClassName)}>{title}</span>
+        <span className={cn(TITLE, titleClassName)}>{title}</span>
         {(keepContentWhenOpen || !open) && collapsedContent}
       </div>
       {open && children}
     </div>
   )
 }
+
+const ROOT = 'flex flex-col w-full min-w-0'
+
+const ROW =
+  'group relative overflow-hidden flex items-center h-6 min-w-0 data-[expandable]:cursor-pointer'
+
+const LEADING =
+  'relative flex-none size-4 inline-flex items-center justify-center mr-1.5 p-0 border-none bg-transparent text-[var(--dsw-alias-label-tertiary)]'
+
+const ICON_IDLE =
+  'inline-flex opacity-100 transition-opacity duration-100 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:opacity-0'
+
+const CHEVRON_HOVER =
+  'absolute inset-0 m-auto opacity-0 transition-opacity duration-100 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:opacity-100'
+
+const TITLE = 'flex-none text-sm leading-6 text-[var(--dsw-alias-label-secondary)]'
