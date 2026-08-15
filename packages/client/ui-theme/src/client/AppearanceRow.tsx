@@ -1,5 +1,5 @@
 /**
- * Appearance preference row registered into the General section item slot
+ * Theme preference row registered into the Personalization section item slot
  * (figma 501:30012 'Frame 2117131228'): title + three preference cubes.
  * Registered by this package — the theme feature owns its own settings
  * surface. Selection follows the persisted preference, never the resolved
@@ -24,14 +24,14 @@ export interface AppearanceRowInjected {
 
 /** Full component props: runtime share + store share + locale seat + injected face. */
 export type AppearanceRowComponentProps =
-  PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createAppearanceRowStore>>
+  PropsRuntime<'settings.personalization.item'> & PropsStore<ReturnType<typeof createAppearanceRowStore>>
   & PropsLocale<'settings.theme'> & AppearanceRowInjected
 
 /** Cube order and icons (figma 501:30015-30017: Light, Dark, System). */
 const CUBES: readonly { id: ThemePreference; labelKey: ThemeKey; Icon: typeof IconLightOutline16 }[] = [
-  { id: 'light', labelKey: 'appearance.light', Icon: IconLightOutline16 },
-  { id: 'dark', labelKey: 'appearance.dark', Icon: IconDarkOutline16 },
-  { id: 'system', labelKey: 'appearance.system', Icon: IconFollowsystemOutline16 },
+  { id: 'light', labelKey: 'theme.light', Icon: IconLightOutline16 },
+  { id: 'dark', labelKey: 'theme.dark', Icon: IconDarkOutline16 },
+  { id: 'system', labelKey: 'theme.system', Icon: IconFollowsystemOutline16 },
 ]
 
 /**
@@ -43,7 +43,7 @@ export function AppearanceRow({ t, setTheme, useStore }: AppearanceRowComponentP
   const preference = useStore(s => s.preference)
   return (
     <div className={css.group}>
-      <div className={css.title}>{t('appearance.title')}</div>
+      <div className={css.title}>{t('theme.title')}</div>
       <div className={css.cubeRow}>
         {CUBES.map(({ id, labelKey, Icon }) => (
           <button

@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import type { GeneralSectionComponentProps } from '../src/client/GeneralSection.tsx'
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
+import type { PersonalizationSectionComponentProps } from '../src/client/PersonalizationSection.tsx'
+import { PersonalizationSection } from '../src/client/PersonalizationSection.tsx'
 import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.tsx'
 import type { TriggerContentProps } from '../src/client/chrome.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
@@ -55,6 +57,23 @@ describe('GeneralSection', () => {
     const { renderSlot } = mount()
     expect(renderSlot).toHaveBeenCalledWith('settings.general.item', {})
     expect(screen.getByTestId('slot-settings.general.item')).toBeTruthy()
+  })
+})
+
+describe('PersonalizationSection', () => {
+  function mount() {
+    const renderSlot = vi.fn(
+      ((key: string) => <div data-testid={`slot-${key}`} />) as PersonalizationSectionComponentProps['renderSlot'],
+    )
+    const props: PersonalizationSectionComponentProps = { ...kit, renderSlot, close: vi.fn() }
+    const view = render(<PersonalizationSection {...props} />)
+    return { view, renderSlot }
+  }
+
+  it('renders the item slot as the section body', () => {
+    const { renderSlot } = mount()
+    expect(renderSlot).toHaveBeenCalledWith('settings.personalization.item', {})
+    expect(screen.getByTestId('slot-settings.personalization.item')).toBeTruthy()
   })
 })
 

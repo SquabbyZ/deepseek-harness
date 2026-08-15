@@ -8,6 +8,7 @@ import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-general/client'
 import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.tsx'
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
+import { PersonalizationSection } from '../src/client/PersonalizationSection.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from '../src/client/SettingsDocumentAction.tsx'
 
@@ -73,6 +74,10 @@ function generalEntry(slots: SlotRegistry) {
   return slots.entries('settings.section').find(e => e.component === GeneralSection)
 }
 
+function personalizationEntry(slots: SlotRegistry) {
+  return slots.entries('settings.section').find(e => e.component === PersonalizationSection)
+}
+
 describe('ui-settings-general apply', () => {
   it('declares the services it uses', () => {
     expect(inject).toEqual(['slots', 'locale', 'connection'])
@@ -91,6 +96,11 @@ describe('ui-settings-general apply', () => {
     expect(resolveSlotLabel(entry.options.label)).toBe('通用设置')
     expect(before.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
     expect(before.slots.entries('settings.general.item')).toEqual([])
+    const personalization = personalizationEntry(before.slots)!
+    expect(personalization.options).toMatchObject({ id: 'personalization', order: 1 })
+    expect(resolveSlotLabel(personalization.options.label)).toBe('个性化')
+    expect(before.slots.spec('settings.personalization.item')).toEqual({ kind: 'list', scope: 'root' })
+    expect(before.slots.entries('settings.personalization.item')).toEqual([])
     // The onboarding hole stays declared for feature-owned steps; this plugin
     // no longer seats one.
     expect(before.slots.entries('settings.onboarding')).toEqual([])
@@ -109,11 +119,13 @@ describe('ui-settings-general apply', () => {
     await Promise.resolve()
     for (const [name, component] of SEATS) {
       expect(after.slots.entries(name)[0]!.component).toBe(component)
-      // The self-inflicted ledger notifications hit the duplicate guard.
-      expect(after.slots.entries(name)).toHaveLength(1)
+      // The self-inflicted ledger notifications hit the duplicate guard; the
+      // section list holds two entries (general + personalization).
+      expect(after.slots.entries(name)).toHaveLength(name === 'settings.section' ? 2 : 1)
     }
     await vi.waitFor(() => {
       expect(after.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
+      expect(after.slots.spec('settings.personalization.item')).toEqual({ kind: 'list', scope: 'root' })
     })
   })
 
@@ -142,11 +154,13 @@ describe('ui-settings-general apply', () => {
     // subscription), not re-registration.
     SEATS.forEach(([name], i) => {
       expect(b.slots.getVersion(name)).toBe(zhVersions[i]!)
-      expect(b.slots.entries(name)).toHaveLength(1)
+      expect(b.slots.entries(name)).toHaveLength(name === 'settings.section' ? 2 : 1)
     })
     expect(resolveSlotLabel(generalEntry(b.slots)!.options.label)).toBe('General')
+    expect(resolveSlotLabel(personalizationEntry(b.slots)!.options.label)).toBe('Personalization')
     b.locale.setLocale('zh')
     expect(resolveSlotLabel(generalEntry(b.slots)!.options.label)).toBe('通用设置')
+    expect(resolveSlotLabel(personalizationEntry(b.slots)!.options.label)).toBe('个性化')
   })
 
   it('refreshes loaded document availability on reconnect without reading it eagerly', async () => {
@@ -183,6 +197,7 @@ describe('ui-settings-general apply', () => {
     redeclare()
     for (const [name] of SEATS) expect(b.slots.entries(name)).toHaveLength(0)
     expect(b.slots.spec('settings.general.item')).toBeUndefined()
+    expect(b.slots.spec('settings.personalization.item')).toBeUndefined()
     declare(b.slots)
     await Promise.resolve()
     for (const [name, component] of SEATS) {
@@ -190,6 +205,8 @@ describe('ui-settings-general apply', () => {
     }
     expect(b.slots.entries('settings.general.item')).toEqual([])
     expect(b.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
+    expect(b.slots.entries('settings.personalization.item')).toEqual([])
+    expect(b.slots.spec('settings.personalization.item')).toEqual({ kind: 'list', scope: 'root' })
     // The recovered registrations still ride the locale path.
     b.locale.setLocale('en')
     expect(resolveSlotLabel(generalEntry(b.slots)!.options.label)).toBe('General')
@@ -202,8 +219,10 @@ describe('ui-settings-general apply', () => {
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(b.slots.spec('settings.general.item')).toBeDefined()
+    expect(b.slots.spec('settings.personalization.item')).toBeDefined()
     await fiber.dispose()
     for (const [name] of SEATS) expect(b.slots.entries(name)).toHaveLength(0)
     expect(b.slots.spec('settings.general.item')).toBeUndefined()
+    expect(b.slots.spec('settings.personalization.item')).toBeUndefined()
   })
 })

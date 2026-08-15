@@ -13,10 +13,10 @@ import type { ThemePreference } from '../src/client/index.ts'
 afterEach(cleanup)
 
 const COPY: Record<string, string> = {
-  'appearance.title': 'Appearance',
-  'appearance.light': 'Light',
-  'appearance.dark': 'Dark',
-  'appearance.system': 'System',
+  'theme.title': 'Theme',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
+  'theme.system': 'System',
 }
 
 /** Empty global standard-kit hooks (the row reads neither). */
@@ -56,7 +56,7 @@ const pressed = (name: RegExp): string | null =>
 describe('AppearanceRow', () => {
   it('renders the title and three cubes with the preference cube selected', () => {
     mount('dark')
-    expect(screen.getByText('Appearance')).toBeDefined()
+    expect(screen.getByText('Theme')).toBeDefined()
     expect(pressed(/Dark/)).toBe('true')
     expect(pressed(/Light/)).toBe('false')
     expect(pressed(/System/)).toBe('false')

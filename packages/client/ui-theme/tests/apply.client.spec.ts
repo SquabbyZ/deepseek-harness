@@ -17,7 +17,7 @@ import type { createAppearanceRowStore } from '../src/client/settings-store.ts'
 // the shipped Chinese copy, so they state the browser they assume.
 usePinnedBrowserLanguages('zh-CN')
 
-const SLOT = 'settings.general.item'
+const SLOT = 'settings.personalization.item'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -63,7 +63,7 @@ async function bench(isLoopback = true) {
   }
 }
 
-/** Stand in for the settings shell: declare the General item slot from root. */
+/** Stand in for the settings shell: declare the Personalization item slot from root. */
 function declareItems(slots: SlotRegistry): () => void {
   return slots.register(
     { name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never,
@@ -90,9 +90,9 @@ describe('ui-theme apply', () => {
     const before = await bench()
     declareItems(before.slots)
     await before.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(before.locale.bind(SETTINGS_NS)('appearance.title')).toBe('外观')
+    expect(before.locale.bind(SETTINGS_NS)('theme.title')).toBe('主题')
     before.locale.setLocale('en')
-    expect(before.locale.bind(SETTINGS_NS)('appearance.title')).toBe('Appearance')
+    expect(before.locale.bind(SETTINGS_NS)('theme.title')).toBe('Theme')
     const entry = before.slots.entries(SLOT).find(e => e.component === AppearanceRow)!
     expect(entry.options).toMatchObject({ id: 'appearance', order: 10 })
 
@@ -200,7 +200,7 @@ describe('ui-theme apply', () => {
     await fiber.dispose()
     expect(b.slots.entries(SLOT)).toHaveLength(0)
     // Dictionary disposal: translation falls back to the bare key.
-    expect(b.locale.bind(SETTINGS_NS)('appearance.title')).toBe('appearance.title')
+    expect(b.locale.bind(SETTINGS_NS)('theme.title')).toBe('theme.title')
 
     // Never-declared bench: the effect disposer's dispose arm stays undefined.
     const quiet = await bench()

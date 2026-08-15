@@ -4,8 +4,9 @@
  * `prefers-color-scheme`, and publishes immutable snapshots; it never touches
  * the DOM — ui-layout's presenter consumes the resolved snapshot. The Host
  * settings scope loads and stores the preference in the user-settings
- * document. The plugin also registers the Appearance preference row into the
- * settings General section — the theme feature owns its own settings surface.
+ * document. The plugin also registers the Theme preference row into the
+ * settings Personalization section — the theme feature owns its own settings
+ * surface.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
@@ -38,7 +39,7 @@ export const SETTINGS_NS = 'settings.theme'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** The Appearance settings row's copy. */
+    /** The Theme settings row's copy. */
     'settings.theme': ThemeKey
   }
 }
@@ -421,7 +422,7 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope
 
 /**
  * Client plugin body: provide the theme service and register the
- * feature-owned Appearance preference row into the General section's item
+ * feature-owned Theme preference row into the Personalization section's item
  * slot (a feature owns its settings surface).
  * @param ctx - client cordis context.
  */
@@ -447,8 +448,8 @@ export function apply(ctx: ClientContext): void {
       setTheme: (id) => { theme.setTheme(id) },
     }
   }
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
+  ctx.slots.inject('settings.personalization.item', () => ctx.slots.register({
+    name: 'settings.personalization.item',
     id: 'appearance',
     order: 10,
     store,
