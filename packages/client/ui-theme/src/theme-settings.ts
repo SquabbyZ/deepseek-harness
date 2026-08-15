@@ -49,12 +49,21 @@ export interface BackgroundCrop {
   h: number
 }
 
-/** Shape check for a crop region crossing the settings or registry boundary. */
+/** A finite fraction inside the documented [0, 1] range. */
+function isUnitFraction(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+}
+
+/**
+ * Shape check for a crop region crossing the settings or registry boundary:
+ * every field is a finite fraction in [0, 1], and width/height are positive
+ * (a zero-area box is not a crop).
+ */
 export function isBackgroundCrop(value: unknown): value is BackgroundCrop {
   if (typeof value !== 'object' || value === null) return false
-  const crop = value as Record<string, unknown>
-  return ['x', 'y', 'w', 'h'].every(key =>
-    typeof crop[key] === 'number' && Number.isFinite(crop[key]))
+  const { x, y, w, h } = value as Record<string, unknown>
+  return isUnitFraction(x) && isUnitFraction(y) && isUnitFraction(w) && isUnitFraction(h)
+    && w > 0 && h > 0
 }
 
 /** Durable theme section shared by the Host schema and the browser scope. */
@@ -71,12 +80,17 @@ export interface ThemeSettings {
   backgroundCrop: BackgroundCrop | null
 }
 
-/** Per-axis fraction schema; plain numbers, no step — drags produce long floats. */
+/**
+ * Per-axis fraction schema; plain numbers, no step — drags produce long floats.
+ * Each fraction is bounded to [0, 1] and width/height must be positive, so a
+ * zero-area or out-of-range box is rejected at the settings boundary instead
+ * of only being clamped at render.
+ */
 const BackgroundCropSchema: z<BackgroundCrop> = z.object({
-  x: z.number(),
-  y: z.number(),
-  w: z.number(),
-  h: z.number(),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  w: z.number().min(Number.MIN_VALUE).max(1),
+  h: z.number().min(Number.MIN_VALUE).max(1),
 })
 
 /** Durable theme schema; also the wire envelope the browser scope validates against. */

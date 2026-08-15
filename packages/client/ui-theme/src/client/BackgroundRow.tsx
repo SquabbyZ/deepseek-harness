@@ -99,6 +99,7 @@ export function BackgroundRow({ t, setBackground, setBackgroundName, setBackgrou
       if (typeof reader.result === 'string') {
         setBackground(reader.result)
         setBackgroundName(file.name)
+        setBackgroundCrop(null)
       }
     }
     reader.readAsDataURL(file)
@@ -156,11 +157,19 @@ export function BackgroundRow({ t, setBackground, setBackgroundName, setBackgrou
             className={css.urlInput}
             placeholder={t('background.urlPlaceholder')}
             value={urlValue}
-            onChange={(event) => { setBackground(event.target.value) }}
+            onChange={(event) => {
+              setBackground(event.target.value)
+              setBackgroundName('')
+              setBackgroundCrop(null)
+            }}
           />
         </label>
         {background !== '' && (
-          <button type="button" className={css.clear} onClick={() => { setBackground('') }}>
+          <button type="button" className={css.clear} onClick={() => {
+            setBackground('')
+            setBackgroundName('')
+            setBackgroundCrop(null)
+          }}>
             {t('background.clear')}
           </button>
         )}

@@ -30,6 +30,18 @@ describe('ui-theme host', () => {
     expect(ctx.settings.describe().map(row => row.ns)).not.toContain(ns)
   })
 
+  it('rejects an out-of-range or zero-area crop at the schema boundary', async () => {
+    const ctx = new Context()
+    await ctx.plugin(MemorySettings).await()
+    const fiber = ctx.plugin({ apply })
+    await fiber.await()
+    const ns = settingsNamespace(THEME_SETTINGS_NAMESPACE)
+    await expect(ctx.settings.update(ns, { backgroundCrop: { x: 0.1, y: 0.2, w: 1.5, h: 0.4 } })).rejects.toThrow()
+    await expect(ctx.settings.update(ns, { backgroundCrop: { x: 0.1, y: 0.2, w: 0, h: 0.4 } })).rejects.toThrow()
+    await expect(ctx.settings.update(ns, { backgroundCrop: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } })).resolves.toBeUndefined()
+    await fiber.dispose()
+  })
+
   it('renders the current durable preference and disposes the index transform', async () => {
     const ctx = new Context()
     await ctx.plugin(MemorySettings).await()

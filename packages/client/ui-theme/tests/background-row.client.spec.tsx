@@ -103,6 +103,22 @@ describe('BackgroundRow', () => {
     expect(b.setBackground).toHaveBeenCalledWith('')
   })
 
+  it('the clear button also resets the file name and crop', () => {
+    const b = mount('data:image/png;base64,AAAA', 'bg.png', { x: 0.25, y: 0.25, w: 0.5, h: 0.5 })
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(b.setBackground).toHaveBeenCalledWith('')
+    expect(b.setBackgroundName).toHaveBeenCalledWith('')
+    expect(b.setBackgroundCrop).toHaveBeenCalledWith(null)
+  })
+
+  it('entering a remote URL resets the file name and crop', () => {
+    const b = mount('data:image/png;base64,AAAA', 'bg.png', { x: 0.25, y: 0.25, w: 0.5, h: 0.5 })
+    fireEvent.change(urlInput(), { target: { value: 'https://example.com/bg.png' } })
+    expect(b.setBackground).toHaveBeenCalledWith('https://example.com/bg.png')
+    expect(b.setBackgroundName).toHaveBeenCalledWith('')
+    expect(b.setBackgroundCrop).toHaveBeenCalledWith(null)
+  })
+
   it('hides a data URL from the URL input and offers a clear button', () => {
     mount('data:image/png;base64,AAAA')
     expect(urlInput().value).toBe('')
@@ -132,6 +148,23 @@ describe('BackgroundRow', () => {
     fireEvent.change(screen.getByLabelText('Upload image'), { target: { files: [file] } })
     expect(b.setBackground).toHaveBeenCalledWith('data:image/png;base64,AAAA')
     expect(b.setBackgroundName).toHaveBeenCalledWith('bg.png')
+  })
+
+  it('uploading a local file resets the crop', () => {
+    class MockFileReader {
+      result: string | null = null
+      onload: (() => void) | null = null
+      readAsDataURL(_file: Blob): void {
+        this.result = 'data:image/png;base64,AAAA'
+        this.onload?.()
+      }
+    }
+    vi.stubGlobal('FileReader', MockFileReader)
+
+    const b = mount('data:image/png;base64,AAAA', 'old.png', { x: 0.25, y: 0.25, w: 0.5, h: 0.5 })
+    const file = new File(['image-bytes'], 'bg.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Upload image'), { target: { files: [file] } })
+    expect(b.setBackgroundCrop).toHaveBeenCalledWith(null)
   })
 
   it('shows the local file name when one is stored', () => {

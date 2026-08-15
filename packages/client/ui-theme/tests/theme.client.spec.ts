@@ -344,6 +344,26 @@ describe('ThemeRuntime', () => {
     expect(theme.getTheme().backgroundCrop).toBeNull()
   })
 
+  it('treats an out-of-range persisted crop as null', () => {
+    const { theme, host } = make()
+    host.publish({
+      status: 'ready',
+      value: { preference: 'system', skin: 'default', background: '', backgroundName: '', backgroundCrop: { x: 0.1, y: 0.2, w: 1.5, h: 0.4 } },
+      revision: 1, writable: true,
+    })
+    expect(theme.getTheme().backgroundCrop).toBeNull()
+  })
+
+  it('treats a zero-area persisted crop as null', () => {
+    const { theme, host } = make()
+    host.publish({
+      status: 'ready',
+      value: { preference: 'system', skin: 'default', background: '', backgroundName: '', backgroundCrop: { x: 0.1, y: 0.2, w: 0, h: 0.4 } },
+      revision: 1, writable: true,
+    })
+    expect(theme.getTheme().backgroundCrop).toBeNull()
+  })
+
   it('every skin preset overrides surface tokens only, as { light, dark } pairs', () => {
     expect(SKIN_PRESETS.default).toEqual({})
     for (const skin of SKIN_IDS) {
