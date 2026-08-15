@@ -44,7 +44,7 @@ const WEB_FETCH_ARGS = '{"path":"src/a.ts","offset":41}'
 /** The read block's rendered content cells, one string per row (highlighting
  *  breaks a line across token spans, so match on the row's textContent). */
 function contentTexts(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[data-read] [class^="_content_"]')].map(cell => cell.textContent ?? '')
+  return [...container.querySelectorAll('[data-read] [data-read-content]')].map(cell => cell.textContent ?? '')
 }
 
 /** Three windowed lines starting at file line 41 (a read past an offset). */

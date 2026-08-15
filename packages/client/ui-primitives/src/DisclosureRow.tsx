@@ -60,7 +60,7 @@ export function DisclosureRow({
     ? (
       <>
         <span className={ICON_IDLE}>{icon}</span>
-        <IconChevronDownOutline14 className={cn(chevronClassName, CHEVRON_HOVER)} />
+        <span className="contents" data-disclosure-chevron-preview><IconChevronDownOutline14 className={cn(chevronClassName, CHEVRON_HOVER)} /></span>
       </>
     )
     : icon

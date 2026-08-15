@@ -278,7 +278,7 @@ describe('chat row terminal body', () => {
       callView: callTerminal({ title: 'ls -la\necho done' }),
     }))} />)
     toggleRow(view)
-    const rows = view.container.querySelectorAll('[class^="_promptLine_"]')
+    const rows = view.container.querySelectorAll('[data-term-prompt-line]')
     expect([...rows].map(row => row.textContent)).toEqual(['$ls -la', '$echo done'])
     // Still one dot for the call, on the first row.
     expect(view.container.querySelectorAll('[data-terminal] [data-state]')).toHaveLength(1)

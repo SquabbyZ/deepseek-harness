@@ -235,7 +235,7 @@ describe('ToolRow', () => {
     expect(errorView.container.querySelector('[data-testid="tool-icon"]')).toBeNull()
     // The dot rides the idle slot, so an expandable error row keeps the
     // icon→chevron hover preview instead of losing it with the icon.
-    expect(errorView.container.querySelector('[class*="chevronHover"]')).not.toBeNull()
+    expect(errorView.container.querySelector('[data-disclosure-chevron-preview]')).not.toBeNull()
   })
 
   it('non-expandable rows render a passive leading slot and no row button', () => {

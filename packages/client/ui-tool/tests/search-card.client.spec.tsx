@@ -42,7 +42,7 @@ function searchKindOf(container: HTMLElement): string | null {
 
 /** The rendered result rows of the search card, one string per visible row. */
 function searchRows(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[data-search] [class^="_line_"]')].map(row => row.textContent ?? '')
+  return [...container.querySelectorAll('[data-search] [data-search-line]')].map(row => row.textContent ?? '')
 }
 
 const SID = 's1' as SessionId
