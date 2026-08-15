@@ -13,3 +13,10 @@
 pub fn github_client_id() -> String {
     std::env::var("GITHUB_OAUTH_CLIENT_ID").unwrap_or_default()
 }
+
+/// The GitHub OAuth App client secret, read from `GITHUB_OAUTH_CLIENT_SECRET`.
+/// Empty when the app uses PKCE (no secret). Mapped onto `DSH_GITHUB_CLIENT_SECRET`
+/// for the sidecar process.
+pub fn github_client_secret() -> String {
+    std::env::var("GITHUB_OAUTH_CLIENT_SECRET").unwrap_or_default()
+}

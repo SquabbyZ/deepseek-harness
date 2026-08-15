@@ -106,6 +106,7 @@
       name: '@deepseek-ai/dsh-github-oauth'
       config:
         clientId: !!js process.env.DSH_GITHUB_CLIENT_ID
+        clientSecret: !!js process.env.DSH_GITHUB_CLIENT_SECRET
         redirectUri: 'http://127.0.0.1:3846/callback'
 
     - id: cordis-host-runner

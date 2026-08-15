@@ -9,11 +9,13 @@ export interface GitHubOAuthConfig {
   authorizeUrl?: string
   tokenUrl?: string
   apiBase?: string
+  /** When set, use the confidential flow (client_secret); otherwise PKCE. */
+  clientSecret?: string
 }
 
-/** The artifacts a login attempt needs: the verifier to hold, the state to check, and the URL to open. */
+/** The artifacts a login attempt needs: the verifier to hold (null for the confidential flow), the state to check, and the URL to open. */
 export interface AuthorizationRequest {
-  verifier: string
+  verifier: string | null
   state: string
   authorizeUrl: string
 }
@@ -31,7 +33,7 @@ export interface GitHubProviderDeps {
   randomUUIDImpl?: () => string
 }
 
-/** PKCE (S256) GitHub OAuth client. Public client: no client_secret. */
+/** GitHub OAuth client: PKCE (S256) when no client_secret is configured, else the confidential flow. */
 export class GitHubIdentityProvider {
   constructor(
     private readonly config: GitHubOAuthConfig,
@@ -39,7 +41,8 @@ export class GitHubIdentityProvider {
   ) {}
 
   begin(): AuthorizationRequest {
-    const verifier = generateCodeVerifier()
+    const clientSecret = this.config.clientSecret
+    const verifier = clientSecret ? null : generateCodeVerifier()
     const state = (this.deps.randomUUIDImpl ?? randomUUID)()
     // Built on `URL` so an already-query-stringed authorizeUrl is preserved
     // rather than clobbered by a naive `?${params}` concat.
@@ -48,19 +51,25 @@ export class GitHubIdentityProvider {
     authorize.searchParams.set('redirect_uri', this.config.redirectUri)
     authorize.searchParams.set('scope', this.config.scope ?? 'read:user user:email')
     authorize.searchParams.set('state', state)
-    authorize.searchParams.set('code_challenge', computeS256Challenge(verifier))
-    authorize.searchParams.set('code_challenge_method', 'S256')
+    if (verifier !== null) {
+      authorize.searchParams.set('code_challenge', computeS256Challenge(verifier))
+      authorize.searchParams.set('code_challenge_method', 'S256')
+    }
     return { verifier, state, authorizeUrl: authorize.toString() }
   }
 
-  async exchangeCodeForToken(code: string, verifier: string): Promise<string> {
+  async exchangeCodeForToken(code: string, verifier: string | null): Promise<string> {
     const tokenUrl = this.config.tokenUrl ?? 'https://github.com/login/oauth/access_token'
     const body = new URLSearchParams({
       client_id: this.config.clientId,
       code,
       redirect_uri: this.config.redirectUri,
-      code_verifier: verifier,
     })
+    if (this.config.clientSecret) {
+      body.set('client_secret', this.config.clientSecret)
+    } else if (verifier !== null) {
+      body.set('code_verifier', verifier)
+    }
     const res = await (this.deps.fetchImpl ?? fetch)(tokenUrl, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },

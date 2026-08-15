@@ -21,6 +21,8 @@ export const inject = ['webServer']
 export interface GithubOauthConfig {
   /** OAuth App client id; login throws a clear error when empty. */
   clientId?: string
+  /** OAuth App client secret; when set, the confidential flow is used instead of PKCE. */
+  clientSecret?: string
   redirectUri: string
   callbackPort?: number
 }
@@ -89,6 +91,7 @@ export class IdentityService {
     const provider = (this.deps.providerFactory ?? (() => new GitHubIdentityProvider({
       clientId,
       redirectUri: this.config.redirectUri,
+      ...(this.config.clientSecret ? { clientSecret: this.config.clientSecret } : {}),
     })))()
     const { verifier, state, authorizeUrl } = provider.begin()
     const loopback = (this.deps.loopbackFactory ?? (() => new LoopbackCallbackServer(this.config.callbackPort ?? 3846)))()
