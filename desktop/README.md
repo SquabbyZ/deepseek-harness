@@ -36,18 +36,19 @@ pnpm --dir desktop exec tauri build
 ## GitHub OAuth client id
 
 The GitHub login flow is a PKCE client, so the OAuth App client id is public
-(there is no client secret) and can live in the repo. It is defined in
-`src-tauri/src/config.rs`:
+(there is no client secret). It is injected via the `DSH_GITHUB_CLIENT_ID`
+environment variable, which a `.env` file at the repository root can populate:
 
-```rust
-pub const GITHUB_CLIENT_ID: &str = "";
+```dotenv
+# .env (gitignored — copy from .env.example)
+DSH_GITHUB_CLIENT_ID=your_github_oauth_app_client_id
 ```
 
-Before a release, set `GITHUB_CLIENT_ID` in `src/config.rs` to your GitHub OAuth
-App's client id (a public PKCE value); left empty, login reports "client id not
-configured". The desktop shell passes this value to the sidecar as the
-`DSH_GITHUB_CLIENT_ID` environment variable at startup, so it is injected into
-every packaged build — there is nothing to set at runtime.
+Set `DSH_GITHUB_CLIENT_ID` to your GitHub OAuth App's client id (a public PKCE
+value). Create the app at <https://github.com/settings/applications/new> with
+callback URL `http://127.0.0.1:3846/callback`. Left unset, login reports
+"client id not configured". The desktop shell loads the `.env` at startup and
+passes the value to the sidecar — nothing is hardcoded in source.
 
 ## Release & updater
 
@@ -161,10 +162,10 @@ Run the following end-to-end before shipping. Steps 1–4 are the automated
 7. Single instance: launch the app a second time. Expected: no second window;
    the existing window is shown and focused instead.
 
-8. GitHub login: set `GITHUB_CLIENT_ID` in `src-tauri/src/config.rs` to a GitHub
-   OAuth app whose dsh loopback redirect is registered, rebuild, then relaunch.
-   Expected: the UI Sign in flow completes the PKCE exchange and establishes a
-   session. (Left empty, login reports "client id not configured".)
+8. GitHub login: set `DSH_GITHUB_CLIENT_ID` in the repo-root `.env` to a GitHub
+   OAuth app whose loopback redirect is registered, then relaunch. Expected: the
+   UI Sign in flow completes the PKCE exchange and establishes a session. (Left
+   empty, login reports "client id not configured".)
 
 9. Update check (manual): with a signed build (see Release & updater above),
    trigger "Check for updates" in the app and confirm it queries

@@ -58,7 +58,7 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<SidecarHandle, String> {
         .arg("web")
         .arg("--port")
         .arg(port.to_string())
-        .env("DSH_GITHUB_CLIENT_ID", crate::config::GITHUB_CLIENT_ID)
+        .env("DSH_GITHUB_CLIENT_ID", crate::config::github_client_id())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
