@@ -36,19 +36,21 @@ pnpm --dir desktop exec tauri build
 ## GitHub OAuth client id
 
 The GitHub login flow is a PKCE client, so the OAuth App client id is public
-(there is no client secret). It is injected via the `DSH_GITHUB_CLIENT_ID`
+(there is no client secret). It is injected via the `GITHUB_OAUTH_CLIENT_ID`
 environment variable, which a `.env` file at the repository root can populate:
 
 ```dotenv
 # .env (gitignored — copy from .env.example)
-DSH_GITHUB_CLIENT_ID=your_github_oauth_app_client_id
+GITHUB_OAUTH_CLIENT_ID=your_github_oauth_app_client_id
 ```
 
-Set `DSH_GITHUB_CLIENT_ID` to your GitHub OAuth App's client id (a public PKCE
+Set `GITHUB_OAUTH_CLIENT_ID` to your GitHub OAuth App's client id (a public PKCE
 value). Create the app at <https://github.com/settings/applications/new> with
 callback URL `http://127.0.0.1:3846/callback`. Left unset, login reports
 "client id not configured". The desktop shell loads the `.env` at startup and
-passes the value to the sidecar — nothing is hardcoded in source.
+maps it onto the sidecar's `DSH_GITHUB_CLIENT_ID` process variable — the name is
+deliberately NOT `DSH_`-prefixed because the dsh launcher rejects `DSH_*` in
+`.env` files. Nothing is hardcoded in source.
 
 ## Release & updater
 
@@ -162,7 +164,7 @@ Run the following end-to-end before shipping. Steps 1–4 are the automated
 7. Single instance: launch the app a second time. Expected: no second window;
    the existing window is shown and focused instead.
 
-8. GitHub login: set `DSH_GITHUB_CLIENT_ID` in the repo-root `.env` to a GitHub
+8. GitHub login: set `GITHUB_OAUTH_CLIENT_ID` in the repo-root `.env` to a GitHub
    OAuth app whose loopback redirect is registered, then relaunch. Expected: the
    UI Sign in flow completes the PKCE exchange and establishes a session. (Left
    empty, login reports "client id not configured".)

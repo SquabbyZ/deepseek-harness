@@ -6,7 +6,10 @@
 //! unset, the sidecar reports "client id not configured" on login instead of
 //! failing with an opaque GitHub error.
 
-/// The GitHub OAuth App client id, read from the `DSH_GITHUB_CLIENT_ID` env var.
+/// The GitHub OAuth App client id, read from the `GITHUB_OAUTH_CLIENT_ID` env
+/// var. It is deliberately NOT `DSH_`-prefixed: the dsh launcher forbids `DSH_*`
+/// (and other bootstrap prefixes) in `.env` files. The desktop shell maps this
+/// value onto `DSH_GITHUB_CLIENT_ID` for the sidecar process.
 pub fn github_client_id() -> String {
-    std::env::var("DSH_GITHUB_CLIENT_ID").unwrap_or_default()
+    std::env::var("GITHUB_OAUTH_CLIENT_ID").unwrap_or_default()
 }

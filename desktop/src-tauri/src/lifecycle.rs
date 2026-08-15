@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command as StdCommand, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -29,6 +30,18 @@ pub fn pick_port_after(start: u16, taken: &HashSet<u16>) -> u16 {
     start
 }
 
+/// Tauri's `resource_dir()` returns verbatim `\\?\`-prefixed paths on Windows,
+/// which Node's `realpathSync` cannot resolve (`EISDIR: lstat 'C:'`). Strip the
+/// prefix so the sidecar sees a normal `C:\...` path.
+fn normalize_path(path: &Path) -> PathBuf {
+    let raw = path.to_string_lossy().into_owned();
+    let stripped = raw
+        .strip_prefix("\\\\?\\")
+        .or_else(|| raw.strip_prefix("\\??\\"))
+        .unwrap_or(raw.as_str());
+    PathBuf::from(stripped)
+}
+
 /// A running sidecar plus the loopback port it serves.
 pub struct SidecarHandle {
     pub port: u16,
@@ -50,8 +63,8 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<SidecarHandle, String> {
 
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let runtime = resource_dir.join("dsh-runtime");
-    let node = runtime.join(if cfg!(windows) { "node.exe" } else { "node" });
-    let entry = runtime.join("dsh").join("lib").join("bin.js");
+    let node = normalize_path(&runtime.join(if cfg!(windows) { "node.exe" } else { "node" }));
+    let entry = normalize_path(&runtime.join("dsh").join("lib").join("bin.js"));
 
     let mut child = StdCommand::new(&node)
         .arg(&entry)
@@ -99,6 +112,7 @@ where
 {
     tauri::async_runtime::spawn_blocking(move || {
         for line in BufReader::new(pipe).lines().map_while(Result::ok) {
+            eprintln!("[sidecar] {line}");
             let _ = app.emit("dsh-log", line);
         }
     });
