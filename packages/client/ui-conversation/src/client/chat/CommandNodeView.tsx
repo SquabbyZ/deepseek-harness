@@ -5,7 +5,6 @@ import type {
 } from '../contract/slots.ts'
 import { CompactionCommandCard } from './CompactionCommandCard.tsx'
 import { GenericCommandCard } from './GenericCommandCard.tsx'
-import css from './ChatView.module.css'
 
 type CommandNodeViewProps = ChatNodeViewProps<'command'> & PropsRenderSlots<'conversation.chat.commandview'>
 
@@ -14,7 +13,7 @@ export const CommandNodeView = memo(function CommandNodeView({ node, renderSlot,
   const command = node.data
   const owner = useMemo<CommandRowOwnerProps>(() => ({ node: command }), [command])
   return (
-    <div className={css.callRow}>
+    <div className="rounded-[6px]">
       {renderSlot('conversation.chat.commandview', owner, {
         entryKey: command.name ?? '',
         fallback: <GenericCommandCard {...owner} t={t} />,
@@ -29,7 +28,7 @@ export const ManualCompactionNodeView = memo(function ManualCompactionNodeView({
 }: ChatNodeViewProps<'manual-compaction'>) {
   const data = node.data
   return (
-    <div className={css.callRow}>
+    <div className="rounded-[6px]">
       <CompactionCommandCard
         node={data.command}
         {...data.compaction === null ? {} : { compaction: data.compaction }}

@@ -1,13 +1,12 @@
 /** Strict per-session header/body content inserted into the resident conversation layout. */
 
 import { useEffect, useSyncExternalStore } from 'react'
-import clsx from 'clsx'
+import { cn, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId, SessionListState, SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
   ConversationSessionHeaderSlotProps, ConversationSessionSlotProps,
 } from '../contract/slots.ts'
 import type { ViewTab } from '../contract/views.ts'
-import css from './ConversationRoot.module.css'
 
 /** Full props composed from the strict session body contract. */
 export type ConversationSessionProps = ConversationSessionSlotProps
@@ -53,6 +52,14 @@ function equalBreadcrumbs(left: readonly Breadcrumb[], right: readonly Breadcrum
     })
 }
 
+/** Shared breadcrumb-button chrome; the current (disabled) crumb swaps the tint and cursor. */
+const CRUMB_BASE =
+  'inline-flex h-auto max-w-[220px] items-center justify-start gap-0 overflow-hidden rounded-xl bg-transparent px-2 py-1 text-sm leading-5 text-ellipsis whitespace-nowrap font-normal hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] disabled:opacity-100'
+
+/** Shared tab-button chrome; the active tab swaps the underline and ink. */
+const TAB_BASE =
+  'relative inline-flex h-auto items-center justify-start gap-0 rounded-none bg-transparent px-0 pt-0 pb-[11px] text-[13px] leading-4 font-medium text-[var(--dsw-alias-label-tertiary)] hover:bg-transparent hover:text-[var(--dsw-alias-label-tertiary)] disabled:opacity-100 dsh-session-tab'
+
 /**
  * Renders Session header chrome above the resident conversation scrollport.
  * @param props - Strict Session store, view ledger, navigation, render, and locale shares.
@@ -73,53 +80,53 @@ export function ConversationSessionHeader({
 
   return (
     <header
-      className={clsx(css.header, hideChrome && css.headerHidden)}
+      className={cn('relative flex-none border-b border-transparent pl-5 pr-7 pt-3 dsh-session-header', hideChrome && 'hidden')}
       aria-hidden={hideChrome || undefined}
     >
       {!hideChrome && (
         <>
-          <div className={css.titleRow}>
-            <div className={css.titleCluster}>
-              <nav className={css.crumbs} aria-label={t('session.hierarchy')}>
+          <div className="flex min-h-8 items-center gap-0">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <nav className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap" aria-label={t('session.hierarchy')}>
                 {ancestry.map((summary, index) => {
                   const last = index === ancestry.length - 1
                   return (
-                    <span key={summary.id} className={css.crumbSeg}>
-                      {index > 0 && <span className={css.crumbSep}>/</span>}
-                      <button
-                        type="button"
-                        className={clsx(css.crumb, last && css.crumbCurrent)}
+                    <span key={summary.id} className="inline-flex min-w-0 items-center gap-1">
+                      {index > 0 && <span className="text-sm leading-5 text-[var(--dsw-alias-label-caption)]">/</span>}
+                      <ShadcnButton
+                        variant="ghost"
+                        className={cn(CRUMB_BASE, last ? 'font-medium text-foreground cursor-default' : 'text-[var(--dsw-alias-label-tertiary)] cursor-pointer')}
                         disabled={last}
                         onClick={() => { open(summary.id) }}
                       >
                         {summary.displayTitle}
-                      </button>
+                      </ShadcnButton>
                     </span>
                   )
                 })}
-                {ancestry.length === 0 && <span className={css.crumbCurrent}>{sessionId}</span>}
+                {ancestry.length === 0 && <span className="font-medium text-foreground">{sessionId}</span>}
               </nav>
-              <div className={css.headerActions}>
+              <div className="flex flex-none items-center gap-2">
                 {renderSlot('conversation.session.header.actions', {})}
               </div>
             </div>
-            <div className={css.headerUtilities}>
+            <div className="ml-5 flex flex-none items-center gap-2 empty:hidden">
               {renderSlot('conversation.session.header.utilities', {})}
             </div>
           </div>
           {tabs.length > 1 && (
-            <div className={css.tabs} role="tablist">
+            <div className="relative z-[1] mt-1 flex gap-9 pl-2" role="tablist">
               {tabs.map(viewTab => (
-                <button
+                <ShadcnButton
                   key={viewTab.id}
-                  type="button"
+                  variant="ghost"
                   role="tab"
                   aria-selected={viewTab.id === active?.id}
-                  className={clsx(css.tab, viewTab.id === active?.id && css.tabActive)}
+                  className={cn(TAB_BASE, viewTab.id === active?.id && 'text-[var(--dsw-alias-state-business-primary)] hover:text-[var(--dsw-alias-state-business-primary)] dsh-session-tab-active')}
                   onClick={() => { actions.setView(viewTab.id) }}
                 >
                   {viewTab.label}
-                </button>
+                </ShadcnButton>
               ))}
             </div>
           )}
@@ -164,7 +171,7 @@ export function ConversationSession({
 
   if (blank && composerPhase === 'blank') return null
   return (
-    <div className={css.viewArea}>
+    <div className="flex min-h-0 flex-1 flex-col dsh-session-view">
       {active !== undefined && renderSlot('conversation.view', {
         inspect,
         onInspectDone: () => { actions.setInspect(null) },

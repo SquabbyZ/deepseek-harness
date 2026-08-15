@@ -15,7 +15,6 @@ import { messageImageLabels } from '../image-labels.ts'
 import { CompactionItem } from './CompactionItem.tsx'
 import { ContextInjectionRow } from './ContextInjectionRow.tsx'
 import { MessageIconActions } from './MessageIconActions.tsx'
-import css from './MessageItem.module.css'
 
 type UserImage = Extract<UserMessageNode['content'][number], { type: 'image' }>
 
@@ -93,19 +92,19 @@ function ModelRetryItem({ node, active, t }: {
   const seconds = active ? remainingSeconds : scheduledSeconds
 
   return (
-    <details className={css.retryRow} data-active={active || undefined}>
-      <summary className={css.retrySummary}>
-        <span className={css.retryText} role="status">
+    <details className="retry-row text-[13px] leading-[20px] text-[var(--dsw-alias-label-tertiary)]" data-active={active || undefined}>
+      <summary className="retry-summary inline-flex items-center w-fit py-0.5 gap-[7px] rounded-[3px] text-inherit cursor-pointer list-none select-none hover:text-[var(--dsw-alias-label-secondary)] focus-visible:outline-[1.5px] focus-visible:outline-[var(--dsw-alias-button-info-fill)] focus-visible:outline-offset-2">
+        <span className="retry-text" role="status">
           {t('message.retry.status', { label, retry: node.retry, maximum, seconds })}
         </span>
       </summary>
-      <div className={css.retryDetails}>
+      <div className="grid gap-0.5 mt-[3px] pl-[14px] [overflow-wrap:anywhere] text-xs leading-[18px]">
         <div>
-          <span className={css.retryDetailLabel}>{t('message.retry.delay')}</span>
+          <span className="text-[var(--dsw-alias-label-secondary)]">{t('message.retry.delay')}</span>
           {Math.round(node.delayMs)}ms
         </div>
         <div>
-          <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
+          <span className="text-[var(--dsw-alias-label-secondary)]">{t('message.retry.failure')}</span>
           {node.failure.message}
         </div>
       </div>
@@ -119,13 +118,13 @@ function TurnErrorItem({ node, t }: {
   t: ChatViewSlotProps['t']
 }) {
   return (
-    <div className={css.turnErrorRow} role="status">
-      <StateDot state="error" className={css.turnErrorDot} />
-      <div className={css.turnErrorCopy}>
-        <span className={css.turnErrorTitle}>{t('message.turnError')}</span>
-        <span className={css.turnErrorMessage}>{node.message}</span>
+    <div className="grid grid-cols-[10px_minmax(0,1fr)_auto] gap-2 items-start py-0.5 text-[13px] leading-[20px]" role="status">
+      <StateDot state="error" className="mt-[5px]" />
+      <div className="min-w-0 [overflow-wrap:anywhere]">
+        <span className="mr-[6px] text-[var(--dsw-alias-state-error-primary)] font-semibold">{t('message.turnError')}</span>
+        <span className="text-[var(--dsw-alias-label-secondary)]">{node.message}</span>
       </div>
-      {node.code !== undefined && <code className={css.turnErrorCode}>{node.code}</code>}
+      {node.code !== undefined && <code className="text-[var(--dsw-alias-label-tertiary)] [font:var(--dsw-font-markdown-code-block-small)]">{node.code}</code>}
     </div>
   )
 }
@@ -135,11 +134,11 @@ function TurnMaxTokensItem({ t }: {
   t: ChatViewSlotProps['t']
 }) {
   return (
-    <div className={css.turnErrorRow} role="status">
-      <StateDot state="warning" className={css.turnErrorDot} />
-      <div className={css.turnErrorCopy}>
-        <span className={css.maxTokensTitle}>{t('message.maxTokens')}</span>
-        <span className={css.turnErrorMessage}>{t('message.maxTokens.hint')}</span>
+    <div className="grid grid-cols-[10px_minmax(0,1fr)_auto] gap-2 items-start py-0.5 text-[13px] leading-[20px]" role="status">
+      <StateDot state="warning" className="mt-[5px]" />
+      <div className="min-w-0 [overflow-wrap:anywhere]">
+        <span className="mr-[6px] text-[var(--dsw-alias-state-warn-primary)] font-semibold">{t('message.maxTokens')}</span>
+        <span className="text-[var(--dsw-alias-label-secondary)]">{t('message.maxTokens.hint')}</span>
       </div>
     </div>
   )
@@ -164,7 +163,7 @@ function projectUserText(text: string): ReactNode {
     const label = m[2] ?? ''
     if (tokenStart > cursor) parts.push(<MessageText key={cursor} text={text.slice(cursor, tokenStart)} />)
     parts.push(
-      <span key={tokenStart} className={css.refChip} data-ref-chip={label.startsWith('@') ? 'subagent' : 'skill'}>
+      <span key={tokenStart} className="inline-block mx-0.5 px-2 rounded-[6px] bg-[rgba(97,135,216,0.22)] text-[var(--dsw-alias-label-primary)] text-[0.85em] leading-[1.6] whitespace-nowrap align-baseline" data-ref-chip={label.startsWith('@') ? 'subagent' : 'skill'}>
         {label}
       </span>,
     )
@@ -191,10 +190,10 @@ function UserStyleBubble({
   const truncated = (total: number): string => t('json.truncated', { total })
   const showBubble = text !== '' || rest.length > 0
   return (
-    <div className={css.userRow} data-pending-steering={pending || undefined} data-time-hover-root>
-      <div className={css.userStack}>
+    <div className="userRow flex flex-col items-end gap-[6px]" data-pending-steering={pending || undefined} data-time-hover-root>
+      <div className="flex flex-col items-end gap-2 min-w-0 max-w-[min(525px,82%)]">
         <ImageGallery images={images} load={imageLoader} align="end" labels={messageImageLabels(t)} />
-        {showBubble && <div className={css.bubble}>
+        {showBubble && <div className="max-w-full rounded-[22px] px-4 py-[10px] text-base leading-6 text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-specific-bubble)]">
           {projectUserText(text)}
           {rest.map((block, i) => <JsonBlock key={i} label={t('message.extraBlock')} payload={block} truncatedLabel={truncated} />)}
         </div>}
@@ -226,7 +225,6 @@ export function PendingSteeringBubble({ content, loadImage, t }: {
         <MessageIconActions
           text={text}
           clock="start"
-          className={css.actions}
           t={t}
         />
       )}
@@ -249,7 +247,6 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
           text={text}
           time={data.time}
           clock="start"
-          className={css.actions}
           t={t}
         />
       )}
@@ -296,7 +293,7 @@ export const TurnMaxTokensNodeView = memo(function TurnMaxTokensNodeView({ t }: 
 export const UnknownNodeView = memo(function UnknownNodeView({ node, t }: ChatNodeViewProps<'unknown'>) {
   const data = node.data
   return (
-    <div className={css.contextRow}>
+    <div className="py-0.5">
       <JsonBlock
         label={t('message.unknownSurface', { type: data.type })}
         payload={data.data}

@@ -14,12 +14,11 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
-import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { PendingSteeringBubble } from './MessageItem.tsx'
 import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { formatRunDuration } from './message-chrome.ts'
-import css from './ChatView.module.css'
 
 const FOLLOW_THRESHOLD = 24
 
@@ -128,10 +127,10 @@ function TurnStatus({ startTime, t }: {
   // has clearly been running for a while.
   const showClock = elapsedMs >= 15_000
   return (
-    <div className={css.turnStatus} role="status" aria-live="polite">
+    <div className="turn-status" role="status" aria-live="polite">
       Deep diving...
       {showClock && (
-        <span className={css.turnStatusClock} aria-hidden>
+        <span className="turn-status-clock" aria-hidden>
           {formatRunDuration(elapsedMs, t)}
         </span>
       )}
@@ -363,20 +362,25 @@ export function ChatView({
   }
 
   return (
-    <div className={css.root}>
-      <div ref={listRef} className={css.scroll}>
-        <div ref={columnRef} className={css.column} data-chat-flow="">
-          {openState === 'loading' && <div className={css.hint}>{t('chat.loadingHistory')}</div>}
+    <div className="relative flex flex-col min-h-0 flex-1 [[data-conversation-scroll]_&]:flex-none [[data-conversation-scroll]_&]:min-h-[auto] [[data-conversation-scroll]_&]:h-auto">
+      <div ref={listRef} className="chat-view-scroll flex-1 min-h-0 overflow-y-auto py-4 px-[calc(var(--dsh-composer-side-clearance)+16px)] [[data-conversation-scroll]_&]:overflow-visible [[data-conversation-scroll]_&]:flex-none [[data-conversation-scroll]_&]:min-h-[auto]">
+        <div ref={columnRef} className="mx-auto w-full max-w-[var(--dsh-chat-content-width)] flex flex-col gap-4" data-chat-flow="">
+          {openState === 'loading' && <div className="text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]">{t('chat.loadingHistory')}</div>}
           {openState === 'error' && openError !== null && (
-            <div className={css.openError}>
+            <div className="text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]">
               {t('chat.loadError', { message: openError.message, code: openError.code })}
             </div>
           )}
           {hasMore && (
-            <div className={css.older}>
-              <button type="button" disabled={loadingOlder} onClick={loadOlderAnchored}>
+            <div className="flex justify-center">
+              <ShadcnButton
+                variant="ghost"
+                className="rounded-[14px] px-3 py-1 text-xs font-normal text-[var(--dsw-alias-label-secondary)] bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-[var(--dsw-alias-label-secondary)] disabled:opacity-60"
+                disabled={loadingOlder}
+                onClick={loadOlderAnchored}
+              >
                 {loadingOlder ? t('loading') : t('chat.loadOlder')}
-              </button>
+              </ShadcnButton>
             </div>
           )}
           {order.map(nodeKey => (
@@ -406,10 +410,10 @@ export function ChatView({
           ))}
         </div>
         {!atBottom && (
-          <div className={css.toBottomSlot}>
-            <button
-              type="button"
-              className={css.toBottom}
+          <div className="sticky bottom-4 z-[8] h-0 flex justify-end pr-[max(0px,calc((100%-var(--dsh-chat-content-width))/2))] pointer-events-none [[data-conversation-scroll]_&]:bottom-[calc(var(--dsh-composer-height,152px)+16px)]">
+            <ShadcnButton
+              variant="ghost"
+              className="size-[34px] -mt-[34px] p-0 rounded-[100px] border border-[var(--dsw-alias-border-l2)] bg-[var(--dsw-alias-button-floating-fill)] text-[var(--dsw-alias-label-primary)] shadow-[var(--dsw-shadow-lv2)] pointer-events-auto hover:bg-[var(--dsw-alias-button-floating-hover)] hover:text-[var(--dsw-alias-label-primary)]"
               aria-label={t('chat.toBottom')}
               onClick={() => {
                 const local = listRef.current
@@ -418,7 +422,7 @@ export function ChatView({
               }}
             >
               <IconChevronDownOutline14 />
-            </button>
+            </ShadcnButton>
           </div>
         )}
       </div>

@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import clsx from 'clsx'
 import type { PermissionSelect as PermissionSelectValue } from '@deepseek-ai/dsh-permission-presets/client'
-import { IconChevronDownOutline14, Menu, RiskConfirmation } from '@deepseek-ai/dsh-client-ui-primitives'
+import { cn, IconChevronDownOutline14, Menu, RiskConfirmation, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
-import css from './PermissionSelect.module.css'
 
 const FULL_ACCESS = 'danger-full-access'
 
@@ -135,23 +133,23 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
         onClose={() => { setOpen(false) }}
         side="top"
         anchor={
-          <button
-            type="button"
-            className={css.trigger}
+          <ShadcnButton
+            variant="ghost"
+            className="inline-flex h-7 min-w-0 max-w-[220px] items-center justify-start gap-1 rounded-3xl bg-transparent py-0 pl-2 pr-1 text-[13px] leading-5 font-medium text-[var(--dsw-alias-label-secondary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)] focus-visible:ring-0 disabled:text-[var(--dsw-alias-label-dimmed)] disabled:opacity-100 disabled:cursor-default dsh-permission-trigger"
             aria-label={t('input.accessMode', { name: current === undefined ? displayName(currentValue) : optionLabel(current) })}
             title={current?.description}
             disabled={locked || busy}
             onClick={() => { setOpen(!open) }}
           >
             {permissionGlyph(currentValue) !== undefined && (
-              <span className={css.triggerIcon} aria-hidden>{permissionGlyph(currentValue)}</span>
+              <span className="inline-flex flex-none [&_svg]:h-3.5 [&_svg]:w-3.5 dsh-permission-trigger-icon" aria-hidden>{permissionGlyph(currentValue)}</span>
             )}
-            <span className={css.triggerLabel}>{current === undefined ? displayName(currentValue) : optionLabel(current)}</span>
+            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap dsh-permission-trigger-label">{current === undefined ? displayName(currentValue) : optionLabel(current)}</span>
             {/* Same glyph + open rotation as the sibling ModelSelect trigger. */}
-            <span className={clsx(css.chevron, open && css.chevronOpen)} aria-hidden>
+            <span className={cn('inline-flex flex-none text-[var(--dsw-alias-label-caption)] transition-transform duration-[120ms]', open && 'rotate-180')} aria-hidden>
               <IconChevronDownOutline14 />
             </span>
-          </button>
+          </ShadcnButton>
         }
       />
       <RiskConfirmation

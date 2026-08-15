@@ -3,11 +3,10 @@
 // no-session/session transitions — the bar renders inert via owner props.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import clsx from 'clsx'
+import { cn } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConversationSlotProps, InputZone } from '../contract/slots.ts'
 import { HeroGlow, HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.tsx'
-import css from './ConversationRoot.module.css'
 
 /** Full props composed from the slot contract. */
 export type ConversationRootProps = ConversationSlotProps
@@ -98,7 +97,7 @@ export function ConversationRoot({
           : workspaceLabel(cwd)))
 
   const heroWorkspaceRow = (
-    <div className={css.heroWorkspaceRow}>
+    <div className="mt-1 flex min-w-0 items-center gap-0.5 pl-5">
       <WorkspaceChip
         buttonRef={pickerAnchor}
         label={chipTitle}
@@ -157,8 +156,8 @@ export function ConversationRoot({
   })
 
   const composerBar = (
-    <div className={clsx(css.composerStack, hero && css.composerHero)}>
-      {hero && <HeroGlow className={css.heroGlow} />}
+    <div className={cn('flex flex-col gap-[var(--dsh-composer-stack-gap)] [--dsh-composer-stack-gap:6px]', hero && 'relative self-center gap-2 pb-8 w-[min(calc(var(--dsh-composer-card-max-width)_+_2*var(--dsh-composer-side-clearance)),100%)] z-[1]')}>
+      {hero && <HeroGlow className="absolute left-1/2 bottom-[92px] z-[-1] w-[calc(100%*1051/776)] aspect-[1051/468] -translate-x-1/2 translate-y-1/2 pointer-events-none" />}
       {hero && <HeroShell t={t} />}
       {hero && heroWorkspaceRow}
       {zone !== undefined && renderSlot('conversation.input.dock', zone)}
@@ -178,15 +177,15 @@ export function ConversationRoot({
   // on the fallback alone would leave Question/Approval panels at the content
   // end off-screen when the user is not pinned to the floor.
   const composerSeat = (
-    <div ref={seatResizeRef} className={css.composerSeat} data-composer-seat="">
+    <div ref={seatResizeRef} className="flex flex-none flex-col [--dsh-composer-text-max-height:336px] dsh-composer-seat" data-composer-seat="">
       {composer}
     </div>
   )
 
   return (
-    <div className={css.root} data-phase={phase}>
+    <div className="flex h-full min-w-0 flex-col bg-background [--dsh-chat-content-width:748px] [--dsh-composer-card-max-width:calc(var(--dsh-chat-content-width)_+_32px)] [--dsh-composer-side-clearance:16px] [--dsh-composer-dock-inset:8px] dsh-conversation-root" data-phase={phase}>
       {renderSlot('conversation.session.header', {})}
-      <div className={css.scrollBody} data-conversation-scroll="">
+      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] dsh-conversation-scroll" data-conversation-scroll="">
         {renderSlot('conversation.session', {})}
         {composerSeat}
       </div>

@@ -13,9 +13,9 @@ import {
   IconChevronDownOutline14,
   IconChevronRightOutline14,
   MarkdownText,
+  ShadcnButton,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
-import css from './MessageItem.module.css'
 
 interface CompactionItemProps {
   node: CompactionSummaryNode
@@ -49,31 +49,31 @@ export const CompactionItem = memo(function CompactionItem({
     : fallbackSummary
       ?? (expandable ? t('message.compaction.expand') : t('message.compaction.unavailable'))
   return (
-    <div className={css.compactionRow}>
-      <button
-        type="button"
-        className={css.compactionButton}
+    <div className="py-0.5">
+      <ShadcnButton
+        variant="ghost"
+        className="group h-6 w-full min-w-0 justify-start gap-0 rounded-[6px] bg-transparent p-0 text-left text-inherit font-normal hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-inherit disabled:opacity-100"
         disabled={!expandable}
         aria-expanded={expandable ? open : undefined}
         onClick={() => { setExpanded(value => !value) }}
       >
-        <span className={css.compactionLeading} aria-hidden>
-          <span className={css.compactionContextIcon} data-compaction-icon="context">
+        <span className="flex-none inline-grid place-items-center size-4 mr-[6px] text-[var(--dsw-alias-label-secondary)]" aria-hidden>
+          <span className="inline-flex grid-area-[1/1] items-center justify-center group-hover:opacity-0 group-focus-visible:opacity-0" data-compaction-icon="context">
             <IconApiOutline14 />
           </span>
           <span
-            className={css.compactionDisclosureIcon}
+            className="inline-flex grid-area-[1/1] items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
             data-compaction-disclosure={open ? 'expanded' : 'collapsed'}
           >
             {open ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
           </span>
         </span>
-        <span className={css.compactionTitle}>{title ?? t('message.compaction')}</span>
-        <span className={css.compactionSep} aria-hidden />
-        <span className={css.compactionSummary}>{summary}</span>
-      </button>
+        <span className="flex-none text-sm leading-6 text-[var(--dsw-alias-label-primary-dimmed)]">{title ?? t('message.compaction')}</span>
+        <span className="flex-none size-0.5 mx-2 rounded-[1px] bg-[var(--dsw-alias-label-caption)]" aria-hidden />
+        <span className="min-w-0 flex-1 overflow-hidden text-sm leading-6 text-[var(--dsw-alias-label-tertiary)] text-ellipsis whitespace-nowrap">{summary}</span>
+      </ShadcnButton>
       {open && node.summary !== null
-        && <div className={css.compactionBody}><MarkdownText text={node.summary} /></div>}
+        && <div className="py-1 pl-[22px] pr-0 text-sm leading-6 text-[var(--dsw-alias-label-tertiary)]"><MarkdownText text={node.summary} /></div>}
     </div>
   )
 })

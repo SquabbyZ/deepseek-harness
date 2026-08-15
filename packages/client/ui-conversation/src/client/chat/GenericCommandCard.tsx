@@ -7,8 +7,6 @@
 import { useState, type ReactNode } from 'react'
 import type { ChatViewSlotProps, CommandRowOwnerProps } from '../contract/slots.ts'
 import { DisclosureRow, IconApiOutline14, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
-import a11yCss from './accessibility.module.css'
-import css from './GenericCommandCard.module.css'
 
 type CommandRowState = 'running' | 'ok' | 'error'
 
@@ -44,14 +42,14 @@ export function GenericCommandCard({ node, t, runningSummary }: GenericCommandCa
   const body = text !== undefined && text.includes('\n') ? text : null
   const open = expanded && body !== null
   return (
-    <div className={css.root} data-variant="others" data-state={state}>
-      {state === 'running' && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
-      {state === 'error' && <span className={a11yCss.visuallyHidden}>{t('row.failed')}</span>}
+    <div className="flex flex-col" data-variant="others" data-state={state}>
+      {state === 'running' && <span className="absolute w-px h-px overflow-hidden whitespace-nowrap [clip:rect(0_0_0_0)]">{t('row.running')}</span>}
+      {state === 'error' && <span className="absolute w-px h-px overflow-hidden whitespace-nowrap [clip:rect(0_0_0_0)]">{t('row.failed')}</span>}
       <DisclosureRow
-        rowClassName={css.row}
-        leadingClassName={css.leading}
-        titleClassName={css.title}
-        chevronClassName={css.chevron}
+        rowClassName="row-sweep"
+        leadingClassName="shrink-0"
+        titleClassName="font-normal"
+        chevronClassName="text-[var(--dsw-alias-label-secondary)]"
         icon={leadingFor(state)}
         title={title}
         open={open}
@@ -61,12 +59,12 @@ export function GenericCommandCard({ node, t, runningSummary }: GenericCommandCa
         onToggle={() => { setExpanded(value => !value) }}
         collapsedContent={(
           <>
-            <span className={css.separator} aria-hidden />
-            <span className={css.summary} data-error={state === 'error' || undefined}>{summary}</span>
+            <span className="flex-none size-0.5 mx-2 rounded-[1px] bg-[var(--dsw-alias-label-caption)]" aria-hidden />
+            <span className="min-w-0 flex-1 overflow-hidden text-sm leading-6 text-[var(--dsw-alias-label-tertiary)] text-ellipsis whitespace-nowrap data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error={state === 'error' || undefined}>{summary}</span>
           </>
         )}
       >
-        <pre className={css.body} data-error={state === 'error' || undefined}>{body}</pre>
+        <pre className="max-h-[260px] mt-1 mb-1 ml-1 overflow-auto rounded-[12px] border border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-alias-markdown-code-block)] py-3 px-4 text-[var(--dsw-alias-label-primary)] [font:var(--dsw-font-markdown-code-block-small)] whitespace-pre-wrap data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error={state === 'error' || undefined}>{body}</pre>
       </DisclosureRow>
     </div>
   )

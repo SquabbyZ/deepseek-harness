@@ -7,12 +7,11 @@
 // session snapshot — no data of its own.
 
 import { Fragment } from 'react'
-import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
+import { CodeBlock, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import { shallowEqual } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConversationSnapshot, RunningToolCall, ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
 import type { DetailsSlotProps } from '../contract/slots.ts'
 import { findToolCall } from '../chat/tool-node-reader.ts'
-import css from './DetailsPanel.module.css'
 
 /** Full props composed by reference from the contract (automatic shares & injected share). */
 export type DetailsPanelProps = DetailsSlotProps
@@ -76,35 +75,37 @@ export function DetailsPanel({ useSession, useSessions, sessionId, useStore, ren
     (a, b) => shallowEqual(a, b))
 
   return (
-    <div className={css.root}>
-      <div className={css.header}>
-        <div className={css.title}>
+    <div className="flex h-full min-w-0 flex-col border-l border-border bg-background">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 pt-3.5 pb-3">
+        <div className="overflow-hidden text-sm leading-5 font-medium text-foreground text-ellipsis whitespace-nowrap">
           {selection === null ? t('details.title') : material?.name ?? selection.toolName ?? t('details.title')}
         </div>
-        <button
-          type="button" className={css.close} aria-label={t('details.close')}
+        <ShadcnButton
+          variant="ghost"
+          className="grid h-7 w-7 flex-none place-items-center rounded-full bg-transparent p-0 text-[var(--dsw-alias-label-secondary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)]"
+          aria-label={t('details.close')}
           onClick={() => { closeDetails() }}
         >
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-        </button>
+        </ShadcnButton>
       </div>
-      <div className={css.body}>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {selection === null || callId === undefined
-          ? <div className={css.empty}>{t('details.empty')}</div>
+          ? <div className="py-2 text-[13px] leading-5 text-[var(--dsw-alias-label-tertiary)]">{t('details.empty')}</div>
           : material === null
-            ? <div className={css.empty}>{t('details.notInWindow')}</div>
+            ? <div className="py-2 text-[13px] leading-5 text-[var(--dsw-alias-label-tertiary)]">{t('details.notInWindow')}</div>
             : (
               <>
                 {material.argsRaw !== null && (
-                  <section className={css.section}>
-                    <div className={css.sectionLabel}>{t('details.input')}</div>
+                  <section className="mb-4">
+                    <div className="mb-1.5 text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)]">{t('details.input')}</div>
                     <CodeBlock code={pretty(material.argsRaw)} lang="json" copyLabel={t('copy')} copiedLabel={t('copied')} />
                   </section>
                 )}
-                <section className={css.section}>
-                  <div className={css.sectionLabel}>{t('details.output')}</div>
+                <section className="mb-4">
+                  <div className="mb-1.5 text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)]">{t('details.output')}</div>
                   {/* Keyed by the selected call: the body owns per-call view
                       state (the terminal card's expand and copy), which React
                       would otherwise carry into the next selection because the
@@ -113,11 +114,11 @@ export function DetailsPanel({ useSession, useSessions, sessionId, useStore, ren
                     {renderSlot('conversation.details.tool', { block: material.block, cwd: sessionCwd }, {
                       fallback: 'kind' in material.block
                         ? (
-                          <pre className={css.code} data-error={material.block.isError || undefined}>
+                          <pre className="m-0 rounded-xl bg-[var(--dsw-alias-markdown-code-block)] p-4 text-[13px] leading-[22px] whitespace-pre-wrap break-words text-foreground [font-family:var(--ds-font-family-code)] data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error={material.block.isError || undefined}>
                             {rawResultText(material.block)}
                           </pre>
                         )
-                        : <div className={css.empty}>{t('details.running')}</div>,
+                        : <div className="py-2 text-[13px] leading-5 text-[var(--dsw-alias-label-tertiary)]">{t('details.running')}</div>,
                     })}
                   </Fragment>
                 </section>

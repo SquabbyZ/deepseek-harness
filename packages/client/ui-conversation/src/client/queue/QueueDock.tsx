@@ -9,11 +9,14 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import {
   IconCheckOutline16, IconChevronDownOutline14, IconChevronUpOutline14, IconCloseOutline16,
-  IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, Tooltip,
+  IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, ShadcnButton, ShadcnInput, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { QueueAction, QueueItemId } from '../contract/queue.ts'
 import { NS } from '../locales.ts'
-import css from './QueueDock.module.css'
+
+/** Shared 28px circular icon-button chrome for the per-row queue actions. */
+const ACTION_CLASS =
+  'grid h-7 w-7 flex-none place-items-center rounded-full bg-transparent p-0 text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--dsw-alias-label-tertiary)] focus-visible:outline-offset-[-2px] focus-visible:ring-0 disabled:cursor-default disabled:opacity-45'
 
 /** Queue operations injected by the session-scoped registration. */
 export interface QueueDockInjected {
@@ -76,34 +79,34 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
   }
 
   return (
-    <div className={css.dock} data-queue-dock="">
-      <div className={css.panel}>
+    <div className="box-border mx-auto mb-[calc(0px_-_var(--dsh-composer-stack-gap)_-_3px)] w-[calc(100%_-_2*var(--dsh-composer-side-clearance)_-_2*var(--dsh-composer-dock-inset))] max-w-[calc(var(--dsh-composer-card-max-width)_-_2*var(--dsh-composer-dock-inset))] flex-none px-[var(--dsh-composer-dock-inset)]" data-queue-dock="">
+      <div className="relative w-full overflow-hidden rounded-t-xl bg-[var(--dsw-specific-tip)] py-0.5 dsh-queue-panel [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]">
         {queue.length > 1 && (
-          <button
-            type="button"
-            className={css.header}
+          <ShadcnButton
+            variant="ghost"
+            className="box-border flex h-9 w-full items-center justify-start gap-2.5 rounded-lg bg-transparent px-3 py-1 text-left text-foreground hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--dsw-alias-label-tertiary)] focus-visible:outline-offset-[-2px] focus-visible:ring-0 disabled:cursor-default"
             aria-controls={listId}
             aria-expanded={expanded}
             disabled={interactionActive}
             onClick={() => { setCollapsed(value => !value) }}
           >
-            <span className={css.lead} aria-hidden><IconQueueOutline14 /></span>
-            <span className={css.count}>{t('queue.count', { n: queue.length })}</span>
-            <span className={css.chevron} aria-hidden>
+            <span className="grid flex-none place-items-center text-[var(--dsw-alias-label-tertiary)]" aria-hidden><IconQueueOutline14 /></span>
+            <span className="min-w-0 flex-auto text-[13px] font-medium leading-6 [font-family:Inter,var(--dsw-font-family)]">{t('queue.count', { n: queue.length })}</span>
+            <span className="grid h-[14px] w-[14px] flex-none place-items-center text-[var(--dsw-alias-label-tertiary)]" aria-hidden>
               {expanded ? <IconChevronDownOutline14 /> : <IconChevronUpOutline14 />}
             </span>
-          </button>
+          </ShadcnButton>
         )}
-        <ul id={listId} className={css.list} hidden={!listVisible}>
+        <ul id={listId} className="m-0 max-h-[180px] list-none overflow-y-auto p-0" hidden={!listVisible}>
           {listVisible && queue.map(row => (
-            <li key={row.id} className={css.row}>
+            <li key={row.id} className="box-border flex h-9 w-full items-center gap-2.5 rounded-lg pt-1 pr-[5px] pb-1 pl-3 not-first:shadow-[inset_0_1px_0_var(--dsw-alias-border-l1)]">
               {/* Single-item strip has no count header, so the row itself carries the queue glyph. */}
-              {queue.length === 1 && <span className={css.lead} aria-hidden><IconQueueOutline14 /></span>}
+              {queue.length === 1 && <span className="grid flex-none place-items-center text-[var(--dsw-alias-label-tertiary)]" aria-hidden><IconQueueOutline14 /></span>}
               {editing?.id === row.id
                 ? (
-                  <input
+                  <ShadcnInput
                     autoFocus
-                    className={css.editor}
+                    className="h-7 w-auto min-w-0 flex-auto rounded-md border border-border bg-background px-2 py-0 text-[13px] leading-5 text-foreground [font-family:Inter,var(--dsw-font-family)] shadow-none outline-none focus-visible:ring-0 focus-visible:border-[var(--dsw-alias-state-business-primary)]"
                     aria-label={t('queue.edit')}
                     value={editing.text}
                     onChange={(event) => { setEditing({ id: row.id, text: event.currentTarget.value }) }}
@@ -119,41 +122,41 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
                     }}
                   />
                 )
-                : <span className={css.preview}>{row.preview}</span>}
-              {queueMutable && <div className={css.actions}>
+                : <span className="min-w-0 flex-auto overflow-hidden text-[13px] leading-5 text-[var(--dsw-alias-label-primary-dimmed)] text-ellipsis whitespace-nowrap break-words [font-family:Inter,var(--dsw-font-family)]">{row.preview}</span>}
+              {queueMutable && <div className="flex flex-none items-center gap-2.5">
                 {editing?.id === row.id
                   ? (
                     <>
                       <Tooltip label={t('queue.save')} side="bottom" delayMs={500}>
-                        <button
-                          type="button"
-                          className={css.action}
+                        <ShadcnButton
+                          variant="ghost"
+                          className={ACTION_CLASS}
                           aria-label={t('queue.save')}
                           disabled={busy !== null || editing.text.trim() === ''}
                           onClick={() => { void saveEdit() }}
                         >
                           <IconCheckOutline16 size={14} />
-                        </button>
+                        </ShadcnButton>
                       </Tooltip>
                       <Tooltip label={t('queue.cancelEdit')} side="bottom" delayMs={500}>
-                        <button
-                          type="button"
-                          className={css.action}
+                        <ShadcnButton
+                          variant="ghost"
+                          className={ACTION_CLASS}
                           aria-label={t('queue.cancelEdit')}
                           disabled={busy !== null}
                           onClick={() => { setEditing(null) }}
                         >
                           <IconCloseOutline16 size={14} />
-                        </button>
+                        </ShadcnButton>
                       </Tooltip>
                     </>
                   )
                   : (
                     <>
                       <Tooltip label={t('queue.edit')} side="bottom" delayMs={500} disabled={row.text === null}>
-                        <button
-                          type="button"
-                          className={css.action}
+                        <ShadcnButton
+                          variant="ghost"
+                          className={ACTION_CLASS}
                           aria-label={t('queue.edit')}
                           // Disabled buttons fire no hover events, so the
                           // unsupported hint stays a native title.
@@ -164,12 +167,12 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
                           }}
                         >
                           <IconEditOutline16 size={14} />
-                        </button>
+                        </ShadcnButton>
                       </Tooltip>
                       <Tooltip label={t('queue.remove')} side="bottom" delayMs={500}>
-                        <button
-                          type="button"
-                          className={css.action}
+                        <ShadcnButton
+                          variant="ghost"
+                          className={ACTION_CLASS}
                           aria-label={t('queue.remove')}
                           disabled={busy !== null}
                           onClick={() => {
@@ -181,12 +184,12 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
                           }}
                         >
                           <IconTrashOutline16 size={14} />
-                        </button>
+                        </ShadcnButton>
                       </Tooltip>
                       <Tooltip label={t('queue.steer')} side="bottom" delayMs={500} disabled={!running}>
-                        <button
-                          type="button"
-                          className={css.action}
+                        <ShadcnButton
+                          variant="ghost"
+                          className={ACTION_CLASS}
                           aria-label={t('queue.steer')}
                           title={running ? undefined : t('queue.steer.unavailable')}
                           disabled={busy !== null || !running}
@@ -199,7 +202,7 @@ export function QueueDock({ useSession, updateQueue, notify, t }: QueueDockProps
                           }}
                         >
                           <IconSendOutline14 />
-                        </button>
+                        </ShadcnButton>
                       </Tooltip>
                     </>
                   )}

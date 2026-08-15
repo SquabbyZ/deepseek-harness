@@ -8,7 +8,6 @@ import type { ReactNode } from 'react'
 import type { ContextMessageNode, KnownContextForm } from '@deepseek-ai/dsh-client-runtime/client'
 import { JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
-import css from './ContextBody.module.css'
 
 /** Model-facing text stays bounded at the disclosure, not at the producer. */
 const MAX_CHARS = 20_000
@@ -95,11 +94,11 @@ function SourceFields({ source, formRendered, t }: {
   const rows = Object.entries(record).filter(([key]) => !hidden.includes(key))
   if (rows.length === 0) return null
   return (
-    <dl className={css.fields} data-context-fields>
+    <dl className="flex flex-col gap-0.5 mt-2 pt-2 border-t border-[var(--dsw-alias-line-secondary)]" data-context-fields>
       {rows.map(([key, value]) => (
-        <div key={key} className={css.field}>
-          <dt className={css.fieldKey}>{key}</dt>
-          <dd className={css.fieldValue}>{fieldValue(value, t)}</dd>
+        <div key={key} className="flex gap-2 min-w-0">
+          <dt className="flex-none min-w-[96px] text-[var(--dsw-alias-label-caption)]">{key}</dt>
+          <dd className="flex-1 min-w-0 m-0 text-[var(--dsw-alias-label-tertiary)] [overflow-wrap:anywhere]">{fieldValue(value, t)}</dd>
         </div>
       ))}
     </dl>
@@ -143,7 +142,7 @@ function ModelFacingContent({ content, t }: {
     <>
       {contentRuns(content).map((run, index) => ('text' in run
         ? run.text !== '' && (
-          <pre key={index} className={css.text} data-context-text>{boundedText(run.text, t)}</pre>
+          <pre key={index} className="m-0 text-[var(--dsw-alias-label-secondary)] [font:inherit] whitespace-pre-wrap [overflow-wrap:anywhere]" data-context-text>{boundedText(run.text, t)}</pre>
         )
         : (
           <JsonBlock
@@ -253,11 +252,11 @@ export function InstructionsBody({ content, source, t }: {
   const baseline = asRecord(source)?.['baseline'] === true
   return (
     <>
-      <ul className={css.files} data-context-files>
+      <ul className="flex flex-wrap gap-x-3 gap-y-1 m-0 mb-2 p-0 list-none" data-context-files>
         {changes.map(change => (
-          <li key={change.path} className={css.file} title={change.digest}>
-            <span className={css.filePath}>{change.path}</span>
-            <span className={css.fileAction}>
+          <li key={change.path} className="flex items-baseline gap-[6px] min-w-0" title={change.digest}>
+            <span className="text-[var(--dsw-alias-label-secondary)] [overflow-wrap:anywhere]">{change.path}</span>
+            <span className="text-[var(--dsw-alias-label-caption)]">
               {t(instructionAction(change.action, baseline))}
             </span>
           </li>
@@ -322,19 +321,19 @@ export function CatalogBody({ content, source, t }: {
   const rest = unknownBlocks(content)
   return (
     <>
-      {update && <p className={css.catalogNotice} data-context-catalog-update>{t('message.context.catalog.replaced')}</p>}
-      <ul className={css.entries} data-context-entries>
+      {update && <p className="m-0 mb-[6px] text-[var(--dsw-alias-label-caption)]" data-context-catalog-update>{t('message.context.catalog.replaced')}</p>}
+      <ul className="flex flex-col gap-1 m-0 p-0 list-none" data-context-entries>
         {shown.map((entry, index) => (
           // Index key: a hand-edited or foreign log may repeat a name, and a
           // duplicate React key would drop a row the model did see.
-          <li key={index} className={css.entry}>
-            <code className={css.entryName}>{entry.name}</code>
-            <span className={css.entryDescription}>{entry.description}</span>
+          <li key={index} className="flex gap-2 min-w-0">
+            <code className="flex-none text-[var(--dsw-alias-label-secondary)]">{entry.name}</code>
+            <span className="flex-1 min-w-0 overflow-hidden text-[var(--dsw-alias-label-tertiary)] text-ellipsis whitespace-nowrap">{entry.description}</span>
           </li>
         ))}
       </ul>
       {shown.length < entries.length && (
-        <p className={css.catalogNotice} data-context-entries-truncated>
+        <p className="m-0 mb-[6px] text-[var(--dsw-alias-label-caption)]" data-context-entries-truncated>
           {t('message.context.catalog.more', { count: entries.length - shown.length })}
         </p>
       )}
@@ -394,14 +393,14 @@ export function SnapshotBody({ content, source, t }: {
   if (sections === null) return <OpaqueBody content={content} source={source} t={t} />
   return (
     <>
-      <p className={css.catalogNotice} data-context-snapshot-supersedes>
+      <p className="m-0 mb-[6px] text-[var(--dsw-alias-label-caption)]" data-context-snapshot-supersedes>
         {t('message.context.snapshot.supersedes')}
       </p>
-      <dl className={css.sections} data-context-sections>
+      <dl className="flex flex-col gap-2 m-0" data-context-sections>
         {sections.map((section, index) => (
-          <div key={index} className={css.section}>
-            <dt className={css.sectionName}>{section.name}</dt>
-            <dd className={css.sectionText}>{boundedText(section.text, t)}</dd>
+          <div key={index} className="flex flex-col gap-0.5 min-w-0">
+            <dt className="text-[var(--dsw-alias-label-caption)]">{section.name}</dt>
+            <dd className="m-0 text-[var(--dsw-alias-label-secondary)] whitespace-pre-wrap [overflow-wrap:anywhere]">{boundedText(section.text, t)}</dd>
           </div>
         ))}
       </dl>
@@ -443,7 +442,7 @@ export function RelayBody({ content, source, t }: {
   if (sender === null) return <OpaqueBody content={content} source={source} t={t} />
   return (
     <>
-      <p className={css.relaySender} data-context-relay-sender>
+      <p className="m-0 mb-[6px] text-[var(--dsw-alias-label-caption)] [overflow-wrap:anywhere]" data-context-relay-sender>
         {t('message.context.relay.from', { session: sender })}
       </p>
       <ModelFacingContent content={content} t={t} />
@@ -508,18 +507,18 @@ export function RecallBody({ content, source, t }: {
   if (sessions === null) return <OpaqueBody content={content} source={source} t={t} />
   return (
     <>
-      <ul className={css.recalls} data-context-recalls>
+      <ul className="flex flex-col gap-0.5 m-0 mb-2 p-0 list-none" data-context-recalls>
         {sessions.map((session, index) => (
-          <li key={index} className={css.recall}>
-            <span className={css.recallLabel}>{session.label}</span>
-            <span className={css.recallCounts}>
+          <li key={index} className="flex gap-2 min-w-0">
+            <span className="text-[var(--dsw-alias-label-secondary)] [overflow-wrap:anywhere]">{session.label}</span>
+            <span className="flex-none text-[var(--dsw-alias-label-caption)]">
               {t('message.context.recall.counts', {
                 retained: session.retained,
                 omitted: session.omitted,
               })}
             </span>
             {session.truncated && (
-              <span className={css.recallCounts}>{t('message.context.recall.truncated')}</span>
+              <span className="flex-none text-[var(--dsw-alias-label-caption)]">{t('message.context.recall.truncated')}</span>
             )}
           </li>
         ))}

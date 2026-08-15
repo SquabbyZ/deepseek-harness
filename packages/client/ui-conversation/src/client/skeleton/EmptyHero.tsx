@@ -7,11 +7,10 @@
 import { useId } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import {
-  FishLogo, IconChevronDownOutline14, IconFolderClose16, IconFolderOpen16,
+  FishLogo, IconChevronDownOutline14, IconFolderClose16, IconFolderOpen16, ShadcnButton,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConversationSlotProps } from '../contract/slots.ts'
-import css from './HeroShell.module.css'
 
 /** The owner's locale seat type, passed to hero chrome as a plain prop. */
 type HeroTranslate = ConversationSlotProps['t']
@@ -46,21 +45,21 @@ export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }
   t: HeroTranslate
 }) {
   return (
-    <button
+    <ShadcnButton
       ref={buttonRef}
-      type="button"
-      className={css.workspace}
+      variant="ghost"
+      className="inline-flex h-auto min-h-7 max-w-[min(100%,360px)] items-center gap-1 rounded-2xl bg-transparent px-2 py-0 text-[13px] leading-5 font-medium text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)] aria-expanded:bg-[var(--dsw-alias-interactive-bg-hover)] disabled:cursor-default"
       aria-label={t('hero.chooseWorkspace')}
       aria-haspopup="menu"
       aria-expanded={menuOpen}
       onClick={onClick}
     >
       {label === undefined
-        ? <IconFolderClose16 className={css.folder} size={16} />
-        : <IconFolderOpen16 className={css.folder} size={16} />}
-      <span className={css.workspaceLabel}>{label ?? t('hero.chooseWorkspace')}</span>
-      <IconChevronDownOutline14 className={css.chevron} size={12} />
-    </button>
+        ? <IconFolderClose16 className="flex-none text-foreground" size={16} />
+        : <IconFolderOpen16 className="flex-none text-foreground" size={16} />}
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap">{label ?? t('hero.chooseWorkspace')}</span>
+      <IconChevronDownOutline14 className="flex-none text-[var(--dsw-alias-label-caption)]" size={12} />
+    </ShadcnButton>
   )
 }
 
@@ -114,21 +113,21 @@ export interface HeroShellProps {
  */
 export function HeroShell({ t, children }: HeroShellProps) {
   return (
-    <div className={css.root}>
-      <div className={css.stack}>
-        <div className={css.headline}>
+    <div className="flex h-full min-w-0 items-center justify-center px-6">
+      <div className="flex w-full max-w-[var(--dsh-composer-card-max-width)] flex-col items-stretch gap-3 overflow-visible">
+        <div className="grid grid-cols-[34px_auto_auto] items-center justify-center gap-x-2.5 text-[26px] leading-8 font-medium text-foreground">
           {/* figma 34:10412: fish 34×25 leading the headline, gap 10. */}
-          <span className={css.fishHitbox}>
-            <FishLogo size={34} className={css.fish} />
+          <span className="row-start-1 col-start-1 inline-flex items-center justify-center dsh-hero-fish-hitbox">
+            <FishLogo size={34} className="text-foreground [transform-origin:50%_60%] dsh-hero-fish" />
           </span>
-          <span className={css.headlineText}>{t('hero.headline')}</span>
-          <span className={css.previewBadge}>{t('hero.preview')}</span>
+          <span className="row-start-1 col-start-2">{t('hero.headline')}</span>
+          <span className="row-start-1 col-start-3 self-start mt-0.5 -ml-[3px] rounded-3xl border border-[var(--dsw-alias-interactive-bg-hover)] bg-[var(--dsw-alias-state-business-tertiary)] px-[7px] pt-px text-xs leading-[18px] font-medium whitespace-nowrap text-[var(--dsw-alias-label-primary-bluish)] [font-family:var(--ds-font-family-code)]">{t('hero.preview')}</span>
         </div>
-        <div className={css.body}>
+        <div className="relative flex min-w-0 flex-col gap-3 overflow-visible">
           {/* The resident composer (ConversationRoot's root-owned scrollport;
               the workspace row rides the stack above the card) is CSS-centered
               in that scroll body during hero — see
-              ConversationRoot.module.css [data-phase='hero']. */}
+              ConversationRoot [data-phase='hero']. */}
         </div>
       </div>
       {children}

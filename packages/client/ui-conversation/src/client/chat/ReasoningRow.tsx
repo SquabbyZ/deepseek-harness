@@ -3,8 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { DisclosureRow, IconThinkOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { useThrottledVisualUpdate } from './use-throttled-visual-update.ts'
-import a11yCss from './accessibility.module.css'
-import css from './ReasoningRow.module.css'
 
 function firstLine(text: string): string {
   const newline = text.indexOf('\n')
@@ -38,13 +36,13 @@ export function ReasoningRow({ text, running, t }: { text: string; running: bool
   }, [running, scheduleSummaryScroll, summary])
 
   return (
-    <div className={css.root} data-variant="think" data-state={running ? 'running' : 'ok'}>
-      {running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
+    <div className="flex flex-col" data-variant="think" data-state={running ? 'running' : 'ok'}>
+      {running && <span className="absolute w-px h-px overflow-hidden whitespace-nowrap [clip:rect(0_0_0_0)]">{t('row.running')}</span>}
       <DisclosureRow
-        rowClassName={css.row}
-        leadingClassName={css.leading}
-        titleClassName={css.title}
-        chevronClassName={css.chevron}
+        rowClassName="row-sweep"
+        leadingClassName="shrink-0"
+        titleClassName="font-normal"
+        chevronClassName="text-[var(--dsw-alias-label-secondary)]"
         icon={<IconThinkOutline14 size={14} />}
         title="Think"
         open={expanded}
@@ -53,12 +51,12 @@ export function ReasoningRow({ text, running, t }: { text: string; running: bool
         onToggle={() => { setExpanded(value => !value) }}
         collapsedContent={(
           <>
-            <span className={css.separator} aria-hidden />
-            <span ref={summaryRef} className={css.summary} data-follow-end={running || undefined}>{summary}</span>
+            <span className="flex-none size-0.5 mx-2 rounded-[1px] bg-[var(--dsw-alias-label-caption)]" aria-hidden />
+            <span ref={summaryRef} className="min-w-0 flex-1 overflow-hidden text-sm leading-6 text-[var(--dsw-alias-label-tertiary)] text-ellipsis whitespace-nowrap data-[follow-end]:text-clip" data-follow-end={running || undefined}>{summary}</span>
           </>
         )}
       >
-        <div className={css.thinkBody}>{text}</div>
+        <div className="thinkBody py-1 pr-0 pl-[22px] text-sm leading-6 text-[var(--dsw-alias-label-tertiary)] whitespace-pre-wrap [word-break:break-word]">{text}</div>
       </DisclosureRow>
     </div>
   )

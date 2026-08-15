@@ -12,7 +12,6 @@ import type { ContextPressureProjection, TokenUsageProjection } from '@deepseek-
 import type { ComposerBarProps } from '../contract/slots.ts'
 import { formatTokensPerSecond } from './message-chrome.ts'
 import { assistantStepReading } from './turn-metrics.ts'
-import css from './StatsLine.module.css'
 
 interface WindowStats {
   turns: number
@@ -221,10 +220,10 @@ export const StatsLine = memo(function StatsLine({ useSession, useProjection, t 
   if (groups.length === 0) return null
   return (
     <Tooltip label={line} side="top" delayMs={500} disabled={!truncated}>
-      <div ref={rootRef} className={css.root}>
+      <div ref={rootRef} className="block text-center max-w-[var(--dsh-chat-content-width)] w-full mx-auto box-border pt-1 px-[calc(var(--dsh-composer-side-clearance)+16px)] pb-0 text-xs leading-5 text-[var(--dsw-alias-label-tertiary)] whitespace-nowrap overflow-hidden text-ellipsis">
         {groups.map((group, i) => (
           <Fragment key={group}>
-            {i > 0 && <><span className={css.sep} aria-hidden>|</span>{' '}</>}
+            {i > 0 && <><span className="mx-[10px] text-[var(--dsw-alias-separator-primary)]" aria-hidden>|</span>{' '}</>}
             <span>{group}</span>
           </Fragment>
         ))}

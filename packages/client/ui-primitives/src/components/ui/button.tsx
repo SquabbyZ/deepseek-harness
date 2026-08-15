@@ -2,6 +2,7 @@
 // existing token-styled Button in ../Button.tsx. Uses the shadcn theme color
 // utilities wired to --dsw-* tokens in packages/client/web/src/globals.css.
 
+import * as React from 'react'
 import type { ButtonHTMLAttributes } from 'react'
 import { cn } from './cn.ts'
 
@@ -33,11 +34,12 @@ const sizes: Record<ShadcnButtonSize, string> = {
   'icon-xs': 'h-6 w-6',
 }
 
-export function ShadcnButton({
-  className,
-  variant = 'default',
-  size = 'default',
-  ...props
-}: ShadcnButtonProps) {
-  return <button type="button" className={cn(base, variants[variant], sizes[size], className)} {...props} />
-}
+/** Forwarded so it composes with the legacy `Tooltip` (cloneElement + ref) and `asChild`-style anchors. */
+const ShadcnButton = React.forwardRef<HTMLButtonElement, ShadcnButtonProps>(
+  ({ className, variant = 'default', size = 'default', ...props }, ref) => (
+    <button type="button" ref={ref} className={cn(base, variants[variant], sizes[size], className)} {...props} />
+  ),
+)
+ShadcnButton.displayName = 'ShadcnButton'
+
+export { ShadcnButton }

@@ -2,7 +2,6 @@ import { memo, useMemo } from 'react'
 import { JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeOwnerProps, ChatViewSlotProps } from '../contract/slots.ts'
 import type { ChatNode } from '../contract/chat-nodes.ts'
-import css from './ChatView.module.css'
 
 interface ChatNodeSeatProps extends ChatNodeOwnerProps {
   readonly nodeKey: string
@@ -40,7 +39,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
   const routedOwner = { ...owner, node: routedNode } as RoutedChatNodeOwner
   return (
     <div
-      className={css.flowItem}
+      className="min-w-0 empty:hidden"
       data-chat-anchor-key={routedNode.key}
       data-chat-flow-key={routedNode.key}
       data-chat-flow-kind={routedNode.kind}

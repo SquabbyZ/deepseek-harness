@@ -5,6 +5,15 @@
  * consumers. Imported once from globals.css; every class here is prefixed per
  * the migration spec (state-dot-, toast-, tooltip-, diff-, term-, web-). */
 
+/* One-glyph font: maps ONLY U+FFFC to a blank 4em-advance glyph (every other
+ * codepoint falls through to the next family). Loaded first in the composer
+ * font stack, it gives the placeholder a real cell width INSIDE the textarea,
+ * so the backdrop chip (same char, same stack) matches it by construction. */
+@font-face {
+  font-family: 'DshChipCell';
+  src: url('data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMkT8SmIAAAEoAAAAYGNtYXAADQBPAAABkAAAADRnbHlmAAAAAAAAAcwAAAABaGVhZCwtPGoAAACsAAAANmhoZWEDIg7bAAAA5AAAACRobXR4EZQAAAAAAYgAAAAIbG9jYQAAAAAAAAHEAAAABm1heHAAAwACAAABCAAAACBuYW1lvljk2gAAAdAAAABscG9zdNNweNQAAAI8AAAALQABAAAAAQAAdia1tV8PPPUAAwPoAAAAAOaLfcUAAAAA5ot9xQAAAAAAAAAAAAAAAwACAAAAAAAAAAEAAAMg/zgAAA+gAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAACAAEAAAACAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwjKAZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAPz8/PwAA//z//AMg/zgAAAMgAMgAAAAAAAAAAAAAAAAAAAAgAAAB9AAAD6AAAAAAAAIAAAADAAAAFAADAAEAAAAUAAQAIAAAAAQABAABAAD//P//AAD//P//AAUAAQAAAAAAAAAAAAAAAAAAAAAAAAAEADYAAQAAAAAAAQALAAAAAQAAAAAAAgAHAAsAAwABBAkAAQAWABIAAwABBAkAAgAOAChEc2hDaGlwQ2VsbFJlZ3VsYXIARABzAGgAQwBoAGkAcABDAGUAbABsAFIAZQBnAHUAbABhAHIAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAABAgZvYmpyZXAAAAA=') format('truetype');
+}
+
 @layer components {
   /* --- StateDot --- */
 
@@ -615,6 +624,295 @@
     background: none;
     padding: 0;
   }
+
+  /* --- ChatView turn status --- */
+
+  .turn-status {
+    align-self: flex-start;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    font: var(--dsw-font-s-strong-14);
+    white-space: nowrap;
+    background: linear-gradient(
+      90deg,
+      var(--dsw-static-deepseek-500) 0%,
+      var(--dsw-static-deepseek-500) 40%,
+      var(--dsw-static-deepseek-200) 50%,
+      var(--dsw-static-deepseek-500) 60%,
+      var(--dsw-static-deepseek-500) 100%
+    );
+    background-position: 100% 0;
+    background-size: 250% 100%;
+    background-clip: text;
+    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: dsh-turn-status-shimmer 1.8s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .turn-status {
+      background-position: 0 0;
+      background-size: 100% 100%;
+      animation: none;
+    }
+  }
+
+  .turn-status-clock {
+    margin-left: 8px;
+    font: var(--dsw-font-xs-13);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--dsw-alias-label-caption);
+    -webkit-text-fill-color: var(--dsw-alias-label-caption);
+  }
+
+  /* --- Chat command/reasoning row sweep --- */
+
+  [data-state='running'] .row-sweep::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: 300px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--dsw-alias-bg-base) 60%, transparent) 55%,
+      transparent 100%
+    );
+    animation: dsh-row-sweep 2.6s ease-out infinite;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-state='running'] .row-sweep::after {
+      animation: none;
+    }
+  }
+
+  /* --- Chat model-retry disclosure --- */
+
+  .retry-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .retry-summary::after {
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentcolor;
+    border-bottom: 1.5px solid currentcolor;
+    content: '';
+    opacity: 0.8;
+    transform: rotate(-45deg);
+    transition: transform 120ms ease;
+  }
+
+  details[open] .retry-summary::after {
+    transform: rotate(45deg);
+  }
+
+  .retry-row[data-active] .retry-text {
+    background: linear-gradient(
+      90deg,
+      var(--dsw-alias-label-tertiary) 0%,
+      var(--dsw-alias-label-tertiary) 40%,
+      var(--dsw-alias-label-secondary) 50%,
+      var(--dsw-alias-label-tertiary) 60%,
+      var(--dsw-alias-label-tertiary) 100%
+    );
+    background-position: 100% 50%;
+    background-size: 200% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: retry-shimmer 1.6s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .retry-row[data-active] .retry-text {
+      background: none;
+      color: inherit;
+      animation: none;
+    }
+  }
+
+  /* --- Message time hover reveal --- */
+
+  @media (hover: hover) {
+    [data-time-hover-root] :is(.message-time-start, .message-time-end) {
+      opacity: 0;
+      transition: opacity 80ms ease;
+    }
+
+    [data-time-hover-root]:hover :is(.message-time-start, .message-time-end),
+    [data-time-hover-root]:focus-within :is(.message-time-start, .message-time-end) {
+      opacity: 1;
+    }
+  }
+
+  /* --- Conversation skeleton (ConversationRoot / ConversationSession) --- */
+
+  /* Session header hairline: the header reserves a transparent bottom border
+   * and the ::after paints the visible l2 line under the tabs (z-index 0). */
+  .dsh-session-header::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 1px;
+    left: 0;
+    z-index: 0;
+    height: 1px;
+    background: var(--dsw-alias-border-l2);
+    pointer-events: none;
+  }
+
+  /* Tab underline: a transparent 2px bar; the active tab fills it business-blue. */
+  .dsh-session-tab::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 1px;
+    left: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: transparent;
+  }
+
+  .dsh-session-tab-active::after {
+    background: var(--dsw-alias-state-business-primary);
+  }
+
+  /* Active phase: the root clips and the composer seat sticks to the floor
+   * (above markdown sticky banners) behind a fixed 36px input-mask gradient. */
+  .dsh-conversation-root[data-phase='active'] {
+    overflow: hidden;
+  }
+
+  .dsh-conversation-root[data-phase='active'] .dsh-session-view {
+    flex: 1 0 auto;
+    min-height: auto;
+  }
+
+  .dsh-conversation-root[data-phase='active'] .dsh-composer-seat {
+    position: sticky;
+    bottom: 0;
+    z-index: 7;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--dsw-alias-bg-base) 0%, transparent) 0px,
+      var(--dsw-alias-bg-base) 36px
+    );
+  }
+
+  /* Composer-overlay views: the seat is absolutely positioned against the
+   * scroll body's padding box, giving back the scrollbar width. */
+  .dsh-conversation-scroll:has([data-conversation-composer-overlay]) {
+    position: relative;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: auto;
+  }
+
+  .dsh-conversation-scroll:has([data-conversation-composer-overlay]) > [data-slot='conversation.session'] > .dsh-session-view {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dsh-conversation-scroll:has([data-conversation-composer-overlay]) > .dsh-composer-seat {
+    position: absolute;
+    right: var(--dsh-scrollbar-width);
+    bottom: 0;
+    left: 0;
+  }
+
+  /* Hero phase centers the scroll body; settling keeps the seat mounted but
+   * invisible until the hero/docked choice resolves. */
+  .dsh-conversation-root[data-phase='hero'] .dsh-conversation-scroll {
+    justify-content: center;
+    overflow-y: auto;
+  }
+
+  .dsh-conversation-root[data-phase='settling'] .dsh-composer-seat {
+    visibility: hidden;
+  }
+
+  /* --- Composer (InputBar) --- */
+
+  /* No-workspace trigger: a dashed l4 ring drawn over the card edge via an
+   * SVG-masked ::after (native dashed has a fixed browser pattern). */
+  .dsh-composer-card-workspace::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 22px;
+    background: var(--dsw-alias-border-l4);
+    transition: background-color 100ms ease;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' rx='22' ry='22' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' rx='22' ry='22' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .dsh-composer-card-workspace:hover::after {
+    background: var(--dsw-alias-state-business-primary);
+  }
+
+  /* Reference chip: ::before renders U+FFFC through the DshChipCell font so the
+   * chip's advance matches the textarea placeholder exactly; the label overlays
+   * the cell, clipped with an ellipsis. */
+  .dsh-composer-chip::before {
+    content: '\FFFC';
+    color: transparent;
+  }
+
+  .dsh-composer-chip-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(100% / 0.72 - 10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--dsw-alias-label-primary);
+    white-space: nowrap;
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+
+  /* --- Queue dock --- */
+
+  /* The input card's own top border closes the shape below; the ::after draws
+   * the l1 hairline on the other three edges. */
+  .dsh-queue-panel::after {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--dsw-alias-border-l1);
+    border-bottom: none;
+    border-radius: inherit;
+    content: '';
+    pointer-events: none;
+  }
+
+  /* --- PermissionSelect --- */
+
+  /* Narrow composer: the trigger collapses to icon + chevron so the row keeps
+   * fitting. Only triggers carrying a mode glyph drop their label. */
+  @container (max-width: 460px) {
+    .dsh-permission-trigger:has(.dsh-permission-trigger-icon) .dsh-permission-trigger-label {
+      display: none;
+    }
+  }
+
+  /* --- Hero (EmptyHero) --- */
+
+  /* Fish swim: hover on the hitbox animates the mark (reduced motion off). */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .dsh-hero-fish-hitbox:hover .dsh-hero-fish {
+      animation: dsh-hero-fish-swim var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+    }
+  }
 }
 
 @keyframes dsh-state-dot-chase {
@@ -644,4 +942,39 @@
 
 @keyframes tooltip-in {
   from { opacity: 0; }
+}
+
+@keyframes dsh-hero-fish-swim {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  35% {
+    transform: translate(-1px, -1px) rotate(-5deg);
+  }
+
+  70% {
+    transform: translate(1px, 0) rotate(3deg);
+  }
+}
+
+@keyframes dsh-turn-status-shimmer {
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes dsh-row-sweep {
+  0% { left: -300px; }
+  90%, 100% { left: 100%; }
+}
+
+@keyframes retry-shimmer {
+  from {
+    background-position: 100% 50%;
+  }
+
+  to {
+    background-position: 0 50%;
+  }
 }

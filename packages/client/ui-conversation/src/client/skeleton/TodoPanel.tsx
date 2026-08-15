@@ -13,9 +13,8 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 // declare) and the payload type. Type-only by construction — the outlet is
 // free of host value imports, so no host Context merge enters this program.
 import type { TodoItem } from '@deepseek-ai/dsh-tool-todo/client'
-import { IconChecklistOutline14, IconChevronDownOutline14, IconChevronUpOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChecklistOutline14, IconChevronDownOutline14, IconChevronUpOutline14, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import { NS } from '../locales.ts'
-import css from './TodoPanel.module.css'
 
 export interface TodoPanelProps {
   /** The session's current plan (empty renders nothing) — selected by the dock adapter. */
@@ -33,7 +32,7 @@ function assertNever(value: never): never {
 /** Status glyphs share the figma 14×14 artboard; the 16×16 `.glyph` cell centers them. */
 function CompletedGlyph() {
   return (
-    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className={css.glyphCompleted}>
+    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className="text-[var(--dsw-alias-state-success-primary)]">
       <circle cx="7" cy="7" r="6.4" stroke="currentColor" strokeWidth="1.2" />
       <path
         d="M10.9631 5.71411L7.70154 8.97571C7.48011 9.19714 7.27736 9.40099 7.09229 9.54993C6.89742 9.70669 6.66314 9.85279 6.3634 9.90027C6.2049 9.92534 6.04339 9.92534 5.88489 9.90027C5.58515 9.85279 5.35087 9.70669 5.15601 9.54993C4.97093 9.40099 4.76818 9.19714 4.54675 8.97571L3.03516 7.46411L3.96313 6.53613L5.47473 8.04773C5.7169 8.28989 5.86196 8.43389 5.97888 8.52795C6.08597 8.61409 6.10875 8.60701 6.08997 8.604C6.11259 8.60758 6.13571 8.60758 6.15833 8.604C6.13954 8.60701 6.16232 8.61409 6.26941 8.52795C6.38633 8.43389 6.53139 8.28989 6.77356 8.04773L10.0352 4.78613L10.9631 5.71411Z"
@@ -47,7 +46,7 @@ function CompletedGlyph() {
 function ProgressGlyph() {
   const gradientId = useId()
   return (
-    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className={css.glyphProgress}>
+    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className="animate-spin text-[var(--dsw-alias-state-business-primary)]">
       <defs>
         <linearGradient id={gradientId} x1="2.5" y1="12" x2="10.5" y2="3.5" gradientUnits="userSpaceOnUse">
           <stop stopColor="currentColor" />
@@ -62,7 +61,7 @@ function ProgressGlyph() {
 /** Pending: dashed unstarted ring (figma dash 2.4 2.4). */
 function PendingGlyph() {
   return (
-    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className={css.glyphPending}>
+    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden="true" className="text-[var(--dsw-alias-label-caption)]">
       <circle cx="7" cy="7" r="6.4" stroke="currentColor" strokeWidth="1.2" strokeDasharray="2.4 2.4" />
     </svg>
   )
@@ -89,7 +88,7 @@ function progressLabel(todos: readonly TodoItem[], t: TodoPanelProps['t']): stri
     ...done > 0 ? [t('todo.progress.done', { done })] : [],
     ...active > 0 ? [t('todo.progress.active', { active })] : [],
     ...pending > 0 ? [t('todo.progress.pending', { pending })] : [],
-  ].join('\u2002·\u2002')
+  ].join(' · ')
 }
 
 export function TodoPanel({ todos, t }: TodoPanelProps) {
@@ -97,27 +96,27 @@ export function TodoPanel({ todos, t }: TodoPanelProps) {
   if (todos.length === 0) return null
 
   return (
-    <section className={css.root} data-testid="todo-panel" aria-label={t('todo.title')}>
-      <div className={css.body}>
-        <button
-          type="button"
-          className={css.header}
+    <section className="box-border mx-auto flex-none w-[calc(100%_-_2*var(--dsh-composer-side-clearance)_-_4*var(--dsh-composer-dock-inset))] max-w-[calc(var(--dsh-composer-card-max-width)_-_4*var(--dsh-composer-dock-inset))] overflow-hidden rounded-xl border border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-specific-tip)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]" data-testid="todo-panel" aria-label={t('todo.title')}>
+      <div className="flex flex-col gap-2 px-3 py-1.5">
+        <ShadcnButton
+          variant="ghost"
+          className="flex w-full items-center justify-start gap-2.5 rounded-none bg-transparent p-0 text-left hover:bg-transparent"
           aria-expanded={!collapsed}
           onClick={() => { setCollapsed(v => !v) }}
         >
-          <span className={css.lead} aria-hidden><IconChecklistOutline14 /></span>
-          <span className={css.title}>{t('todo.title')}</span>
-          <span className={css.progress}>{progressLabel(todos, t)}</span>
-          <span className={css.chevron} aria-hidden>
+          <span className="grid flex-none place-items-center text-[var(--dsw-alias-label-tertiary)]" aria-hidden><IconChecklistOutline14 /></span>
+          <span className="flex-none text-[13px] leading-6 font-medium text-foreground">{t('todo.title')}</span>
+          <span className="min-w-0 flex-auto overflow-hidden text-[13px] leading-5 font-normal text-[var(--dsw-alias-label-tertiary)] text-ellipsis whitespace-nowrap">{progressLabel(todos, t)}</span>
+          <span className="grid flex-none place-items-center text-[var(--dsw-alias-label-tertiary)]" aria-hidden>
             {collapsed ? <IconChevronUpOutline14 /> : <IconChevronDownOutline14 />}
           </span>
-        </button>
+        </ShadcnButton>
         {!collapsed && (
-          <ul className={css.list}>
+          <ul className="m-0 flex max-h-[180px] list-none flex-col gap-2 overflow-y-auto p-0">
             {todos.map(item => (
-              <li key={item.content} className={css.item} data-status={item.status}>
-                <span className={css.glyph} aria-hidden><StatusGlyph status={item.status} /></span>
-                <span className={css.content}>{item.content}</span>
+              <li key={item.content} className="flex min-w-0 items-center gap-2.5 text-[13px] leading-5 text-[var(--dsw-alias-label-secondary)]" data-status={item.status}>
+                <span className="grid h-4 w-4 flex-none place-items-center" aria-hidden><StatusGlyph status={item.status} /></span>
+                <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{item.content}</span>
               </li>
             ))}
           </ul>

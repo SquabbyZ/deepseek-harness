@@ -8,7 +8,6 @@ import {
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { formatLatencySeconds, formatMessageClock, formatRunDuration, formatTokensPerSecond } from './message-chrome.ts'
 import { useCalendarDay } from './use-calendar-day.ts'
-import css from './MessageIconActions.module.css'
 
 export interface MessageIconActionsProps {
   /** Plain text the copy action writes. */
@@ -79,12 +78,12 @@ export function MessageIconActions({
   // readings only on screen: without the flanking spaces a reader hears one
   // run-on string ("Ran for 13sTTFT 0.2s12 tok/s") instead of three facts.
   const clockEl = time === undefined ? null : (
-    <span className={clock === 'start' ? css.timeStart : css.timeEnd}>
+    <span className={clock === 'start' ? 'message-time-start pr-3 text-sm leading-6 text-[var(--dsw-alias-label-tertiary)] whitespace-nowrap' : 'message-time-end pl-3 text-sm leading-6 text-[var(--dsw-alias-label-tertiary)] whitespace-nowrap'}>
       {formatMessageClock(time, t, day)}
       {runMs !== undefined && (
         <>
           {' '}
-          <span className={css.runTimeDot} aria-hidden>·</span>
+          <span className="mx-[10px]" aria-hidden>·</span>
           {' '}
           {t('message.ranFor', { duration: formatRunDuration(runMs, t) })}
         </>
@@ -92,7 +91,7 @@ export function MessageIconActions({
       {ttftMs !== undefined && (
         <>
           {' '}
-          <span className={css.runTimeDot} aria-hidden>·</span>
+          <span className="mx-[10px]" aria-hidden>·</span>
           {' '}
           {t('message.ttft', { seconds: formatLatencySeconds(ttftMs) })}
         </>
@@ -100,7 +99,7 @@ export function MessageIconActions({
       {tokensPerSecond !== undefined && (
         <>
           {' '}
-          <span className={css.runTimeDot} aria-hidden>·</span>
+          <span className="mx-[10px]" aria-hidden>·</span>
           {' '}
           {t('message.tokensPerSecond', { tps: formatTokensPerSecond(tokensPerSecond) })}
         </>
@@ -108,10 +107,10 @@ export function MessageIconActions({
     </span>
   )
   return (
-    <div className={className === undefined ? css.actions : `${css.actions} ${className}`}>
+    <div className={className === undefined ? 'flex items-center gap-[10px] h-7' : `flex items-center gap-[10px] h-7 ${className}`}>
       {clock === 'start' ? clockEl : null}
       <Tooltip label={copied ? t('copied') : t('copy')} side="bottom">
-        <button type="button" className={css.action} aria-label={copied ? t('copied') : t('copy')} onClick={onCopy}>
+        <button type="button" className="inline-flex items-center justify-center size-7 p-[6px] border-none rounded-[28px] bg-transparent text-[var(--dsw-alias-label-tertiary)] cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-secondary)]" aria-label={copied ? t('copied') : t('copy')} onClick={onCopy}>
           {copied ? <IconCheckOutline16 /> : <IconCopyOutline16 />}
         </button>
       </Tooltip>
@@ -121,7 +120,7 @@ export function MessageIconActions({
           {/* Native disabled buttons do not deliver the hover/focus events Tooltip needs. */}
           <button
             type="button"
-            className={css.action}
+            className="inline-flex items-center justify-center size-7 p-[6px] border-none rounded-[28px] bg-transparent text-[var(--dsw-alias-label-tertiary)] cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-secondary)] data-[unavailable]:cursor-default data-[unavailable]:opacity-40 data-[unavailable]:hover:bg-transparent data-[unavailable]:hover:text-[var(--dsw-alias-label-tertiary)]"
             aria-label={t('message.branch')}
             aria-disabled={branchUnavailable || undefined}
             aria-describedby={branchUnavailable ? reasonId : undefined}
@@ -133,7 +132,7 @@ export function MessageIconActions({
         </Tooltip>
       )}
       {onBranch !== undefined && branchUnavailable && (
-        <span id={reasonId} className={css.visuallyHidden}>{t('message.branchUnavailable')}</span>
+        <span id={reasonId} className="absolute w-px h-px overflow-hidden whitespace-nowrap [clip:rect(0_0_0_0)]">{t('message.branchUnavailable')}</span>
       )}
       {clock === 'end' ? clockEl : null}
     </div>

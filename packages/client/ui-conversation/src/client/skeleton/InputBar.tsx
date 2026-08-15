@@ -8,9 +8,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react'
-import clsx from 'clsx'
 import {
-  IconPlusOutline16, IconWarningOutline16, Toast, Tooltip,
+  cn, IconPlusOutline16, IconWarningOutline16, ShadcnButton, Textarea, Toast, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AttachmentRail, DropOverlay, ImageLightbox } from '@deepseek-ai/dsh-client-ui-attachment'
 import type { AttachmentRailItem } from '@deepseek-ai/dsh-client-ui-attachment'
@@ -31,10 +30,18 @@ import {
 } from '../image-labels.ts'
 import { ContextMeter } from './ContextMeter.tsx'
 import { PermissionSelect } from './PermissionSelect.tsx'
-import css from './InputBar.module.css'
 
 /** Decoration product of the no-session state (no machine, empty draft). */
 const INERT_DECORATIONS: DraftDecorations = { token: null, chips: [], textRefs: [], hint: null }
+
+/** Shared text-layer metrics (mirror, backdrop, textarea) for the composer draft. */
+const TEXT_LAYER = 'box-border pt-1 pr-3 pb-0 pl-4 [font-family:DshChipCell,var(--dsw-font-family)] whitespace-pre-wrap [word-break:break-word] [overflow-wrap:anywhere]'
+/** Floating input card surface. */
+const CARD_CLASS = 'box-border relative flex flex-col gap-3 w-full max-w-[var(--dsh-composer-card-max-width)] pt-2.5 rounded-[22px] border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-specific-input-major)] shadow-[var(--dsw-shadow-lv2)] text-base leading-6 [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]'
+/** Attach (+) circular control. */
+const ADD_CLASS = 'grid h-7 w-7 flex-none place-items-center rounded-full bg-[var(--dsw-specific-selector)] p-0 text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:enabled:text-foreground disabled:opacity-50 disabled:cursor-default'
+/** Primary send/stop circular control. */
+const PRIMARY_CLASS = 'grid h-[34px] w-[34px] flex-none place-items-center rounded-full border-none bg-[var(--dsw-alias-button-info-fill)] p-0 text-white transition-colors duration-[100ms] -translate-y-0.5 hover:enabled:bg-[var(--dsw-alias-button-info-hover)] hover:enabled:text-white disabled:opacity-40 disabled:cursor-default'
 
 /** Rail thumbnail carrying its source attachment for the open/remove callbacks. */
 interface ComposerRailItem extends AttachmentRailItem {
@@ -579,7 +586,7 @@ export function InputBar({
     }
     if (deco.token !== null) {
       backdrop.push(
-        <mark key="token" className={css.hlToken} data-decoration="token">
+        <mark key="token" className="bg-transparent text-[var(--dsw-alias-state-warn-label)]" data-decoration="token">
           {draft.slice(deco.token.start, deco.token.end)}
         </mark>,
       )
@@ -603,13 +610,13 @@ export function InputBar({
           // a clipped overlay that never affects layout.
           <span
             key={`chip-${chip.occurrenceId}`}
-            className={clsx(css.chip, chip.invalid && css.chipInvalid)}
+            className={cn('relative rounded-[6px] bg-[rgba(97,135,216,0.22)] dsh-composer-chip', chip.invalid && 'bg-[rgba(216,97,97,0.2)] line-through opacity-70')}
             data-decoration="chip"
             data-occurrence={chip.occurrenceId}
             data-invalid={chip.invalid || undefined}
             title={chip.label}
           >
-            <span className={css.chipLabel}>{chip.label}</span>
+            <span className="dsh-composer-chip-label">{chip.label}</span>
           </span>,
         )
         cursor = chip.offset + 1 // the placeholder char the chip stands for
@@ -617,7 +624,7 @@ export function InputBar({
         // Plain-range highlight: the glyphs stay the
         // textarea's (advance untouched); the mark paints the chip look.
         backdrop.push(
-          <mark key={`ref-${b.ref.start}`} className={css.textRef} data-decoration="text-ref">
+          <mark key={`ref-${b.ref.start}`} className="box-decoration-clone bg-transparent text-[var(--dsw-alias-state-business-primary)]" data-decoration="text-ref">
             {draft.slice(b.ref.start, b.ref.end)}
           </mark>,
         )
@@ -633,12 +640,12 @@ export function InputBar({
       // dictionary and keep the machine's own hint, so the call is wide.
       const translated = (t as Translate)(hintKey)
       const displayHint = translated !== hintKey ? translated : deco.hint
-      backdrop.push(<span key="hint" className={css.hint} data-decoration="hint">{displayHint}</span>)
+      backdrop.push(<span key="hint" className="text-[var(--dsw-alias-label-caption)]" data-decoration="hint">{displayHint}</span>)
     }
   }
 
   return (
-    <div className={clsx(css.root, variant === 'hero' && css.hero)}>
+    <div className={`flex flex-col items-center px-[var(--dsh-composer-side-clearance)] ${variant === 'hero' ? 'pb-0' : 'pb-2'}`}>
       {dragActive && (
         <DropOverlay
           disabled={!canAcceptDrop}
@@ -658,7 +665,7 @@ export function InputBar({
         />
       )}
       {notice !== null && (
-        <div className={clsx(css.notice, notice.level === 'error' && css.noticeError)} role="status">
+        <div className={cn('mb-1.5 w-full max-w-[var(--dsh-composer-card-max-width)] rounded-lg bg-[var(--dsw-alias-interactive-bg-hover)] px-2 py-1 text-xs leading-[18px] text-[var(--dsw-alias-label-secondary)]', notice.level === 'error' && 'bg-[var(--dsw-alias-interactive-bg-hover-danger)] text-[var(--dsw-alias-state-error-primary)]')} role="status">
           {notice.text}
         </div>
       )}
@@ -669,15 +676,15 @@ export function InputBar({
           click's reopen (close-then-open flickers the chip's open echo). */}
       <div
         ref={cardRef}
-        className={clsx(css.card, workspaceTrigger && css.cardWorkspaceTrigger)}
+        className={cn(CARD_CLASS, workspaceTrigger && 'cursor-pointer border-transparent [&_:disabled]:pointer-events-none dsh-composer-card-workspace')}
         data-composer-card
         onClick={workspaceTrigger ? onRequestWorkspace : undefined}
         onPointerDown={workspaceTrigger ? (e) => { e.stopPropagation() } : undefined}
       >
-        {overlay !== undefined && <div className={css.overlayAnchor}>{overlay}</div>}
-        {accessory !== undefined && <div className={css.accessory}>{accessory}</div>}
+        {overlay !== undefined && <div className="absolute inset-x-0 top-0 h-0">{overlay}</div>}
+        {accessory !== undefined && <div className="flex items-center gap-2 px-3 pt-2.5">{accessory}</div>}
         {railItems.length > 0 && (
-          <div className={css.attachments}>
+          <div className="min-w-0 px-3 pt-1">
             <AttachmentRail
               items={railItems}
               labels={attachmentRailLabels(t)}
@@ -693,12 +700,12 @@ export function InputBar({
             glyphs to the backdrop, so they can only stay together by moving together: one scroll
             offset the browser applies to both layers at once, never a JS mirror between two boxes,
             which a compositor-driven gesture outruns and leaves the words trailing the caret. */}
-        <div ref={scrollRef} className={css.scroll} data-input-scroll>
-          <div className={css.grow}>
-            <div aria-hidden className={css.backdrop} data-input-backdrop>{backdrop}</div>
-            <textarea
+        <div ref={scrollRef} className="max-h-[var(--dsh-composer-text-max-height)] overflow-y-auto" data-input-scroll>
+          <div className="relative">
+            <div aria-hidden className={`${TEXT_LAYER} absolute inset-0 overflow-hidden text-foreground pointer-events-none`} data-input-backdrop>{backdrop}</div>
+            <Textarea
               ref={inputRef}
-              className={css.input}
+              className={`${TEXT_LAYER} absolute inset-0 block h-full w-full min-h-0 resize-none overflow-hidden rounded-none border-none outline-none bg-transparent text-transparent [caret-color:var(--dsw-alias-state-business-primary)] text-base leading-6 shadow-none placeholder:text-[var(--dsw-alias-label-caption)] placeholder:select-none focus-visible:ring-0 disabled:text-[var(--dsw-alias-label-tertiary)] disabled:cursor-not-allowed disabled:opacity-100 ${workspaceTrigger ? 'cursor-pointer' : ''}`}
               value={draft}
               disabled={textareaDisabled}
               readOnly={machineBusy || workspaceTrigger}
@@ -726,15 +733,15 @@ export function InputBar({
               onCompositionStart={onCompositionStart}
               onCompositionEnd={onCompositionEnd}
             />
-            <div ref={mirrorRef} aria-hidden className={css.mirror} data-input-mirror>{`${draft}\n`}</div>
+            <div ref={mirrorRef} aria-hidden className={`${TEXT_LAYER} invisible pointer-events-none ${variant === 'hero' ? 'min-h-[52px]' : ''}`} data-input-mirror>{`${draft}\n`}</div>
           </div>
         </div>
-        <div className={css.row}>
-          <div className={css.tools}>
+        <div className="flex min-w-0 items-center justify-between gap-3 px-2 pt-0.5 pb-1.5 [container-type:inline-size]">
+          <div className="flex min-w-0 items-center gap-4">
             <Tooltip label={t('input.commands')} side="top" delayMs={500}>
-              <button
-                type="button"
-                className={css.add}
+              <ShadcnButton
+                variant="ghost"
+                className={ADD_CLASS}
                 aria-label={t('input.commands')}
                 aria-haspopup="listbox"
                 aria-expanded={commandMenuOpen}
@@ -743,23 +750,23 @@ export function InputBar({
                 onClick={onToggleCommandMenu}
               >
                 <IconPlusOutline16 size={14} />
-              </button>
+              </ShadcnButton>
             </Tooltip>
-            <div className={css.modes}>
+            <div className="flex min-w-0 items-center gap-3">
               {accessSelect}
               {renderSlot('conversation.input.plan', { locked })}
             </div>
             {leftItems}
           </div>
-          <div className={css.trailing}>
+          <div className="flex min-w-0 flex-none items-center gap-3">
             {rightItems}
             {renderSlot('conversation.input.model', { locked: modelSeatLocked })}
             <ContextMeter useProjection={useProjection} t={t} />
             {interruptible && (
               <Tooltip label={t('input.stop')} side="top" delayMs={500}>
-                <button
-                  type="button"
-                  className={css.primary}
+                <ShadcnButton
+                  variant="ghost"
+                  className={PRIMARY_CLASS}
                   aria-label={t('input.stop')}
                   disabled={stop === undefined}
                   onMouseDown={keepFocus}
@@ -768,13 +775,13 @@ export function InputBar({
                   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden>
                     <rect x="3" y="3" width="10" height="10" rx="3" fill="currentColor" />
                   </svg>
-                </button>
+                </ShadcnButton>
               </Tooltip>
             )}
             <Tooltip label={primaryLabel} side="top" delayMs={500}>
-              <button
-                type="button"
-                className={css.primary}
+              <ShadcnButton
+                variant="ghost"
+                className={PRIMARY_CLASS}
                 aria-label={primaryLabel}
                 disabled={primaryStops ? stop === undefined : empty || disabled || machineBusy}
                 onMouseDown={keepFocus}
@@ -789,7 +796,7 @@ export function InputBar({
                     <path d="M8.3125 0.980183C8.66767 1.0531 8.97902 1.20418 9.2627 1.43233C9.48724 1.61297 9.73029 1.85793 9.97949 2.10714L14.707 6.83468L13.293 8.24874L9 3.95577V15.0417H7V3.95577L2.70703 8.24874L1.29297 6.83468L6.02051 2.10714C6.26971 1.85793 6.51277 1.61297 6.7373 1.43233C6.97662 1.23986 7.28445 1.04402 7.6875 0.980183C7.8973 0.947006 8.1031 0.95516 8.3125 0.980183Z" fill="currentColor" />
                   </svg>
                 )}
-              </button>
+              </ShadcnButton>
             </Tooltip>
           </div>
         </div>

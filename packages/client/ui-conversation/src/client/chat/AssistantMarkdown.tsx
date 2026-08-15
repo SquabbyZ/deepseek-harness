@@ -18,7 +18,6 @@ import { ImageGallery, type ImageLoader } from '@deepseek-ai/dsh-client-ui-attac
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { messageImageLabels } from '../image-labels.ts'
 import { ReasoningRow } from './ReasoningRow.tsx'
-import css from './AssistantMarkdown.module.css'
 
 export interface AssistantMarkdownProps {
   blocks: readonly AssistantBlock[]
@@ -100,10 +99,10 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     }
   }
   return (
-    <div className={css.root} data-streaming={streaming || undefined}>
-      <div className={css.body}>
+    <div className="flex flex-col text-base leading-[28px] text-foreground" data-streaming={streaming || undefined}>
+      <div className="flex flex-col gap-4">
         {rendered}
-        {interrupted && <span className={css.stopped}>{t('message.stopped')}</span>}
+        {interrupted && <span className="self-start rounded-[6px] bg-[var(--dsw-alias-interactive-bg-hover)] px-[6px] text-[11px] leading-[18px] text-[var(--dsw-alias-label-tertiary)]">{t('message.stopped')}</span>}
       </div>
     </div>
   )
