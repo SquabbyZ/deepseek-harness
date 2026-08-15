@@ -1,0 +1,12 @@
+diff --git a/dist/format-DMceewlS.mjs b/dist/format-DMceewlS.mjs
+index dc3293aab0ef7258258c51b2c673b8e67294a1e2..db7b63ce0282eb0fef5a475ea1ba2c8c24a0f34c 100644
+--- a/dist/format-DMceewlS.mjs
++++ b/dist/format-DMceewlS.mjs
+@@ -97,6 +97,7 @@ function DepsPlugin({ pkg, deps: { alwaysBundle: jsAlwaysBundle, onlyBundle, ski
+ 				}
+ 				const moduleSideEffects = isBuiltin(id) ? false : void 0;
+ 				debug("shouldExternal: %o = %o", id, shouldExternal);
++				if (shouldExternal === "no-external" && !resolved && !/\/remote$/.test(id)) return { id, external: false, moduleSideEffects };
+ 				if (shouldExternal === true || shouldExternal === "absolute") return {
+ 					id,
+ 					external: shouldExternal,

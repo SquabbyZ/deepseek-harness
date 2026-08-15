@@ -32,7 +32,9 @@ pre-commit:
       run: node_modules/.bin/tsx scripts/gen-third-party-notices.ts && git add THIRD_PARTY_NOTICES.md
 
     - name: whitespace (staged)
-      run: git diff --cached --check
+      # Patches mirror upstream indentation verbatim (a context line can carry a
+      # diff-marker space before a tab), so they are exempt from whitespace lint.
+      run: git diff --cached --check -- . ':!patches/'
 
     - name: vendor manifest guard
       run: scripts/check-vendor-manifest.sh

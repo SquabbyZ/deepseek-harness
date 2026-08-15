@@ -10,6 +10,7 @@ overrides:
 
 patchedDependencies:
   node-pty@1.1.0: 7a0c04f1f49d798a9ffe2f7f414c01064a44ca2489772d0c3e1235ab336755e6
+  tsdown@0.22.2: 15ed101e618f258c353e6549f1614c6ea8d7b53db9bf841b75dfccf7f2ee7e91
 
 importers:
 
@@ -110,7 +111,7 @@ importers:
         version: 5.0.0
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.2(oxc-resolver@11.20.0)(publint@0.3.21)(tsx@4.22.4)(typescript@6.0.3)
+        version: 0.22.2(patch_hash=15ed101e618f258c353e6549f1614c6ea8d7b53db9bf841b75dfccf7f2ee7e91)(oxc-resolver@11.20.0)(publint@0.3.21)(tsx@4.22.4)(typescript@6.0.3)
       tsx:
         specifier: ^4.22.4
         version: 4.22.4
@@ -20638,7 +20639,7 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
-  tsdown@0.22.2(oxc-resolver@11.20.0)(publint@0.3.21)(tsx@4.22.4)(typescript@6.0.3):
+  tsdown@0.22.2(patch_hash=15ed101e618f258c353e6549f1614c6ea8d7b53db9bf841b75dfccf7f2ee7e91)(oxc-resolver@11.20.0)(publint@0.3.21)(tsx@4.22.4)(typescript@6.0.3):
     dependencies:
       ansis: 4.3.1
       cac: 7.0.0
