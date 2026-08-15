@@ -199,12 +199,14 @@ function clientConfig(id: string, entry: string): UserConfig {
       'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
       'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
     },
-    // tsdown auto-externalizes package dependencies; anything NOT in the
-    // loader module table must inline instead (wire/type layers, zod, clsx —
-    // every non-shared dep). A require() the table cannot answer is a
-    // guaranteed runtime throw, so the rule is the table list itself: no
-    // opinion for table entries (external above wins), bundle everything else.
-    noExternal: (id: string) => (CLIENT_EXTERNALS.includes(id) ? undefined : true),
+    // tsdown auto-externalizes package dependencies. Platform modules
+    // (CLIENT_EXTERNALS above) must stay external so the frozen module table
+    // answers their require(); every other @deepseek-ai dependency is a
+    // wire/type layer or generated contribution that must be inlined (a
+    // require() the table cannot answer is a guaranteed runtime throw).
+    // npm deps (zod/clsx/…) are bundled by default. A function form does not
+    // reliably match workspace SUBPATH imports, so this is a regex list.
+    noExternal: [INLINE_SAFE, VENDORED_LIBRARY, GENERATED_REMOTE],
     plugins: [{
       // Bundle purity gate (build-time mirror of the module-edge rules):
       // platform seed entries stay external, inline-safe wire layers inline,
