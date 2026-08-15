@@ -73,7 +73,7 @@ export const DEFAULT_SKIN: SkinId = 'default'
 ## 二、shadcn 语义层收口
 
 1. **`.dark` 打通**：`globals.css` 的 `@custom-variant dark` 改为匹配 `body[data-ds-dark-theme]`（现有 app 暗色开关），而不是 shadcn 默认的 `.dark` 类。即 `@custom-variant dark (&:is([data-ds-dark-theme] *))`（或等价的 `:root[data-ds-dark-theme]` 块）。
-2. **语义 token 随皮肤**：`--primary`/`--background`/`--muted`/`--border` 等已映射到 `--dsw-alias-*`；皮肤覆盖 `--dsw-alias-*` 后，这些语义 token 自动跟随（`@theme inline` 的 `--color-*: var(--*)` 引用在运行时求值）。确认 `--primary` 指向皮肤的品牌色（`--dsw-alias-brand-primary` 而非固定 `--dsw-static-deepseek-500`）。
+2. **语义 token 随皮肤**：`--background`/`--card`/`--popover`/`--border`/`--muted-foreground` 等已映射到 `--dsw-alias-*`（bg/border/label），皮肤覆盖这些 `--dsw-alias-*` 后自动跟随。**`--primary`/`--ring`（品牌蓝强调色）保持 `--dsw-static-deepseek-*` 不动**——皮肤只改「表面」（背景/边框），不改品牌色。（注：`--dsw-alias-brand-primary` 是品牌对比文字色≈近黑/近白，不是蓝，不能映射给 shadcn `--primary`。）
 3. **结果**：`ShadcnButton` 等 shadcn 组件、以及将来用 `bg-primary` 语义类的组件，都能随皮肤 + 明暗正确渲染。
 
 ---

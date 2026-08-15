@@ -127,6 +127,10 @@
 - `vitest run packages/client/ui-theme/tests packages/client/ui-layout/tests packages/client/ui-settings-general/tests` 全绿。
 - 端到端：`pnpm --dir desktop run build:sidecar` + 重启 `tauri dev`，肉眼确认：设置→个性化有主题/皮肤/背景图三行；切皮肤 + 切明暗叠加正确；背景图本地/URL 生效；右下角留空。
 
+## Task 6（暂缓，地基完成后再定）
+
+**动画增强**：换肤切换动画 + 背景/水印动效。技术选型（GSAP vs 纯 CSS keyframes vs 其他）暂缓，等 Task 1-5 完成后、看到实际换肤效果再定。用户已确认此顺序。
+
 ## 执行顺序说明
 
 Task 1 独立可先行；Task 2 是换肤核心；Task 3（设置结构）与 Task 2 有少量耦合（都改 ui-theme/index.ts），**Task 3 须在 Task 2 之后**；Task 4（UI）在 Task 3 之后；Task 5（背景层）可与 Task 2/4 并行但建议最后收口。串行执行：1 → 2 → 3 → 4 → 5。
