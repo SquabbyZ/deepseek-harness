@@ -29,18 +29,24 @@ export const SKIN_FIELD = 'skin'
 /** Default skin when the user-settings document has no override. */
 export const DEFAULT_SKIN: SkinId = 'default'
 
+/** Field carrying the global background image (raw URL or data URL). */
+export const BACKGROUND_FIELD = 'background'
+
 /** Durable theme section shared by the Host schema and the browser scope. */
 export interface ThemeSettings {
   /** Selected built-in preference. */
   preference: ThemePreference
   /** Selected skin layer (surfaces only; orthogonal to the preference). */
   skin: SkinId
+  /** Global background image (raw URL or data URL; empty = none). */
+  background: string
 }
 
 /** Durable theme schema; also the wire envelope the browser scope validates against. */
 export const ThemeSettingsSchema: z<ThemeSettings> = z.object({
   [THEME_PREFERENCE_FIELD]: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE),
   [SKIN_FIELD]: z.union([...SKIN_IDS]).default(DEFAULT_SKIN),
+  [BACKGROUND_FIELD]: z.string().default(''),
 })
 
 /**

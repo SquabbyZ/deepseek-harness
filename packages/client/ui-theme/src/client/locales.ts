@@ -6,6 +6,15 @@ export const zh = {
   'theme.light': '浅色',
   'theme.dark': '深色',
   'theme.system': '跟随系统',
+  'skin.title': '皮肤',
+  'skin.default': '默认',
+  'skin.glass': '玻璃',
+  'skin.cyber': '赛博',
+  'background.title': '背景图',
+  'background.upload': '上传图片',
+  'background.url': '图片 URL',
+  'background.urlPlaceholder': 'https://example.com/image.png',
+  'background.clear': '清除',
 } satisfies Record<string, string>
 
 /** The settings.theme namespace key union. */
@@ -17,4 +26,13 @@ export const en = {
   'theme.light': 'Light',
   'theme.dark': 'Dark',
   'theme.system': 'System',
+  'skin.title': 'Skin',
+  'skin.default': 'Default',
+  'skin.glass': 'Glass',
+  'skin.cyber': 'Cyber',
+  'background.title': 'Background image',
+  'background.upload': 'Upload image',
+  'background.url': 'Image URL',
+  'background.urlPlaceholder': 'https://example.com/image.png',
+  'background.clear': 'Clear',
 } satisfies Record<ThemeKey, string>

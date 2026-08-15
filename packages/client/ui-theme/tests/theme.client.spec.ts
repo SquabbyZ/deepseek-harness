@@ -9,7 +9,7 @@ import type {
   ThemeTokenOverrides,
 } from '@deepseek-ai/dsh-client-ui-theme/client'
 import {
-  DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, SKIN_PRESETS, ThemeRuntime,
+  BACKGROUND_FIELD, DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, SKIN_PRESETS, ThemeRuntime,
 } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 const make = (host = stubSettingsScope<ThemeSettings>()): {
@@ -242,6 +242,45 @@ describe('ThemeRuntime', () => {
     expect(theme.getTheme().skin).toBe('cyber')
     expect(host.set).not.toHaveBeenCalled()
     expect(events).toHaveLength(1)
+  })
+
+  it('defaults to an empty background and carries it in the snapshot', () => {
+    const { theme } = make()
+    expect(theme.getTheme().background).toBe('')
+  })
+
+  it('setBackground persists the raw value, republishes, and no-ops when unchanged', () => {
+    const { theme, events, host } = make()
+    theme.setBackground('https://example.com/bg.png')
+    expect(theme.getTheme().background).toBe('https://example.com/bg.png')
+    expect(host.set).toHaveBeenCalledWith(BACKGROUND_FIELD, 'https://example.com/bg.png')
+    expect(events).toHaveLength(1)
+    theme.setBackground('https://example.com/bg.png')
+    expect(events).toHaveLength(1)
+    expect(host.set).toHaveBeenCalledTimes(1)
+  })
+
+  it('setBackground clears with an empty string', () => {
+    const { theme, events } = make()
+    theme.setBackground('data:image/png;base64,AAAA')
+    theme.setBackground('')
+    expect(theme.getTheme().background).toBe('')
+    expect(events).toHaveLength(2)
+  })
+
+  it('adopts a persisted background without writing it back', () => {
+    const { theme, events, host } = make()
+    host.publish({ status: 'ready', value: { preference: 'system', background: 'https://example.com/bg.png' }, revision: 1, writable: true })
+    expect(theme.getTheme().background).toBe('https://example.com/bg.png')
+    expect(host.set).not.toHaveBeenCalled()
+    expect(events).toHaveLength(1)
+  })
+
+  it('treats a non-string persisted background as empty', () => {
+    const { theme, events, host } = make()
+    host.publish({ status: 'ready', value: { preference: 'system', background: 42 as unknown as string }, revision: 1, writable: true })
+    expect(theme.getTheme().background).toBe('')
+    expect(events).toHaveLength(0)
   })
 
   it('every skin preset overrides surface tokens only, as { light, dark } pairs', () => {

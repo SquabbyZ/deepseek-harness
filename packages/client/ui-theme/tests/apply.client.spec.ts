@@ -8,9 +8,13 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { SettingsScopeBinder } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { apply, inject, SETTINGS_NS } from '@deepseek-ai/dsh-client-ui-theme/client'
-import type { AppearanceRowInjected, ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
+import type {
+  AppearanceRowInjected, BackgroundRowInjected, SkinRowInjected, ThemeRuntime,
+} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { THEME_SETTINGS_NAMESPACE, ThemeSettingsSchema } from '../src/theme-settings.ts'
 import { AppearanceRow } from '../src/client/AppearanceRow.tsx'
+import { BackgroundRow } from '../src/client/BackgroundRow.tsx'
+import { SkinRow } from '../src/client/SkinRow.tsx'
 import type { createAppearanceRowStore } from '../src/client/settings-store.ts'
 
 // The service reads its initial locale from the browser; these specs assert
@@ -81,6 +85,24 @@ function faceOf(slots: SlotRegistry) {
   return { entry, instance, face }
 }
 
+/** Skin-row inject choreography (same instance dance, typed to its face). */
+function skinFaceOf(slots: SlotRegistry) {
+  const entry = slots.entries(SLOT).find(e => e.component === SkinRow)!
+  const handle = entry.store as ReturnType<typeof createAppearanceRowStore>
+  const instance = handle.create()
+  const face = (entry.inject as unknown as (a: typeof instance.actions) => SkinRowInjected)(instance.actions)
+  return { entry, instance, face }
+}
+
+/** Background-row inject choreography (same instance dance, typed to its face). */
+function backgroundFaceOf(slots: SlotRegistry) {
+  const entry = slots.entries(SLOT).find(e => e.component === BackgroundRow)!
+  const handle = entry.store as ReturnType<typeof createAppearanceRowStore>
+  const instance = handle.create()
+  const face = (entry.inject as unknown as (a: typeof instance.actions) => BackgroundRowInjected)(instance.actions)
+  return { entry, instance, face }
+}
+
 describe('ui-theme apply', () => {
   it('declares the slot and locale services', () => {
     expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'settingsScope'])
@@ -123,6 +145,30 @@ describe('ui-theme apply', () => {
     expect(theme.getTheme().preference).toBe('system')
     expect(instance.getSnapshot().preference).toBe('system')
     await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(2) })
+  })
+
+  it('registers the skin and background rows and routes their faces to the service', async () => {
+    const b = await bench()
+    declareItems(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const theme = b.ctx.get('theme') as ThemeRuntime
+
+    const rows = b.slots.entries(SLOT).map(e => ({ id: e.options.id, order: e.options.order }))
+    expect(rows).toContainEqual({ id: 'appearance', order: 10 })
+    expect(rows).toContainEqual({ id: 'skin', order: 20 })
+    expect(rows).toContainEqual({ id: 'background', order: 30 })
+
+    const skin = skinFaceOf(b.slots)
+    expect(skin.instance.getSnapshot().skin).toBe('default')
+    skin.face.setSkin('cyber')
+    expect(theme.getTheme().skin).toBe('cyber')
+    expect(skin.instance.getSnapshot().skin).toBe('cyber')
+
+    const bg = backgroundFaceOf(b.slots)
+    expect(bg.instance.getSnapshot().background).toBe('')
+    bg.face.setBackground('https://example.com/bg.png')
+    expect(theme.getTheme().background).toBe('https://example.com/bg.png')
+    expect(bg.instance.getSnapshot().background).toBe('https://example.com/bg.png')
   })
 
   it('loads Host settings at boot, refreshes its namespace, and keeps remote browsers process-local', async () => {
@@ -179,7 +225,7 @@ describe('ui-theme apply', () => {
     const b = await bench()
     const host = declareItems(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(b.slots.entries(SLOT)).toHaveLength(1)
+    expect(b.slots.entries(SLOT)).toHaveLength(3)
 
     // Collapse: the declarer dies, the cascade removes our entry while the
     // apply closure still holds its (now stale) disposer.
@@ -196,7 +242,7 @@ describe('ui-theme apply', () => {
     declareItems(b.slots)
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.slots.entries(SLOT)).toHaveLength(1)
+    expect(b.slots.entries(SLOT)).toHaveLength(3)
     await fiber.dispose()
     expect(b.slots.entries(SLOT)).toHaveLength(0)
     // Dictionary disposal: translation falls back to the bare key.

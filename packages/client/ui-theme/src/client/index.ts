@@ -18,20 +18,26 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { AppearanceRowInjected } from './AppearanceRow.tsx'
 import { AppearanceRow } from './AppearanceRow.tsx'
+import type { BackgroundRowInjected } from './BackgroundRow.tsx'
+import { BackgroundRow } from './BackgroundRow.tsx'
+import type { SkinRowInjected } from './SkinRow.tsx'
+import { SkinRow } from './SkinRow.tsx'
 import { createAppearanceRowStore } from './settings-store.ts'
 import { en, zh, type ThemeKey } from './locales.ts'
 import {
-  DEFAULT_PREFERENCE, DEFAULT_SKIN, isSkinId, isThemePreference, SKIN_FIELD,
+  BACKGROUND_FIELD, DEFAULT_PREFERENCE, DEFAULT_SKIN, isSkinId, isThemePreference, SKIN_FIELD,
   THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
   type SkinId, type ThemePreference, type ThemeSettings,
 } from '../theme-settings.ts'
 import { SKIN_PRESETS } from '../skins.ts'
 
 export type { AppearanceRowComponentProps, AppearanceRowInjected } from './AppearanceRow.tsx'
+export type { BackgroundRowComponentProps, BackgroundRowInjected } from './BackgroundRow.tsx'
+export type { SkinRowComponentProps, SkinRowInjected } from './SkinRow.tsx'
 export type { AppearanceRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
 export type { SkinId, ThemePreference, ThemeSettings } from '../theme-settings.ts'
-export { DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, isSkinId } from '../theme-settings.ts'
+export { BACKGROUND_FIELD, DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, isSkinId } from '../theme-settings.ts'
 export { SKIN_PRESETS } from '../skins.ts'
 
 /** Namespace owning this feature's settings-row copy. */
@@ -81,6 +87,8 @@ export interface ThemeSnapshot {
   preference: ThemePreference
   /** The selected skin layer id (`default`/`glass`/`cyber`). */
   skin: SkinId
+  /** The global background image (raw URL or data URL; empty = none). */
+  background: string
   /**
    * The resolved active theme (`system` resolved via prefers-color-scheme)
    * with override layers folded into its tokens (seq order, later layers win
@@ -163,6 +171,7 @@ export class ThemeRuntime {
   private themes: ThemeDefinition[] = [...BUILTIN_THEMES]
   private preference: ThemePreference
   private skin: SkinId = DEFAULT_SKIN
+  private background: string = ''
   private revision = 0
   private snapshot: ThemeSnapshot
   private readonly media: MediaQueryList | undefined
@@ -259,6 +268,19 @@ export class ThemeRuntime {
   }
 
   /**
+   * Set the global background image — a raw URL or data URL, empty for none.
+   * The value is persisted as-is (no `url(...)` wrapping; the presenter wraps
+   * it when applying the layer). Every accepted change emits `theme/change`.
+   * @param value - raw URL or data URL; empty string clears the background.
+   */
+  setBackground(value: string): void {
+    if (this.background === value) return
+    this.background = value
+    void this.host.set(BACKGROUND_FIELD, value)
+    this.publish()
+  }
+
+  /**
    * Mount one skin's override layer without publishing. Used at construction so
    * the initial snapshot already carries the skin layer, and by {@link adopt}
    * so a persisted skin change folds into the same publish as the preference.
@@ -275,9 +297,12 @@ export class ThemeRuntime {
     const preferenceChanged = this.preference !== section.preference
     const skin = isSkinId(section.skin) ? section.skin : DEFAULT_SKIN
     const skinChanged = this.skin !== skin
-    if (!preferenceChanged && !skinChanged) return
+    const background = typeof section.background === 'string' ? section.background : ''
+    const backgroundChanged = this.background !== background
+    if (!preferenceChanged && !skinChanged && !backgroundChanged) return
     if (preferenceChanged) this.preference = section.preference
     if (skinChanged) this.mountSkinLayer(skin)
+    if (backgroundChanged) this.background = background
     this.publish()
   }
 
@@ -345,6 +370,7 @@ export class ThemeRuntime {
     return Object.freeze({
       preference: this.preference,
       skin: this.skin,
+      background: this.background,
       active: this.composeActive(active),
       themes: Object.freeze([...this.themes]),
       revision: this.revision,
@@ -436,17 +462,15 @@ export function apply(ctx: ClientContext): void {
   const store = createAppearanceRowStore()
   let bound: BoundActions<typeof store> | undefined
   const sync = (snapshot: ThemeSnapshot): void => {
-    bound?.sync(snapshot.preference, snapshot.revision)
+    bound?.sync(snapshot.preference, snapshot.skin, snapshot.background, snapshot.revision)
   }
   ctx.on('theme/change', sync)
-  const injected = (actions: BoundActions<typeof store>): AppearanceRowInjected => {
+  // All three rows share one store handle (and therefore one instance at root
+  // scope); binding the actions re-syncs so no event is lost between
+  // registration and first render (the revision guard drops stale duplicates).
+  const bind = (actions: BoundActions<typeof store>): void => {
     bound = actions
-    // Re-sync from the getter so no event is lost between registration and
-    // first render (the store's revision guard drops stale duplicates).
     sync(theme.getTheme())
-    return {
-      setTheme: (id) => { theme.setTheme(id) },
-    }
   }
   ctx.slots.inject('settings.personalization.item', () => ctx.slots.register({
     name: 'settings.personalization.item',
@@ -454,6 +478,31 @@ export function apply(ctx: ClientContext): void {
     order: 10,
     store,
     locale: SETTINGS_NS,
-    inject: injected,
+    inject: (actions: BoundActions<typeof store>): AppearanceRowInjected => {
+      bind(actions)
+      return { setTheme: (id) => { theme.setTheme(id) } }
+    },
   }, AppearanceRow))
+  ctx.slots.inject('settings.personalization.item', () => ctx.slots.register({
+    name: 'settings.personalization.item',
+    id: 'skin',
+    order: 20,
+    store,
+    locale: SETTINGS_NS,
+    inject: (actions: BoundActions<typeof store>): SkinRowInjected => {
+      bind(actions)
+      return { setSkin: (id) => { theme.setSkin(id) } }
+    },
+  }, SkinRow))
+  ctx.slots.inject('settings.personalization.item', () => ctx.slots.register({
+    name: 'settings.personalization.item',
+    id: 'background',
+    order: 30,
+    store,
+    locale: SETTINGS_NS,
+    inject: (actions: BoundActions<typeof store>): BackgroundRowInjected => {
+      bind(actions)
+      return { setBackground: (value) => { theme.setBackground(value) } }
+    },
+  }, BackgroundRow))
 }
