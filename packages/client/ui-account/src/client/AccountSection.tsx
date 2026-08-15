@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AccountState } from './account-store.ts'
@@ -47,16 +48,16 @@ export function AccountSection({ t, useAccount, login, logout, load }: AccountSe
     return (
       <div>
         <p>{t('signedIn', { name: state.identity.name })}</p>
-        <button type="button" onClick={() => { void logout() }}>{t('logout')}</button>
+        <Button variant="outline" onClick={() => { void logout() }}>{t('logout')}</Button>
       </div>
     )
   }
 
   return (
     <div>
-      <button type="button" onClick={() => { void login() }} disabled={signingIn}>
+      <Button variant="primary" onClick={() => { void login() }} disabled={signingIn}>
         {signingIn ? t('waiting') : t('login')}
-      </button>
+      </Button>
       {state.error === null ? null : <p role="alert">{t(state.error)}</p>}
     </div>
   )
