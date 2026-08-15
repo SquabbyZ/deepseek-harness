@@ -6,7 +6,6 @@
  */
 import { IconSettingsOutline14, IconSettingsOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import css from './chrome.module.css'
 
 /** Trigger content props: the sidebar column state + the standard locale seat. */
 export type TriggerContentProps = PropsRuntime<'settings.trigger'> & PropsLocale<'settings'>
@@ -23,7 +22,7 @@ export function TriggerContent({ wide, t }: TriggerContentProps) {
   return (
     <>
       {wide ? <IconSettingsOutline16 size={16} /> : <IconSettingsOutline14 size={18} />}
-      {wide && <span className={css.triggerLabel}>{t('trigger')}</span>}
+      {wide && <span className="overflow-hidden whitespace-nowrap">{t('trigger')}</span>}
     </>
   )
 }

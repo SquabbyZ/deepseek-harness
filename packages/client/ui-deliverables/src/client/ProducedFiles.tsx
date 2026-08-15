@@ -6,11 +6,20 @@
 
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
+import { ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { basename } from './turn-deliverables.ts'
 import type { NS } from './locales.ts'
-import css from './ProducedFiles.module.css'
+
+/** One produced file: a link by behavior (opens the file), a chip by shape. */
+const FILE_BASE = 'm-0 flex-none max-w-[320px] cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap border-none rounded-md bg-[var(--dsw-alias-interactive-bg-hover)] px-2 py-0 h-auto text-[13px] font-normal leading-[22px] text-[var(--dsw-alias-label-secondary)] hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-[inset_0_0_0_2px_var(--dsw-alias-border-l3)]'
+
+/** Native folder action under the lane. */
+const SHOW_FOLDER_BASE = 'col-start-2 row-start-2 justify-self-start m-0 cursor-pointer border-none rounded bg-transparent px-0.5 py-0 h-auto text-[13px] font-normal leading-5 text-[var(--dsw-alias-label-tertiary)] hover:text-[var(--dsw-alias-label-secondary)] hover:underline focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-[inset_0_0_0_2px_var(--dsw-alias-border-l3)]'
+
+/** Browser-native width probe for each candidate shown count. */
+const PROBE_BASE = 'absolute top-0 left-0 w-max'
 
 /** At most six chips compete for the one-line summary; every other path stays counted. */
 const SHOWN_LIMIT = 6
@@ -113,14 +122,14 @@ export function ProducedFiles({
   const shown = paths.slice(0, visibleCount)
   const hidden = paths.length - shown.length
   return (
-    <div className={css.root}>
-      <span className={css.label}>{t('produced.label')}</span>
-      <div ref={rowRef} className={css.row} data-produced-files-row>
+    <div className="relative grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2 gap-y-1.5 mt-4 text-[13px] leading-[22px]">
+      <span className="col-start-1 row-start-1 text-[var(--dsw-alias-label-tertiary)]">{t('produced.label')}</span>
+      <div ref={rowRef} className="col-start-2 row-start-1 flex flex-nowrap items-center gap-2 min-w-0 overflow-hidden" data-produced-files-row>
         {shown.map(path => (
-          <button
+          <ShadcnButton
             key={path}
-            type="button"
-            className={css.file}
+            variant="ghost"
+            className={FILE_BASE}
             // The full path is the disambiguator when two turns produce files
             // that share a basename; the chip itself stays short.
             title={path}
@@ -128,28 +137,28 @@ export function ProducedFiles({
             onClick={() => { openFile(path) }}
           >
             {basename(path)}
-          </button>
+          </ShadcnButton>
         ))}
-        {hidden > 0 && <span className={css.more}>{moreLabel(t, hidden)}</span>}
+        {hidden > 0 && <span className="flex-none whitespace-nowrap text-[var(--dsw-alias-label-tertiary)]">{moreLabel(t, hidden)}</span>}
       </div>
       {hidden > 0 && canOpenPath && (
-        <button type="button" className={css.showFolder} onClick={() => { openFile('.') }}>
+        <ShadcnButton variant="ghost" className={SHOW_FOLDER_BASE} onClick={() => { openFile('.') }}>
           {t('produced.showInFolder')}
-        </button>
+        </ShadcnButton>
       )}
-      <div className={css.measure} aria-hidden="true">
+      <div className="absolute w-0 h-0 overflow-hidden invisible pointer-events-none [contain:strict]" aria-hidden="true">
         {paths.slice(0, limit).map((path, index) => (
-          <button
+          <ShadcnButton
             key={path}
             ref={(node) => { chipProbes.current[index] = node }}
-            type="button"
+            variant="ghost"
             tabIndex={-1}
-            className={`${css.file} ${css.probe}`}
+            className={`${FILE_BASE} ${PROBE_BASE}`}
           >
             {basename(path)}
-          </button>
+          </ShadcnButton>
         ))}
-        <span ref={moreProbe} className={`${css.more} ${css.probe}`} />
+        <span ref={moreProbe} className={`flex-none whitespace-nowrap text-[var(--dsw-alias-label-tertiary)] ${PROBE_BASE}`} />
       </div>
     </div>
   )

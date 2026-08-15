@@ -13,13 +13,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Button, IconBrowseOutline16, IconCopyOutline16, IconFolderOpenOutline16, IconPlusOutline16, IconTrashOutline16, Modal, Tooltip,
+  Button,
+  IconBrowseOutline16,
+  IconCopyOutline16,
+  IconFolderOpenOutline16,
+  IconPlusOutline16,
+  IconTrashOutline16,
+  Modal,
+  ShadcnInput,
+  Tooltip,
+  cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { draftBlocker, type AgentPresetSectionState } from './section-store.ts'
 import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
-import css from './AgentPresetSection.module.css'
 
 /** Registration-side business face for the management section. */
 export interface AgentPresetSectionInjected {
@@ -86,7 +94,7 @@ function CopyDialog({ state, t, actions }: CopyDialogProps): ReactNode {
       title={draft === null ? t('copyTitle') : `${t('copyTitle')} · ${t('copyOf')} ${sourceTitle}`}
       closeLabel={t('close')}
       description={t('copyIntro')}
-      className={css.dialog as string}
+      className="w-[min(560px,100%)]"
       footer={(
         <>
           <Button
@@ -108,11 +116,11 @@ function CopyDialog({ state, t, actions }: CopyDialogProps): ReactNode {
       {draft === null
         ? null
         : (
-          <div className={css.dialogFields}>
-            <label className={css.field}>
-              <span className={css.fieldLabel}>{t('presetId')}</span>
-              <input
-                className={css.input}
+          <div className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-[var(--dsw-alias-label-secondary)]">{t('presetId')}</span>
+              <ShadcnInput
+                className="h-auto rounded-[10px] border-border bg-card px-3 py-[9px] text-[13px] text-foreground shadow-none [font:inherit] placeholder:text-[var(--dsw-alias-label-dimmed)] focus-visible:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0"
                 value={draft.id}
                 autoFocus
                 spellCheck={false}
@@ -120,17 +128,17 @@ function CopyDialog({ state, t, actions }: CopyDialogProps): ReactNode {
                 onChange={(event) => { actions.setCopyId(event.target.value) }}
               />
             </label>
-            <label className={css.field}>
-              <span className={css.fieldLabel}>{t('displayName')}</span>
-              <input
-                className={css.input}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-[var(--dsw-alias-label-secondary)]">{t('displayName')}</span>
+              <ShadcnInput
+                className="h-auto rounded-[10px] border-border bg-card px-3 py-[9px] text-[13px] text-foreground shadow-none [font:inherit] placeholder:text-[var(--dsw-alias-label-dimmed)] focus-visible:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0"
                 value={draft.name}
                 spellCheck={false}
                 placeholder={t('displayNamePlaceholder')}
                 onChange={(event) => { actions.setCopyName(event.target.value) }}
               />
             </label>
-            {message === null ? null : <p className={css.error} role="alert">{message}</p>}
+            {message === null ? null : <p className="m-0 text-xs text-[var(--dsw-alias-state-error-primary)]" role="alert">{message}</p>}
           </div>
         )}
     </Modal>
@@ -165,7 +173,7 @@ function CardDescription({ text }: { text: string }): ReactNode {
     <Tooltip label={text} side="bottom" delayMs={400} disabled={!truncated} maxWidth={360}>
       {/* The empty title stops the card body's native tooltip from climbing to
         this span: a cut-off description answers with one bubble, not two. */}
-      <span ref={ref} className={css.cardDesc} title="">{text}</span>
+      <span ref={ref} className="line-clamp-4 min-h-[42px] text-[13px] leading-[1.55] text-[var(--dsw-alias-label-secondary)] [overflow-wrap:anywhere]" title="">{text}</span>
     </Tooltip>
   )
 }
@@ -195,9 +203,13 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const detail = state.error ?? ''
     return (
-      <div className={css.section}>
-        <p className={css.error} role="alert">{`${t('error')} ${detail}`}</p>
-        <button type="button" className={css.secondaryButton} onClick={() => { void load() }}>
+      <div className="flex max-w-[720px] flex-col gap-3 text-foreground">
+        <p className="m-0 text-xs text-[var(--dsw-alias-state-error-primary)]" role="alert">{`${t('error')} ${detail}`}</p>
+        <button
+          type="button"
+          className="cursor-pointer rounded-[7px] border-none bg-transparent px-2 py-[5px] text-[12.5px] text-[var(--dsw-alias-label-secondary)] [font:inherit] enabled:hover:bg-card disabled:cursor-default disabled:opacity-50"
+          onClick={() => { void load() }}
+        >
           {t('retry')}
         </button>
       </div>
@@ -213,7 +225,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
     ? (
       <button
         type="button"
-        className={css.creatorButton}
+        className="flex h-11 cursor-pointer items-center justify-center gap-1.5 self-stretch rounded-xl border border-dashed border-input bg-transparent text-sm leading-[22px] text-foreground [font:inherit] enabled:hover:bg-[var(--dsw-alias-interactive-bg-hover)] disabled:cursor-default disabled:opacity-40"
         disabled={!state.authorable}
         title={state.authorable ? undefined : t('duplicateUnavailable')}
         onClick={() => {
@@ -229,10 +241,10 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
     : null
 
   return (
-    <div className={css.section}>
-      <h2 className={css.title}>{t('nav')}</h2>
-      <p className={css.intro}>{t('sectionIntro')}</p>
-      {state.error === null ? null : <p className={css.error} role="alert">{state.error}</p>}
+    <div className="flex max-w-[720px] flex-col gap-3 text-foreground">
+      <h2 className="m-0 text-lg font-semibold">{t('nav')}</h2>
+      <p className="m-0 text-[13px] text-[var(--dsw-alias-label-tertiary)]">{t('sectionIntro')}</p>
+      {state.error === null ? null : <p className="m-0 text-xs text-[var(--dsw-alias-state-error-primary)]" role="alert">{state.error}</p>}
       {([['system', t('builtInGroup')], ['user', t('customGroup')]] as const).map(([trust, heading]) => {
         const group = state.rows
           .filter(row => row.trust === trust)
@@ -242,16 +254,21 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
         const tail = trust === 'user' ? creatorButton : null
         if (group.length === 0 && tail === null) return null
         return (
-          <section key={trust} className={css.group}>
-            <h3 className={css.groupHead}>{heading}</h3>
+          <section key={trust} className="preset-group flex flex-col gap-2.5">
+            <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--dsw-alias-label-tertiary)]">{heading}</h3>
             {group.length === 0 ? null : (
-              <ul className={css.cards}>
+              <ul className="m-0 grid list-none auto-rows-fr grid-cols-[repeat(auto-fill,minmax(268px,1fr))] gap-3 p-0">
                 {group.map(({ row, text }) => (
                   <li
                     key={row.id}
-                    className={row.broken !== undefined
-                      ? `${css.card} ${css.cardBroken}`
-                      : row.isDefault ? `${css.card} ${css.cardActive}` : css.card}
+                    className={cn(
+                      'flex flex-col rounded-xl border bg-popover transition-colors duration-[160ms]',
+                      row.broken !== undefined
+                        ? 'border-[var(--dsw-alias-state-error-primary)]'
+                        : row.isDefault
+                          ? 'border-foreground bg-[var(--dsw-alias-bg-layer-2)]'
+                          : 'border-border hover:border-[var(--dsw-alias-label-dimmed)]',
+                    )}
                   >
                     {/* The card body IS the control: picking a preset is the
                       common act, so it should not hide behind a small button.
@@ -261,7 +278,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                       disabled and the card says why instead of offering it. */}
                     <button
                       type="button"
-                      className={css.cardMain}
+                      className="flex flex-1 cursor-pointer flex-col gap-2 appearance-none rounded-t-xl border-0 bg-transparent px-4 pb-3 pt-3.5 text-left [font:inherit] text-inherit focus-visible:[outline:2px_solid_var(--dsw-alias-brand-primary)] focus-visible:[outline-offset:-2px] disabled:cursor-default"
                       aria-pressed={row.isDefault}
                       disabled={row.isDefault || row.broken !== undefined}
                       // Without this the name is the whole card read aloud —
@@ -270,23 +287,23 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                       title={row.broken ?? (row.isDefault ? t('inUse') : t('setDefault'))}
                       onClick={() => { void props.makeDefault(row.id) }}
                     >
-                      <span className={css.cardHead}>
-                        <span className={css.cardName}>{text.name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-[15px] font-semibold leading-[1.4]">{text.name}</span>
                         {row.broken !== undefined
-                          ? <span className={css.brokenBadge}>{t('brokenBadge')}</span>
+                          ? <span className="whitespace-nowrap rounded-full bg-[var(--dsw-alias-state-error-primary)] px-2 py-px text-[11px] font-medium leading-[17px] text-popover">{t('brokenBadge')}</span>
                           : null}
-                        <span className={css.badge}>
+                        <span className="whitespace-nowrap rounded-full border border-border px-2 py-px text-[11px] font-medium leading-[17px] text-[var(--dsw-alias-label-tertiary)]">
                           {row.trust === 'user' ? t('userTrust') : t('builtIn')}
                         </span>
-                        {row.isDefault ? <span className={css.inUse}>{t('inUse')}</span> : null}
+                        {row.isDefault ? <span className="ml-auto whitespace-nowrap rounded-full bg-foreground px-2 py-px text-[11px] font-medium leading-[17px] text-popover">{t('inUse')}</span> : null}
                       </span>
                       <CardDescription text={text.description ?? t('noDescription')} />
                       {row.broken === undefined
                         ? null
-                        : <span className={css.cardBrokenReason} role="alert">{row.broken}</span>}
-                      <code className={css.cardId}>{row.id}</code>
+                        : <span className="text-xs leading-[1.5] text-[var(--dsw-alias-state-error-primary)] [overflow-wrap:anywhere]" role="alert">{row.broken}</span>}
+                      <code className="mt-auto text-[11px] text-[var(--dsw-alias-label-dimmed)] [font-family:var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace)]">{row.id}</code>
                     </button>
-                    <div className={css.cardFoot}>
+                    <div className="flex justify-end gap-0.5 border-t border-border px-2.5 py-1.5">
                       {/* Shipped presets are the compositions a copy starts
                         from, so READING one is the point; a custom preset is
                         edited in its files instead, which the location action
@@ -299,7 +316,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                           ? (
                             <button
                               type="button"
-                              className={css.iconButton}
+                              className="preset-icon-btn relative inline-flex cursor-pointer items-center rounded-[7px] border-0 bg-transparent p-1.5 text-[var(--dsw-alias-label-tertiary)] enabled:hover:bg-card enabled:hover:text-foreground focus-visible:[outline:2px_solid_var(--dsw-alias-brand-primary)] focus-visible:[outline-offset:-1px] disabled:cursor-default disabled:opacity-40"
                               data-tip={t('view')}
                               aria-label={`${t('view')}: ${text.name}`}
                               onClick={() => { void props.view(row.id) }}
@@ -311,7 +328,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                         : (
                           <button
                             type="button"
-                            className={css.iconButton}
+                            className="preset-icon-btn relative inline-flex cursor-pointer items-center rounded-[7px] border-0 bg-transparent p-1.5 text-[var(--dsw-alias-label-tertiary)] enabled:hover:bg-card enabled:hover:text-foreground focus-visible:[outline:2px_solid_var(--dsw-alias-brand-primary)] focus-visible:[outline-offset:-1px] disabled:cursor-default disabled:opacity-40"
                             data-tip={state.hasDocument ? t('openLocation') : t('showLocation')}
                             aria-label={`${state.hasDocument ? t('openLocation') : t('showLocation')}: ${text.name}`}
                             onClick={() => { void props.openLocation(row.id) }}
@@ -321,7 +338,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                         )}
                       <button
                         type="button"
-                        className={css.iconButton}
+                        className="preset-icon-btn relative inline-flex cursor-pointer items-center rounded-[7px] border-0 bg-transparent p-1.5 text-[var(--dsw-alias-label-tertiary)] enabled:hover:bg-card enabled:hover:text-foreground focus-visible:[outline:2px_solid_var(--dsw-alias-brand-primary)] focus-visible:[outline-offset:-1px] disabled:cursor-default disabled:opacity-40"
                         disabled={!state.authorable || row.broken !== undefined}
                         data-tip={row.broken !== undefined
                           ? t('brokenNoCopy')
@@ -335,7 +352,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                         ? (
                           <button
                             type="button"
-                            className={`${css.iconButton} ${css.iconDanger}`}
+                            className="preset-icon-btn relative inline-flex cursor-pointer items-center rounded-[7px] border-0 bg-transparent p-1.5 text-[var(--dsw-alias-label-tertiary)] enabled:hover:bg-[var(--dsw-alias-interactive-bg-hover-danger)] enabled:hover:text-[var(--dsw-alias-state-error-primary)] focus-visible:[outline:2px_solid_var(--dsw-alias-brand-primary)] focus-visible:[outline-offset:-1px] disabled:cursor-default disabled:opacity-40"
                             data-tip={t('delete')}
                             aria-label={`${t('delete')}: ${text.name}`}
                             onClick={() => { props.confirmDelete(row.id) }}
@@ -348,9 +365,9 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
                     {state.revealedPaths[row.id] === undefined
                       ? null
                       : (
-                        <p className={css.revealedPath}>
-                          <span className={css.revealedPathLabel}>{t('revealedPathLabel')}</span>
-                          <code>{state.revealedPaths[row.id]}</code>
+                        <p className="m-0 flex items-baseline gap-1.5 px-4 pb-2.5 pt-1.5 text-[11px] text-[var(--dsw-alias-label-tertiary)]">
+                          <span className="whitespace-nowrap">{t('revealedPathLabel')}</span>
+                          <code className="select-all text-[var(--dsw-alias-label-secondary)] [font-family:var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace)] [overflow-wrap:anywhere]">{state.revealedPaths[row.id]}</code>
                         </p>
                       )}
                   </li>
@@ -377,7 +394,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
         title={state.view === null ? '' : `${t('view')} · ${viewedTitle}`}
         closeLabel={t('close')}
         description={t('composition')}
-        className={css.dialog as string}
+        className="w-[min(560px,100%)]"
         footer={(
           <Button variant="outline" autoFocus onClick={() => { props.closeView() }}>
             {t('close')}
@@ -386,7 +403,11 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
       >
         {state.view === null
           ? null
-          : <pre className={css.viewerCode}>{state.view.content}</pre>}
+          : (
+            <pre className="m-0 max-h-[min(52vh,480px)] overflow-auto whitespace-pre rounded-[10px] border border-border bg-[var(--dsw-alias-bg-layer-2)] p-3 text-[12.5px] leading-[1.5] text-[var(--dsw-alias-label-secondary)] [font-family:var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace)] [tab-size:2] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]">
+              {state.view.content}
+            </pre>
+          )}
       </Modal>
       <Modal
         open={state.pendingDelete !== null}
@@ -394,7 +415,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
         title={t('deleteTitle')}
         closeLabel={t('close')}
         description={t('deleteDescription')}
-        className={css.deleteDialog as string}
+        className="w-[min(480px,100%)]"
         footer={(
           <>
             <Button
@@ -407,7 +428,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
             </Button>
             <Button
               variant="outline"
-              className={css.deleteConfirm}
+              className="enabled:border-[var(--dsw-alias-state-error-primary)] enabled:text-[var(--dsw-alias-state-error-primary)] enabled:hover:bg-[var(--dsw-alias-interactive-bg-hover-danger)]"
               disabled={state.deleting}
               onClick={() => { void props.remove() }}
             >

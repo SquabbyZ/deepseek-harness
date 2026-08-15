@@ -4,11 +4,10 @@
 
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
-  IconChevronDownOutline14, IconInspectOutline12, IconSkillOutline16, StateDot,
+  IconChevronDownOutline14, IconInspectOutline12, IconSkillOutline16, StateDot, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import css from './SkillRow.module.css'
 
 /** Skill row lifecycle derived solely from the durable call slice. */
 type SkillRowState = 'running' | 'ok' | 'error' | 'stopped'
@@ -88,13 +87,13 @@ function leadingFor(state: SkillRowState): ReactNode {
 
 /** Leading disclosure slot: state icon at rest, chevron on hover or while open. */
 function disclosureLeading(state: SkillRowState, open: boolean, expandable: boolean): ReactNode {
-  if (open) return <IconChevronDownOutline14 className={css.chevron} />
+  if (open) return <IconChevronDownOutline14 className="text-[var(--dsw-alias-label-secondary)]" />
   const icon = leadingFor(state)
   if (!expandable) return icon
   return (
     <>
-      <span className={css.iconIdle}>{icon}</span>
-      <IconChevronDownOutline14 className={`${css.chevron} ${css.chevronHover}`} />
+      <span className="inline-flex opacity-100 transition-opacity duration-100 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:opacity-0 motion-reduce:transition-none">{icon}</span>
+      <IconChevronDownOutline14 className={cn('text-[var(--dsw-alias-label-secondary)]', 'absolute inset-0 m-auto opacity-0 transition-opacity duration-100 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:opacity-100 motion-reduce:transition-none')} />
     </>
   )
 }
@@ -138,28 +137,32 @@ export function SkillRow({ block, inspect, t }: SkillRowProps) {
   } : {}
   const leading = disclosureLeading(model.state, open, expandable)
   return (
-    <div className={css.card} data-tool="skill" data-state={model.state}>
+    <div className="group/skill flex flex-col" data-tool="skill" data-state={model.state}>
       <div
-        className={css.row}
+        className="row-sweep group relative flex h-6 min-w-0 items-center overflow-hidden data-[expandable]:cursor-pointer"
         data-expandable={expandable || undefined}
         {...disclosureProps}
       >
-        <span className={css.leading}>{leading}</span>
-        {status !== null ? <span className={css.visuallyHidden}>{status}</span> : null}
-        <span className={css.title}>Skill</span>
-        <span className={css.separator} aria-hidden />
-        <span className={model.errorSummary === null ? css.summary : `${css.summary} ${css.errorSummary}`}>
+        <span className="relative mr-1.5 inline-flex size-4 shrink-0 items-center justify-center text-[var(--dsw-alias-label-tertiary)]">{leading}</span>
+        {status !== null ? <span className="absolute size-px overflow-hidden whitespace-nowrap [clip:rect(0_0_0_0)]">{status}</span> : null}
+        <span className="flex-none text-sm leading-6 text-[var(--dsw-alias-label-secondary)]">Skill</span>
+        <span className="mx-2 size-0.5 flex-none rounded-[1px] bg-[var(--dsw-alias-label-caption)]" aria-hidden />
+        <span className={cn('flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-6', model.errorSummary === null ? 'text-[var(--dsw-alias-label-tertiary)]' : 'text-[var(--dsw-alias-state-error-primary)]')}>
           {summary}
         </span>
       </div>
       {open ? (
-        <div className={css.bodyWrap}>
-          <section className={css.instructionsCard} aria-label={t('row.instructions')}>
-            <div className={css.instructionsHeader}>{t('row.instructions')}</div>
-            <pre className={css.instructions} data-error={model.state === 'error' || undefined}>{model.output}</pre>
+        <div className="flex flex-col">
+          <section className="my-1 ml-1 flex max-h-[260px] flex-col overflow-hidden rounded-xl border border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-alias-markdown-code-block)]" aria-label={t('row.instructions')}>
+            <div className="flex-none border-b border-border bg-[var(--dsw-alias-markdown-code-block-banner)] px-3 py-2 text-[11px] font-medium uppercase leading-4 tracking-[0.04em] text-[var(--dsw-alias-label-caption)]">{t('row.instructions')}</div>
+            <pre className="tool-scroll-thin m-0 min-h-0 overflow-auto whitespace-pre-wrap px-3 pb-3 pt-2.5 [font:var(--dsw-font-markdown-code-block-small)] text-[var(--dsw-alias-label-secondary)] [overflow-wrap:anywhere] data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error={model.state === 'error' || undefined}>{model.output}</pre>
           </section>
           {inspect !== undefined ? (
-            <button type="button" className={css.inspectButton} onClick={inspect}>
+            <button
+              type="button"
+              className="group-hover/skill:opacity-100 focus-visible:opacity-100 m-[4px_0_2px_4px] inline-flex cursor-pointer items-center gap-1 self-start rounded-full border border-border bg-background px-2 py-0.5 text-[11px] leading-4 text-[var(--dsw-alias-label-secondary)] opacity-0 transition-opacity duration-100 hover:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-foreground motion-reduce:transition-none"
+              onClick={inspect}
+            >
               <IconInspectOutline12 />
               Inspect
             </button>

@@ -6,7 +6,6 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
 import type { SettingsDocumentState, SettingsDocumentStore } from './settings-document-store.ts'
-import css from './SettingsDocumentAction.module.css'
 
 /** Registrant-owned dependencies of {@link SettingsDocumentAction}. */
 export interface SettingsDocumentActionInjected {
@@ -35,8 +34,8 @@ export function SettingsDocumentAction({ controller, useSnapshot, t }: SettingsD
   if (state.status !== 'ready') return null
 
   return (
-    <div className={css.action}>
-      {state.error === null ? null : <span className={css.error} role="alert">{t('openDocument.error')}</span>}
+    <div className="flex min-w-0 items-center gap-2">
+      {state.error === null ? null : <span className="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]" role="alert">{t('openDocument.error')}</span>}
       <Button
         variant="outline"
         size="sm"

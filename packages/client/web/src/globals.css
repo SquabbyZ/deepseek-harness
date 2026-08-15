@@ -11,6 +11,36 @@
  * the package source tree (resolved relative to this CSS file). */
 @source "../../ui-primitives/src";
 @source "../../ui-conversation/src";
+@source "../../ui-account/src";
+@source "../../ui-agent-preset/src";
+@source "../../ui-attachment/src";
+@source "../../ui-commands/src";
+@source "../../ui-deliverables/src";
+@source "../../ui-directory-picker-browse/src";
+@source "../../ui-goal/src";
+@source "../../ui-input-trigger/src";
+@source "../../ui-jobs/src";
+@source "../../ui-layout/src";
+@source "../../ui-message-feedback/src";
+@source "../../ui-model-selection/src";
+@source "../../ui-permission-presets/src";
+@source "../../ui-plan/src";
+@source "../../ui-settings/src";
+@source "../../ui-settings-general/src";
+@source "../../ui-settings-models/src";
+@source "../../ui-settings-plugin-inventory/src";
+@source "../../ui-settings-plugins/src";
+@source "../../ui-sidebar/src";
+@source "../../ui-skill/src";
+@source "../../ui-slots/src";
+@source "../../ui-subagent/src";
+@source "../../ui-theme/src";
+@source "../../ui-tool/src";
+@source "../../ui-trajectory/src";
+@source "../../ui-user-questions/src";
+@source "../../ui-workflow-run/src";
+@source "../../ui-workspace/src";
+@source "../../web-react/src";
 
 /* Attribute-based dark variant: the app toggles dark via body[data-ds-dark-theme]
  * (which the --dsw-* aliases already respect), so the shadcn `dark:` variant

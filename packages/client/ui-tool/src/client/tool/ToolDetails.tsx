@@ -7,7 +7,6 @@ import { searchCardModel } from './models/search-card-model.ts'
 import { terminalBlockLabels, terminalCardModel } from './models/terminal-card-model.ts'
 import { resultText } from './models/tool-call-model.ts'
 import { webCardModel } from './models/web-card-model.ts'
-import css from './ToolDetails.module.css'
 
 /** Pure details-body inputs; framework session seats stay at the slot boundary. */
 interface ToolDetailsContentProps {
@@ -28,22 +27,22 @@ export function ToolDetails({ block, cwd, t }: ToolDetailsContentProps) {
     return (
       <>
         {terminal.description !== undefined ? (
-          <div className={css.description}>{terminal.description}</div>
+          <div className="mb-1.5 text-[var(--dsw-alias-label-secondary)] [font:var(--dsw-font-xs-13)]">{terminal.description}</div>
         ) : null}
-        <TerminalBlock {...terminal.card} labels={terminalBlockLabels(t)} className={css.cardBody} />
+        <TerminalBlock {...terminal.card} labels={terminalBlockLabels(t)} className="m-0" />
       </>
     )
   }
   const read = readCardModel(block, cwd)
-  if (read !== null) return <ReadBlock {...read} className={css.read} />
+  if (read !== null) return <ReadBlock {...read} className="m-0" />
   const diff = diffCardModel(block)
-  if (diff !== null) return <DiffBlock {...diff.card} className={css.cardBody} />
+  if (diff !== null) return <DiffBlock {...diff.card} className="m-0" />
   const search = searchCardModel(block)
   if (search !== null) {
     return (
       <>
-        <SearchBlock {...search.card} className={css.cardBody} />
-        {search.recovery !== undefined ? <div className={css.recovery}>{search.recovery}</div> : null}
+        <SearchBlock {...search.card} className="m-0" />
+        {search.recovery !== undefined ? <div className="mt-1.5 whitespace-pre-wrap text-[var(--dsw-alias-label-tertiary)] [overflow-wrap:anywhere] [font:var(--dsw-font-xs-13)]">{search.recovery}</div> : null}
       </>
     )
   }
@@ -52,14 +51,14 @@ export function ToolDetails({ block, cwd, t }: ToolDetailsContentProps) {
     const body = 'kind' in block ? resultText(block) : ''
     return (
       <>
-        <WebBlock {...web} className={css.web} />
-        {body !== '' ? <pre className={css.code}>{body}</pre> : null}
+        <WebBlock {...web} className="m-0" />
+        {body !== '' ? <pre className="m-0 whitespace-pre-wrap rounded-xl bg-[var(--dsw-alias-markdown-code-block)] p-4 text-[13px] leading-[22px] text-foreground [font-family:var(--ds-font-family-code)] [word-break:break-word]">{body}</pre> : null}
       </>
     )
   }
-  if (!('kind' in block)) return <div className={css.empty}>{t('details.running')}</div>
+  if (!('kind' in block)) return <div className="py-2 text-[13px] leading-5 text-[var(--dsw-alias-label-tertiary)]">{t('details.running')}</div>
   return (
-    <pre className={css.code} data-error={block.isError || undefined}>
+    <pre className="m-0 whitespace-pre-wrap rounded-xl bg-[var(--dsw-alias-markdown-code-block)] p-4 text-[13px] leading-[22px] text-foreground [font-family:var(--ds-font-family-code)] [word-break:break-word] data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error={block.isError || undefined}>
       {resultText(block)}
     </pre>
   )

@@ -24,6 +24,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
+import { NativeSelect, ShadcnInput } from '@deepseek-ai/dsh-client-ui-primitives'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
@@ -31,7 +32,6 @@ import { ModelListEditor } from './ModelListEditor.tsx'
 import type { ModelDraft } from './ModelListEditor.tsx'
 import { deriveKeyRef, messageOf } from './store.ts'
 import type { en } from './locales.ts'
-import styles from './ModelsSection.module.css'
 
 /** The settings namespace a hand-declared provider is written into. */
 const NS = 'llm-pi-ai'
@@ -45,6 +45,16 @@ const NS = 'llm-pi-ai'
  * credential seam with a raw regular expression the user cannot act on.
  */
 const ROUTE_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+
+const FIELD = 'flex flex-col gap-1.5'
+const FIELD_LABEL = 'inline-flex items-center gap-2.5 text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)]'
+const EDITOR = 'flex flex-col gap-[14px] rounded-xl bg-[var(--dsw-alias-bg-module-platform)] px-4 py-[14px]'
+const EDITOR_HEADER = 'flex items-baseline gap-2'
+const EDITOR_TITLE = 'text-sm leading-[22px] font-medium text-foreground'
+const INPUT =
+  'h-8 rounded-lg border-border bg-card px-2.5 py-0 text-sm leading-[22px] text-foreground shadow-none placeholder:text-[var(--dsw-alias-label-dimmed)] focus:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0 disabled:opacity-60 disabled:cursor-default'
+const ERROR = 'error m-0 text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+const ADVANCED_HINT = 'advancedHint m-0 text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
 
 /** Props of {@link CustomProviderCard}. */
 export interface CustomProviderCardProps {
@@ -188,14 +198,14 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   }
 
   return (
-    <div className={styles['editor']}>
-      <div className={styles['editorHeader']}>
-        <span className={styles['editorTitle']}>{t('customTitle')}</span>
+    <div className={EDITOR}>
+      <div className={EDITOR_HEADER}>
+        <span className={EDITOR_TITLE}>{t('customTitle')}</span>
       </div>
-      <div className={styles['field']}>
-        <span className={styles['fieldLabel']}>{t('customRoute')}</span>
-        <input
-          className={styles['input']}
+      <div className={FIELD}>
+        <span className={FIELD_LABEL}>{t('customRoute')}</span>
+        <ShadcnInput
+          className={INPUT}
           type="text"
           value={route}
           placeholder="acme-gateway"
@@ -207,12 +217,12 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       {/* A rejected id reads as a fault, not as guidance — the same split the
           key field below already makes between its failure and its hint. */}
       {routeInvalid || routeTaken
-        ? <p className={styles['error']}>{t(routeInvalid ? 'customRouteInvalid' : 'customRouteTaken')}</p>
-        : <p className={styles['advancedHint']}>{t('customRouteHint')}</p>}
-      <div className={styles['field']}>
-        <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
-        <input
-          className={styles['input']}
+        ? <p className={ERROR}>{t(routeInvalid ? 'customRouteInvalid' : 'customRouteTaken')}</p>
+        : <p className={ADVANCED_HINT}>{t('customRouteHint')}</p>}
+      <div className={FIELD}>
+        <span className={FIELD_LABEL}>{t('customDisplayName')}</span>
+        <ShadcnInput
+          className={INPUT}
           type="text"
           value={displayName}
           placeholder={route.length === 0 ? t('customDisplayName') : route}
@@ -221,10 +231,10 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           onChange={(event) => { setDisplayName(event.target.value) }}
         />
       </div>
-      <div className={styles['field']}>
-        <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
-        <input
-          className={styles['input']}
+      <div className={FIELD}>
+        <span className={FIELD_LABEL}>{t('baseUrl')}</span>
+        <ShadcnInput
+          className={INPUT}
           type="text"
           value={baseURL}
           placeholder="https://gateway.example/v1"
@@ -233,22 +243,24 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           onChange={(event) => { setBaseURL(event.target.value) }}
         />
       </div>
-      <div className={styles['field']}>
-        <span className={styles['fieldLabel']}>{t('customApi')}</span>
-        <select
-          className={`${styles['input']} ${styles['selectInput']}`}
-          value={protocol}
-          aria-label={t('customApi')}
-          disabled={profileDisabled}
-          onChange={(event) => { setProtocol(event.target.value) }}
-        >
-          {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
-        </select>
+      <div className={FIELD}>
+        <span className={FIELD_LABEL}>{t('customApi')}</span>
+        <div className="max-w-[240px]">
+          <NativeSelect
+            className={INPUT}
+            value={protocol}
+            aria-label={t('customApi')}
+            disabled={profileDisabled}
+            onChange={(event) => { setProtocol(event.target.value) }}
+          >
+            {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
+          </NativeSelect>
+        </div>
       </div>
-      <div className={styles['field']}>
-        <span className={styles['fieldLabel']}>{t('keyInput')}</span>
-        <input
-          className={styles['input']}
+      <div className={FIELD}>
+        <span className={FIELD_LABEL}>{t('keyInput')}</span>
+        <ShadcnInput
+          className={INPUT}
           type="password"
           autoComplete="off"
           value={keyDraft}
@@ -262,7 +274,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
             through the provider's own ambient discovery or OAuth. */}
         {keyFailure === undefined
           ? null
-          : <p className={styles['error']}>{t(keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure)}</p>}
+          : <p className={ERROR}>{t(keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure)}</p>}
       </div>
       <ModelListEditor
         models={models}
@@ -278,10 +290,10 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         t={t}
         disabled={profileDisabled}
       />
-      {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
+      {failure !== undefined ? <p className={ERROR}>{failure}</p> : null}
       {/* Only the gates with something to say render; the route-id gate has its
           own field-level hint, so its blocked state would print an empty line. */}
-      {hint === undefined ? null : <p className={styles['advancedHint']}>{hint}</p>}
+      {hint === undefined ? null : <p className={ADVANCED_HINT}>{hint}</p>}
       <EditorFooter
         t={t}
         busy={busy}

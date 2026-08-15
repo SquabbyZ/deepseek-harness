@@ -2,7 +2,6 @@
 
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from './slot-contract.ts'
-import css from './PluginsSettingsSection.module.css'
 
 /** Registration-side business face for the configurable tab. */
 export interface ConfigurablePluginsTabInjected {
@@ -20,6 +19,6 @@ export type ConfigurablePluginsTabProps =
 /** Render cards registered by plugins that expose editable settings. */
 export function ConfigurablePluginsTab({ t, renderSlot, cardCount }: ConfigurablePluginsTabProps) {
   return cardCount === 0
-    ? <p className={css.empty}>{t('empty')}</p>
-    : <ul className={css.cards}>{renderSlot('settings.plugin.item', {})}</ul>
+    ? <p className="m-0 text-[13px] text-[var(--dsw-alias-label-tertiary)]">{t('empty')}</p>
+    : <ul className="m-0 flex list-none flex-col gap-2.5 p-0">{renderSlot('settings.plugin.item', {})}</ul>
 }

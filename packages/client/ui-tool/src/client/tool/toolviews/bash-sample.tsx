@@ -15,16 +15,14 @@
 
 import { useState, type KeyboardEvent } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
-import clsx from 'clsx'
 import {
-  IconApiOutline14, IconChevronDownOutline14, IconInspectOutline12, StateDot, TerminalBlock,
+  IconApiOutline14, IconChevronDownOutline14, IconInspectOutline12, StateDot, TerminalBlock, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ToolCallViewProps } from '../../contract/slots.ts'
 import { terminalBlockLabels, terminalCardModel, terminalFailed } from '../models/terminal-card-model.ts'
 import { toolRowModel, type ToolRowState } from '../models/tool-call-model.ts'
 import { CONVERSATION_NS as NS } from '../../locale.ts'
-import css from './bash-sample.module.css'
 
 /** Bash row props: the toolview runtime share plus the standard locale seat. */
 type BashRowProps = ToolCallViewProps & PropsLocale<'conversation'>
@@ -84,19 +82,19 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
     toggleExpand()
   }
   const leading = open
-    ? <IconChevronDownOutline14 className={css.chevron} />
+    ? <IconChevronDownOutline14 className="text-[var(--dsw-alias-label-secondary)]" />
     : expandable
       ? (
         <>
-          <span className={css.iconIdle}>{leadingFor(state)}</span>
-          <IconChevronDownOutline14 className={clsx(css.chevron, css.chevronHover)} />
+          <span className="inline-flex opacity-100 transition-opacity duration-100 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:opacity-0 motion-reduce:transition-none">{leadingFor(state)}</span>
+          <IconChevronDownOutline14 className={cn('text-[var(--dsw-alias-label-secondary)]', 'absolute inset-0 m-auto opacity-0 transition-opacity duration-100 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:opacity-100 motion-reduce:transition-none')} />
         </>
       )
       : leadingFor(state)
   return (
-    <div className={css.card}>
+    <div className="group/card flex flex-col">
       <div
-        className={css.root}
+        className="row-sweep group relative flex h-6 min-w-0 items-center overflow-hidden data-[expandable]:cursor-pointer"
         data-sample="bash"
         data-variant="bash"
         data-state={state}
@@ -107,44 +105,44 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
         onClick={expandable ? toggleExpand : undefined}
         onKeyDown={expandable ? toggleFromKeyboard : undefined}
       >
-        <span className={css.leading}>{leading}</span>
-        {status !== null && <span className={css.visuallyHidden}>{status}</span>}
-        <span className={css.title}>{model.title}</span>
-        <span className={css.sep} aria-hidden />
+        <span className="relative mr-1.5 inline-flex size-4 shrink-0 items-center justify-center text-[var(--dsw-alias-label-tertiary)]">{leading}</span>
+        {status !== null && <span className="absolute size-px overflow-hidden whitespace-nowrap [clip:rect(0_0_0_0)]">{status}</span>}
+        <span className="flex-none text-sm leading-6 text-[var(--dsw-alias-label-secondary)]">{model.title}</span>
+        <span className="mx-2 size-0.5 flex-none rounded-[1px] bg-[var(--dsw-alias-label-caption)]" aria-hidden />
         {/* The terminal presenter's description is the contractual
             above-card summary; a failure's first line outranks both. */}
-        <span className={clsx(css.summary, failureLine !== null && css.errorSummary)}>
+        <span className={cn('flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-6', failureLine !== null ? 'text-[var(--dsw-alias-state-error-primary)]' : 'text-[var(--dsw-alias-label-tertiary)]')}>
           {failureLine ?? terminal?.description ?? model.summary}
         </span>
       </div>
       {open && (
         /* Same hover-Inspect posture as ToolRow's expanded body, replicated
            locally per the registrant posture. */
-        <div className={css.bodyWrap}>
+        <div className="flex flex-col">
           {terminal !== null
             ? (
               <TerminalBlock
                 {...terminal.card}
                 maxLines={Infinity}
                 labels={terminalBlockLabels(t)}
-                className={css.terminal}
+                className="m-[4px_0_4px_4px] border border-[var(--dsw-alias-border-l1)] [--dsl-terminal-font:var(--dsw-font-markdown-code-block-small)] [--dsl-terminal-line-height:18px] [--dsl-terminal-output-max-height:224px]"
               />
             )
             : (
-              <div className={css.ioCard}>
+              <div className="m-[4px_0_4px_4px] flex flex-col rounded-xl border border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-alias-markdown-code-block)] [font:var(--dsw-font-markdown-code-block-small)]">
                 {model.body !== null && (
-                  <div className={css.ioSection}>
-                    <span className={css.ioLabel}>IN</span>
-                    <span className={css.ioText}>{model.body}</span>
+                  <div className="tool-scroll-thin grid max-h-[150px] grid-cols-[max-content_1fr] items-baseline gap-x-3.5 overflow-y-auto px-4 py-3">
+                    <span className="sticky top-0 self-start text-[var(--dsw-alias-label-caption)]">IN</span>
+                    <span className="min-w-0 whitespace-pre-wrap text-[var(--dsw-alias-label-secondary)] [word-break:break-word]">{model.body}</span>
                   </div>
                 )}
                 {model.body !== null && model.output !== null && (
-                  <span className={css.ioDivider} aria-hidden />
+                  <span className="h-px flex-none bg-[var(--dsw-alias-border-l2)]" aria-hidden />
                 )}
                 {model.output !== null && (
-                  <div className={css.ioSection}>
-                    <span className={css.ioLabel}>OUT</span>
-                    <span className={css.ioText} data-error>
+                  <div className="tool-scroll-thin grid max-h-[150px] grid-cols-[max-content_1fr] items-baseline gap-x-3.5 overflow-y-auto px-4 py-3">
+                    <span className="sticky top-0 self-start text-[var(--dsw-alias-label-caption)]">OUT</span>
+                    <span className="min-w-0 whitespace-pre-wrap text-[var(--dsw-alias-label-secondary)] [word-break:break-word] data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error>
                       {model.output}
                     </span>
                   </div>
@@ -152,7 +150,11 @@ export function BashRow({ toolName, block, sessionId, useSessions, inspect, t }:
               </div>
             )}
           {inspect !== undefined && (
-            <button type="button" className={css.inspectButton} onClick={inspect}>
+            <button
+              type="button"
+              className="group-hover/card:opacity-100 focus-visible:opacity-100 m-[4px_0_2px_4px] inline-flex cursor-pointer items-center gap-1 self-start rounded-full border border-border bg-background px-2 py-0.5 text-[11px] leading-4 text-[var(--dsw-alias-label-secondary)] opacity-0 transition-opacity duration-100 hover:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-foreground motion-reduce:transition-none"
+              onClick={inspect}
+            >
               <IconInspectOutline12 />
               Inspect
             </button>

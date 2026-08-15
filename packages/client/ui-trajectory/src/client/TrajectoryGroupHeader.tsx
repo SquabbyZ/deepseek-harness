@@ -1,7 +1,5 @@
 // TrajectoryGroupHeader: "Message" or "Step N" row with optional description.
 
-import css from './TrajectoryGroupHeader.module.css'
-
 export interface TrajectoryGroupHeaderProps {
   /** Group title (`Message`, `Step 1`, …). */
   title: string
@@ -16,10 +14,10 @@ export interface TrajectoryGroupHeaderProps {
  */
 export function TrajectoryGroupHeader({ title, description }: TrajectoryGroupHeaderProps) {
   return (
-    <div className={css.root}>
-      <span className={css.title}>{title}</span>
+    <div className="flex h-9 min-w-0 items-center gap-6 box-border px-5">
+      <span className="flex-none text-foreground [font:var(--dsw-font-xs-13)]">{title}</span>
       {description !== undefined && description !== ''
-        ? <span className={css.description}>{description}</span>
+        ? <span className="min-w-0 flex-auto overflow-hidden text-ellipsis whitespace-nowrap text-[var(--dsw-alias-label-tertiary)] [font:var(--dsw-font-xs-13)]">{description}</span>
         : null}
     </div>
   )

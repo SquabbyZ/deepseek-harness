@@ -9,7 +9,7 @@
  * label marks it rather than presenting every preset as shipped and vetted.
  */
 
-import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, Menu, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AgentPresetOption } from './settings-store.ts'
 import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
 
@@ -67,8 +67,8 @@ export function PresetMenu({
       align="end"
       portal
       anchor={(
-        <button
-          type="button"
+        <ShadcnButton
+          variant="ghost"
           className={buttonClassName}
           aria-haspopup="menu"
           aria-expanded={open}
@@ -77,7 +77,7 @@ export function PresetMenu({
         >
           {label}
           <IconChevronDownOutline14 className={chevronClassName} />
-        </button>
+        </ShadcnButton>
       )}
     />
   )

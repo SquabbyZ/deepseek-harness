@@ -7,14 +7,19 @@
  */
 import clsx from 'clsx'
 import {
-  IconDarkOutline16, IconFollowsystemOutline16, IconLightOutline16,
+  IconDarkOutline16, IconFollowsystemOutline16, IconLightOutline16, ShadcnButton,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ThemePreference } from '../theme-settings.ts'
 import type { ThemeKey } from './locales.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { createAppearanceRowStore } from './settings-store.ts'
-import css from './AppearanceRow.module.css'
+
+/** Shared flexed-cube geometry (figma 'Selector Cube'): 1 1 180px, centered. */
+const CUBE_BASE = 'box-border flex-[1_1_180px] flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-transparent px-8 py-5 text-sm font-normal leading-[22px] text-foreground cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)]'
+
+/** Selected cube: module-platform fill + bluish-400 border (static token). */
+const CUBE_SELECTED = 'bg-[var(--dsw-alias-bg-module-platform)] border-[var(--dsw-static-neutral-bluish-400)] hover:bg-[var(--dsw-alias-bg-module-platform)]'
 
 /** Injected business face: the preference write (t rides the standard locale seat). */
 export interface AppearanceRowInjected {
@@ -42,20 +47,20 @@ const CUBES: readonly { id: ThemePreference; labelKey: ThemeKey; Icon: typeof Ic
 export function AppearanceRow({ t, setTheme, useStore }: AppearanceRowComponentProps) {
   const preference = useStore(s => s.preference)
   return (
-    <div className={css.group}>
-      <div className={css.title}>{t('theme.title')}</div>
-      <div className={css.cubeRow}>
+    <div className="flex flex-col gap-2 border-b border-border py-4">
+      <div className="text-sm font-normal leading-[22px] text-foreground">{t('theme.title')}</div>
+      <div className="flex flex-wrap items-stretch gap-2">
         {CUBES.map(({ id, labelKey, Icon }) => (
-          <button
+          <ShadcnButton
             key={id}
-            type="button"
-            className={clsx(css.themeCube, preference === id && css.selected)}
+            variant="ghost"
+            className={clsx(CUBE_BASE, preference === id && CUBE_SELECTED)}
             aria-pressed={preference === id}
             onClick={() => { setTheme(id) }}
           >
             <Icon />
             {t(labelKey)}
-          </button>
+          </ShadcnButton>
         ))}
       </div>
     </div>

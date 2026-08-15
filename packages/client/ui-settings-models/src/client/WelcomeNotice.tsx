@@ -8,7 +8,6 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WelcomeNoticeState, WelcomeNoticeStore } from './welcome-store.ts'
 import type { en } from './locales.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
-import css from './WelcomeNotice.module.css'
 
 /** Registration-side dependencies of {@link WelcomeNotice}. */
 export interface WelcomeNoticeInjected {
@@ -58,14 +57,14 @@ export function WelcomeNotice(props: WelcomeNoticeProps): ReactNode {
 
   return (
     <OnboardingModal title={t('welcomeTitle')} focusTitle>
-      <div className={css.copy}>
+      <div className="text-sm leading-6 text-[var(--dsw-alias-label-secondary)] [&>p]:m-0 [&>p+p]:mt-3">
         {paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
       </div>
-      {state.error === null ? null : <p className={css.error} role="alert">{t('welcomeError')}</p>}
-      <div className={css.actions}>
+      {state.error === null ? null : <p className="error m-0 mt-4 text-sm leading-[22px] text-[var(--dsw-alias-state-error-primary)]" role="alert">{t('welcomeError')}</p>}
+      <div className="mt-6 flex justify-end">
         <Button
           variant="primary"
-          className={css.primary}
+          className="min-w-[120px] max-[560px]:w-full"
           disabled={state.status === 'saving'}
           onClick={() => { void acknowledge() }}
         >

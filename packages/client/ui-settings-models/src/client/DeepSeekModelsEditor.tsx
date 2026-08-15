@@ -9,9 +9,9 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   IconChevronDownOutline14, IconChevronRightOutline14, IconPlusOutline16, IconTrashOutline16,
+  ShadcnButton, ShadcnInput, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { en } from './locales.ts'
-import styles from './ModelsSection.module.css'
 
 /** One catalog entry kept structurally open so hidden or future fields survive an edit. */
 export type DeepSeekModelDraft = Record<string, unknown>
@@ -21,6 +21,29 @@ type CatalogField = 'id' | 'name' | 'contextWindow' | 'maxTokens'
 
 /** The two token counts edited as K/M-suffixed text behind a row's disclosure. */
 type CapacityField = 'contextWindow' | 'maxTokens'
+
+const MODEL_CATALOG = 'flex flex-col gap-2.5 border-t border-border pt-3'
+const MODEL_LIST_HEAD = 'flex items-start justify-between gap-3'
+const MODEL_CATALOG_HEADING = 'flex flex-col gap-0.5'
+const MODEL_CATALOG_TITLE = 'text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)]'
+const MODEL_CATALOG_META = 'm-0 text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const MODEL_EMPTY = 'm-0 rounded-lg border border-dashed border-input p-3 text-center text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const MODEL_LIST = 'flex flex-col gap-2'
+const MODEL_ENTRY = 'rounded-lg border border-border p-1.5'
+const MODEL_ROW = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_auto] items-center gap-1.5'
+const MODEL_ADVANCED = 'grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2 px-1 pt-2 pb-0.5'
+const MODEL_FIELD = 'flex flex-col gap-1'
+const MODEL_FIELD_LABEL = 'text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const INPUT =
+  'h-8 rounded-lg border-border bg-card px-2.5 py-0 text-sm leading-[22px] text-foreground shadow-none placeholder:text-[var(--dsw-alias-label-dimmed)] focus:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0 disabled:opacity-60 disabled:cursor-default'
+const LINK_BUTTON =
+  'inline-flex h-7 items-center rounded-[14px] border-none bg-transparent px-2.5 text-xs leading-[18px] font-normal text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-[var(--dsw-alias-label-secondary)] disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ICON_BUTTON =
+  'inline-flex h-7 w-7 items-center justify-center rounded-md border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ICON_BUTTON_DANGER =
+  'hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-danger)] hover:enabled:text-[var(--dsw-alias-state-error-primary)]'
+const ADD_MODEL_BUTTON =
+  'inline-flex h-7 items-center gap-1 self-start rounded-[14px] border border-border bg-transparent px-2.5 text-xs leading-[18px] font-normal text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
 
 /** Row index encoded in an editing-buffer key. */
 function rowOf(key: string): number {
@@ -240,10 +263,10 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
     field: CapacityField,
     fallback: number | undefined,
   ): ReactNode => (
-    <label className={styles['modelField']}>
-      <span className={styles['modelFieldLabel']}>{props.t(field === 'contextWindow' ? 'contextWindow' : 'maxTokens')}</span>
-      <input
-        className={styles['input']}
+    <label className={MODEL_FIELD}>
+      <span className={MODEL_FIELD_LABEL}>{props.t(field === 'contextWindow' ? 'contextWindow' : 'maxTokens')}</span>
+      <ShadcnInput
+        className={INPUT}
         type="text"
         inputMode="numeric"
         value={capacityText(model, index, field)}
@@ -263,36 +286,36 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
   )
 
   return (
-    <section className={styles['modelCatalog']} aria-label={props.t('models')}>
-      <div className={styles['modelListHead']}>
-        <div className={styles['modelCatalogHeading']}>
-          <span className={styles['modelCatalogTitle']}>{props.t('models')}</span>
-          <span className={styles['modelCatalogMeta']}>
+    <section className={MODEL_CATALOG} aria-label={props.t('models')}>
+      <div className={MODEL_LIST_HEAD}>
+        <div className={MODEL_CATALOG_HEADING}>
+          <span className={MODEL_CATALOG_TITLE}>{props.t('models')}</span>
+          <span className={MODEL_CATALOG_META}>
             {props.overridden ? props.t('modelsCustomized') : props.t('modelsInherited')}
           </span>
         </div>
         {props.overridden
           ? (
-            <button
-              type="button"
-              className={styles['linkButton']}
+            <ShadcnButton
+              variant="ghost"
+              className={LINK_BUTTON}
               disabled={props.disabled}
               onClick={reset}
             >
               {props.t('resetModels')}
-            </button>
+            </ShadcnButton>
           )
           : null}
       </div>
       {props.models.length === 0
-        ? <p className={styles['modelEmpty']}>{props.t('modelsEmpty')}</p>
+        ? <p className={MODEL_EMPTY}>{props.t('modelsEmpty')}</p>
         : (
-          <div className={styles['modelList']}>
+          <div className={MODEL_LIST}>
             {props.models.map((model, index) => (
-              <div className={styles['modelEntry']} key={index}>
-                <div className={styles['modelRow']}>
-                  <input
-                    className={styles['input']}
+              <div className={MODEL_ENTRY} key={index}>
+                <div className={MODEL_ROW}>
+                  <ShadcnInput
+                    className={INPUT}
                     type="text"
                     value={typeof model['id'] === 'string' ? model['id'] : ''}
                     placeholder={props.t('modelId')}
@@ -306,8 +329,8 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
                       if (trimmed !== event.target.value) update(index, 'id', trimmed)
                     }}
                   />
-                  <input
-                    className={styles['input']}
+                  <ShadcnInput
+                    className={INPUT}
                     type="text"
                     value={typeof model['name'] === 'string' ? model['name'] : ''}
                     placeholder={props.t('modelName')}
@@ -317,30 +340,30 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
                       update(index, 'name', event.target.value === '' ? undefined : event.target.value)
                     }}
                   />
-                  <button
-                    type="button"
-                    className={styles['iconButton']}
+                  <ShadcnButton
+                    variant="ghost"
+                    className={ICON_BUTTON}
                     aria-label={`${props.t('modelAdvanced')} ${String(index + 1)}`}
                     aria-expanded={expanded.has(index)}
                     title={props.t('modelAdvanced')}
                     onClick={() => { toggle(index) }}
                   >
                     {expanded.has(index) ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles['iconButton']} ${styles['iconButtonDanger']}`}
+                  </ShadcnButton>
+                  <ShadcnButton
+                    variant="ghost"
+                    className={cn(ICON_BUTTON, ICON_BUTTON_DANGER)}
                     aria-label={`${props.t('removeModel')} ${String(index + 1)}`}
                     title={props.t('removeModel')}
                     disabled={props.disabled}
                     onClick={() => { remove(index) }}
                   >
                     <IconTrashOutline16 size={14} />
-                  </button>
+                  </ShadcnButton>
                 </div>
                 {expanded.has(index)
                   ? (
-                    <div className={styles['modelAdvanced']}>
+                    <div className={MODEL_ADVANCED}>
                       {capacityField(model, index, 'contextWindow', props.defaultContextWindow)}
                       {capacityField(model, index, 'maxTokens', props.defaultMaxTokens)}
                     </div>
@@ -350,15 +373,15 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
             ))}
           </div>
         )}
-      <button
-        type="button"
-        className={styles['addModelButton']}
+      <ShadcnButton
+        variant="ghost"
+        className={ADD_MODEL_BUTTON}
         disabled={props.disabled}
         onClick={() => { props.onChange([...props.models.map(model => ({ ...model })), { id: '' }]) }}
       >
         <IconPlusOutline16 size={14} />
         {props.t('addModel')}
-      </button>
+      </ShadcnButton>
     </section>
   )
 }

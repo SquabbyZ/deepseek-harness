@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import { ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ImageLightbox } from './ImageLightbox.tsx'
 import type { ImageLightboxLabels } from './ImageLightbox.tsx'
-import css from './MessageImage.module.css'
+
+/** Thumbnail frame: long edge bounded by the caller, rendered aspect-clamped. */
+const FRAME_BASE = 'grid flex-none cursor-zoom-in place-items-center min-w-[44px] min-h-[44px] overflow-hidden rounded-2xl border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-alias-interactive-bg-hover)] p-0 hover:bg-[var(--dsw-alias-interactive-bg-hover)] data-[variant=tile]:size-16 data-[variant=tile]:min-w-16 data-[variant=tile]:min-h-16'
+
+/** Retry control on a failed load. */
+const ERROR_BASE = 'max-w-[240px] cursor-pointer rounded-[10px] border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-alias-interactive-bg-hover-danger)] px-3 py-2.5 text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)] hover:bg-[var(--dsw-alias-interactive-bg-hover-danger)] hover:text-[var(--dsw-alias-label-tertiary)] data-[variant=tile]:size-16 data-[variant=tile]:overflow-hidden data-[variant=tile]:rounded-2xl data-[variant=tile]:p-1'
+
+/** Loading placeholder text inside the frame. */
+const LOADING_BASE = 'text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
 
 /** Loads a session-authorized durable image URL. */
 export type ImageLoader = (attachment: ImageAttachmentRef) => Promise<string>
@@ -79,12 +88,14 @@ export function MessageImage({ attachment, load, variant, labels }: {
   }, [attachment, load, attempt])
 
   const label = attachment.name ?? labels.image
-  if (error) return <button type="button" className={css.error} data-variant={variant} onClick={request}>{labels.loadFailed}</button>
+  if (error) return (
+    <ShadcnButton variant="ghost" className={ERROR_BASE} data-variant={variant} onClick={request}>{labels.loadFailed}</ShadcnButton>
+  )
   return (
     <>
-      <button
-        type="button"
-        className={css.frame}
+      <ShadcnButton
+        variant="ghost"
+        className={FRAME_BASE}
         data-variant={variant}
         style={fit === undefined ? undefined : { width: fit.width, height: fit.height }}
         title={labels.open}
@@ -92,9 +103,9 @@ export function MessageImage({ attachment, load, variant, labels }: {
         onClick={() => { if (src !== null) setOpen(true) }}
       >
         {src === null
-          ? <span className={css.loading}>{labels.loading}</span>
-          : <img src={src} alt={label} style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
-      </button>
+          ? <span className={LOADING_BASE}>{labels.loading}</span>
+          : <img className="block h-full w-full object-cover" src={src} alt={label} style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
+      </ShadcnButton>
       {open && src !== null && <ImageLightbox src={src} alt={label} labels={labels.lightbox} onClose={close} />}
     </>
   )
@@ -111,7 +122,7 @@ export function ImageGallery({ images, load, align, labels }: {
   if (images.length === 0) return null
   const variant = images.length === 1 ? 'single' : 'tile'
   return (
-    <div className={css.gallery} data-align={align}>
+    <div className="flex flex-wrap gap-2.5 max-w-full data-[align=end]:justify-end data-[align=end]:self-end data-[align=start]:justify-start data-[align=start]:self-start" data-align={align}>
       {images.map((image, index) => (
         <MessageImage key={`${image.attachment.attachmentId}:${index}`} {...image} load={load} variant={variant} labels={labels} />
       ))}

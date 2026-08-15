@@ -10,7 +10,6 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import type { AgentPresetSettingsState } from './settings-store.ts'
 import { presetDisplayText, type AgentPresetSettingsKey } from './locales.ts'
 import { PresetMenu } from './PresetMenu.tsx'
-import css from './AgentPresetRow.module.css'
 
 /** Registration-side business face for the host-backed preference. */
 export interface AgentPresetRowInjected {
@@ -60,18 +59,18 @@ export function AgentPresetRow({ load, select, useAgentPreset, t }: AgentPresetR
   const description: string = state.error ?? t('description')
 
   return (
-    <div className={css.row}>
-      <div className={css.rowText}>
-        <div className={css.title}>{t('title')}</div>
-        <div className={css.desc} role={state.error === null ? undefined : 'alert'}>{description}</div>
+    <div className="flex items-center gap-2 border-b border-border py-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-1 pr-12">
+        <div className="text-sm leading-[22px] text-foreground">{t('title')}</div>
+        <div className="text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]" role={state.error === null ? undefined : 'alert'}>{description}</div>
       </div>
       <PresetMenu
         options={state.options}
         selectedId={state.currentValue}
         label={label}
         t={t}
-        buttonClassName={css.selector}
-        chevronClassName={css.chevron}
+        buttonClassName="inline-flex h-9 items-center gap-3 rounded-[18px] bg-[var(--dsw-alias-bg-module-platform)] px-[14px] py-0 text-sm font-normal leading-[22px] text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-foreground disabled:cursor-default disabled:opacity-100 disabled:pointer-events-auto"
+        chevronClassName="shrink-0"
         disabled={busy || !state.writable || state.options.length === 0}
         open={open}
         onOpenChange={setOpen}

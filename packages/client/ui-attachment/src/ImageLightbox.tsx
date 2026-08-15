@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { IconCloseOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
-import css from './ImageLightbox.module.css'
+import { IconCloseOutline16, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Lightbox strings the owner resolves from its own locale namespace. */
 export interface ImageLightboxLabels {
@@ -48,16 +47,22 @@ export function ImageLightbox({ src, alt, labels, onClose }: {
 
   return createPortal(
     <div
-      className={css.backdrop}
+      className="fixed inset-0 z-[1000] grid place-items-center p-10"
       role="dialog"
       aria-modal="true"
       aria-label={labels.dialog}
     >
-      <div className={css.mask} aria-hidden="true" onMouseDown={onClose} />
-      <img className={css.image} src={src} alt={alt} />
-      <button ref={closeRef} type="button" className={css.close} aria-label={labels.close} onClick={onClose}>
+      <div className="absolute inset-0 bg-[var(--dsw-alias-bg-mask-1)] [backdrop-filter:var(--dsw-mask-blur)]" aria-hidden="true" onMouseDown={onClose} />
+      <img className="relative max-w-[min(100%,1600px)] max-h-[calc(100vh_-_80px)] object-contain rounded-xl bg-[var(--dsw-specific-input-major)] shadow-[var(--dsw-shadow-lv3)]" src={src} alt={alt} />
+      <ShadcnButton
+        ref={closeRef}
+        variant="ghost"
+        className="fixed top-5 right-5 z-[1] grid size-9 cursor-pointer place-items-center rounded-full border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-specific-input-major)] p-0 text-foreground hover:bg-[var(--dsw-specific-input-major)] hover:text-foreground"
+        aria-label={labels.close}
+        onClick={onClose}
+      >
         <IconCloseOutline16 size={16} />
-      </button>
+      </ShadcnButton>
     </div>,
     document.body,
   )

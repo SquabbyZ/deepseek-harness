@@ -35,15 +35,45 @@
  * them.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import clsx from 'clsx'
 import {
-  Button, IconCheckOutline16, IconChevronRightOutline14, IconEditOutline16, IconFolderClose16, IconFolderOpen16,
-  IconPlusOutline16, Modal,
+  Button, cn, IconCheckOutline16, IconChevronRightOutline14, IconEditOutline16, IconFolderClose16, IconFolderOpen16,
+  IconPlusOutline16, Modal, ShadcnButton, ShadcnInput,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-client-runtime/client'
 import { DirectoryBrowseError } from '@deepseek-ai/dsh-client-runtime/client'
 import type { Translate } from '@deepseek-ai/dsh-client-locale/client'
-import css from './DirectoryBrowser.module.css'
+
+/** Miller column: one pane of folder rows (the list semantics live on the column). */
+const COLUMN_BASE = 'flex flex-col gap-0.5 flex-[1_1_0] min-w-[256px] overflow-y-auto pr-2'
+
+const ROW_SEAT_BASE = 'flex flex-none'
+
+const ROW_BASE = 'w-full flex items-center justify-start gap-1 h-7 flex-none cursor-pointer rounded-md border-none bg-transparent p-1 text-left hover:bg-[var(--dsw-alias-interactive-bg-hover)] disabled:opacity-100'
+
+const ROW_SELECTED = 'bg-[var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover))] hover:bg-[var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover))]'
+
+const ROW_ICON_BASE = 'flex-none text-[var(--dsw-alias-label-secondary)]'
+const ROW_ICON_SELECTED_BASE = 'flex-none text-[var(--dsw-alias-button-info-fill)]'
+const ROW_NAME_BASE = 'flex-[1_1_0] min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium leading-5 text-foreground'
+const ROW_CHEVRON_BASE = 'flex-none text-[var(--dsw-alias-label-tertiary)]'
+
+const CRUMB_BASE = 'h-auto max-w-[160px] cursor-pointer justify-start overflow-hidden text-ellipsis whitespace-nowrap rounded-none border-none bg-transparent p-0 text-[13px] font-medium leading-5 text-[var(--dsw-alias-label-tertiary)] hover:bg-transparent hover:text-foreground disabled:opacity-100'
+
+const CRUMB_EDIT_ZONE_BASE = 'flex items-center justify-end flex-[1_0_34px] min-w-[34px] h-[22px] cursor-text rounded-none border-none bg-transparent p-0 outline-none dsh-crumb-edit-zone disabled:opacity-100'
+
+const PATH_INPUT_BASE = 'box-border flex-[1_1_0] min-w-0 h-[22px] border-0 bg-transparent p-0 text-[13px] leading-5 text-foreground outline-none shadow-none focus-visible:ring-0 dsh-crumb-path-input disabled:opacity-100'
+
+const STATUS_BASE = 'p-1 pr-[120px] text-xs leading-[18px] text-[var(--dsw-alias-label-secondary)]'
+const ERROR_BASE = 'p-1 pr-[120px] text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+const LOADING_FLOAT_BASE = 'absolute right-4 bottom-2 px-2 py-0.5 bg-[var(--dsw-alias-bg-layer-2)]'
+
+const SHOW_HIDDEN_BASE = 'inline-flex h-auto items-center justify-start gap-1 cursor-pointer whitespace-nowrap rounded-none border-none bg-transparent p-0 text-[13px] font-medium leading-5 text-[var(--dsw-alias-label-secondary)] hover:bg-transparent hover:text-foreground disabled:opacity-100 disabled:cursor-default disabled:text-[var(--dsw-alias-label-caption)]'
+
+const SHOW_HIDDEN_ACTIVE = 'text-foreground'
+
+const FOOTER_ACTION_BASE = 'min-w-[72px]'
+
+const CREATE_INPUT_BASE = 'box-border w-full h-11 rounded-[22px] border border-border bg-transparent px-[14px] py-[7px] text-sm leading-[22px] text-foreground outline-none shadow-none placeholder:text-[var(--dsw-alias-label-caption)] focus-visible:ring-0 disabled:opacity-100'
 
 /** Owner-supplied browser props: browse calls, pick semantics, and copy. */
 export interface DirectoryBrowserProps {
@@ -218,17 +248,17 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
 }) {
   const visible = visibleEntries(entries, selectedPath, showHidden, filterPrefix)
   return (
-    <div className={css.column} role="list">
+    <div className={COLUMN_BASE} role="list">
       {visible.map((entry) => {
         const selected = entry.path === selectedPath
         return (
           // The wrapper carries the list semantics; the row keeps its NATIVE
           // button role so assistive technology exposes an actionable control.
-          <span key={entry.path} role="listitem" className={css.rowSeat}>
-            <button
-              type="button"
+          <span key={entry.path} role="listitem" className={ROW_SEAT_BASE}>
+            <ShadcnButton
+              variant="ghost"
               aria-current={selected || undefined}
-              className={clsx(css.row, selected && css.rowSelected)}
+              className={cn(ROW_BASE, selected && ROW_SELECTED)}
               disabled={busy}
               // While the path editor is open, keep focus in it: a focus
               // steal on mousedown would blur the editor and (in engines
@@ -242,11 +272,11 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
               onClick={() => { onPick(entry) }}
             >
               {selected
-                ? <IconFolderOpen16 size={16} className={css.rowIconSelected} />
-                : <IconFolderClose16 size={16} className={css.rowIcon} />}
-              <span className={css.rowName}>{entry.name}</span>
-              <IconChevronRightOutline14 size={12} className={css.rowChevron} />
-            </button>
+                ? <IconFolderOpen16 size={16} className={ROW_ICON_SELECTED_BASE} />
+                : <IconFolderClose16 size={16} className={ROW_ICON_BASE} />}
+              <span className={ROW_NAME_BASE}>{entry.name}</span>
+              <IconChevronRightOutline14 size={12} className={ROW_CHEVRON_BASE} />
+            </ShadcnButton>
           </span>
         )
       })}
@@ -759,7 +789,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       // createWorkspace to land after an apparent cancel.
       onClose={() => { if (folderDraft === null && !busy) onClose() }}
       title={t('browser.title')}
-      className={clsx(css.dialog)}
+      className="w-[min(680px,100%)] h-[min(500px,calc(100dvh_-_32px))] p-0 gap-0 [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
       headless
     >
       {/* Path-edit cancellation is observed at the card scope, not the
@@ -769,7 +799,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         * cancel. display:contents keeps header/content/footer as direct
         * flex children of the Modal card. */}
       <div
-        className={css.editorScope}
+        className="contents"
         onKeyDown={(event) => {
           if (event.key !== 'Escape' || pathDraft === null) return
           // stopPropagation keeps the card-scope Escape from the Modal's
@@ -805,24 +835,24 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           cancelPathEdit()
         }}
       >
-        <div className={css.header}>
-          <h2 className={css.title}>{t('browser.title')}</h2>
-          <div className={css.crumbBar}>
+        <div className="flex flex-col gap-2 flex-none pt-4 pr-3.5 pb-2 pl-6 border-b border-input">
+          <h2 className="flex items-end min-h-7 m-0 text-base leading-6 [font-weight:510] text-foreground">{t('browser.title')}</h2>
+          <div className="flex items-center gap-1 box-border min-h-6 -ml-[9px] px-2 rounded-lg dsh-crumb-bar">
             {pathDraft === null
               ? (
                 <>
-                  <span className={css.crumbTrail} role="navigation" ref={crumbTrailRef}>
+                  <span className="flex items-center gap-1 flex-[0_1_auto] min-w-0 overflow-x-auto dsh-scrollbar-hidden" role="navigation" ref={crumbTrailRef}>
                     {crumbs.map((crumb, index) => (
-                      <span key={crumb.path} className={css.crumbSeat}>
-                        {index > 0 && <IconChevronRightOutline14 size={12} className={css.crumbChevron} />}
-                        <button
-                          type="button"
-                          className={css.crumb}
+                      <span key={crumb.path} className="inline-flex items-center gap-1 flex-none min-w-0">
+                        {index > 0 && <IconChevronRightOutline14 size={12} className="flex-none text-[var(--dsw-alias-label-tertiary)]" />}
+                        <ShadcnButton
+                          variant="ghost"
+                          className={CRUMB_BASE}
                           disabled={parentInert}
                           onClick={() => { navigate(crumb.path) }}
                         >
                           {crumb.name}
-                        </button>
+                        </ShadcnButton>
                       </span>
                     ))}
                   </span>
@@ -832,9 +862,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                     * edge (with the same tooltip) is what says so — an
                     * invisible target the operator must guess at is the one
                     * way into typing a path. */}
-                  <button
-                    type="button"
-                    className={css.crumbEditZone}
+                  <ShadcnButton
+                    variant="ghost"
+                    className={CRUMB_EDIT_ZONE_BASE}
                     aria-label={t('browser.editPath')}
                     title={t('browser.editPath')}
                     // Stays available with no listed level: when the home
@@ -862,13 +892,13 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                       setPathDraft(base.endsWith(sep) ? base : `${base}${sep}`)
                     }}
                   >
-                    <IconEditOutline16 size={14} className={css.crumbEditGlyph} />
-                  </button>
+                    <IconEditOutline16 size={14} className="flex-none text-[var(--dsw-alias-label-tertiary)] dsh-crumb-edit-glyph" />
+                  </ShadcnButton>
                 </>
               )
               : (
-                <input
-                  className={css.pathInput}
+                <ShadcnInput
+                  className={PATH_INPUT_BASE}
                   value={pathDraft}
                   aria-label={t('browser.editPath')}
                   autoFocus
@@ -913,8 +943,8 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
               )}
           </div>
         </div>
-        <div className={css.content}>
-          <div className={css.millerRow} ref={millerRowRef}>
+        <div className="flex flex-col flex-[1_1_0] min-h-0 relative pt-4 pr-4 pb-4 pl-6">
+          <div className="flex items-stretch flex-[1_1_0] min-h-0 gap-3 overflow-x-auto dsh-scrollbar-hidden" ref={millerRowRef}>
             {parent !== null && (
               <LevelColumn
                 entries={parent.entries}
@@ -926,7 +956,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                 pathEditing={draftPending}
               />
             )}
-            {twoPane && <span className={css.divider} />}
+            {twoPane && <span className="flex-none w-px bg-input" />}
             {twoPane && child !== null && (
               <LevelColumn
                 entries={child.entries}
@@ -940,7 +970,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
             )}
           </div>
           {loading && slowScan
-          && <div className={clsx(css.status, css.loadingFloat)} role="status">{t('browser.loading')}</div>}
+          && <div className={cn(STATUS_BASE, LOADING_FLOAT_BASE)} role="status">{t('browser.loading')}</div>}
           {/* The backend bounds a level at its complete-result limit; say so
           * whenever a visible pane was cut instead of letting the tail of a
           * huge directory go silently missing. The note describes the panes
@@ -948,10 +978,10 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           * the stale view still shows the cut level would shift the columns
           * on every navigation away from it. */}
           {(parent?.truncated === true || child?.truncated === true)
-          && <div className={css.status} role="status">{t('browser.truncated')}</div>}
-          {error !== null && <div className={css.error} role="alert">{error}</div>}
+          && <div className={STATUS_BASE} role="status">{t('browser.truncated')}</div>}
+          {error !== null && <div className={ERROR_BASE} role="alert">{error}</div>}
         </div>
-        <div className={css.footerBar}>
+        <div className="flex items-center flex-wrap gap-2 flex-none px-6 py-4 border-t border-input">
           <Button
             variant="outline"
             icon={<IconPlusOutline16 size={14} />}
@@ -963,9 +993,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           >
             {t('browser.newFolder')}
           </Button>
-          <button
-            type="button"
-            className={clsx(css.showHiddenToggle, showHidden && css.showHiddenToggleActive)}
+          <ShadcnButton
+            variant="ghost"
+            className={cn(SHOW_HIDDEN_BASE, showHidden && SHOW_HIDDEN_ACTIVE)}
             aria-pressed={showHidden}
             disabled={parentInert}
             // The toggle composes with the path editor (dot-led prefixes and
@@ -979,12 +1009,12 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
             {/* Trailing check (Menu's selected vocabulary): the label never
               * shifts when the pressed state toggles. */}
             {showHidden && <IconCheckOutline16 size={14} />}
-          </button>
-          <span className={css.footerGap} />
-          <Button variant="outline" className={clsx(css.footerAction)} disabled={parentInert} onClick={onClose}>{t('browser.cancel')}</Button>
+          </ShadcnButton>
+          <span className="flex-[1_1_0]" />
+          <Button variant="outline" className={FOOTER_ACTION_BASE} disabled={parentInert} onClick={onClose}>{t('browser.cancel')}</Button>
           <Button
             variant="primary"
-            className={clsx(css.footerAction)}
+            className={FOOTER_ACTION_BASE}
             disabled={targetPath === null || loading || parentInert || draftPending}
             /* v8 ignore next -- narrowing guard: Open disables while no target exists. */
             onClick={() => { if (targetPath !== null) onOpen(targetPath) }}
@@ -998,14 +1028,14 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         open={folderDraft !== null}
         onClose={() => { if (!creatingFolder) setFolderDraft(null) }}
         title={t('browser.newFolder')}
-        className={clsx(css.createDialog)}
+        className="p-0 gap-0"
         headless
       >
-        <div className={css.createBody}>
-          <h3 className={css.createTitle}>{t('browser.newFolder')}</h3>
-          <p className={css.createIn}>{t('browser.createIn', { name: targetName })}</p>
-          <input
-            className={css.createInput}
+        <div className="flex flex-col gap-3 px-6 pt-[22px] pb-5">
+          <h3 className="m-0 text-base leading-6 [font-weight:510] text-foreground">{t('browser.newFolder')}</h3>
+          <p className="m-0 text-sm leading-[22px] text-foreground">{t('browser.createIn', { name: targetName })}</p>
+          <ShadcnInput
+            className={CREATE_INPUT_BASE}
             value={folderDraft ?? ''}
             aria-label={t('browser.folderName')}
             placeholder={t('browser.untitledFolder')}
@@ -1024,8 +1054,8 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
               }
             }}
           />
-          {createError !== null && <div className={css.error} role="alert">{createError}</div>}
-          <div className={css.createActions}>
+          {createError !== null && <div className={ERROR_BASE} role="alert">{createError}</div>}
+          <div className="flex items-center justify-end gap-2 mt-2">
             <Button variant="outline" disabled={creatingFolder} onClick={() => { setFolderDraft(null) }}>{t('browser.cancel')}</Button>
             <Button
               variant="primary"

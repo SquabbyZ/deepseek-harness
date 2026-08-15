@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import css from './OnboardingModal.module.css'
 
 const ignoreImplicitDismiss = (): void => {}
 
@@ -41,11 +40,11 @@ export function OnboardingModal({
       title={title}
       onClose={ignoreImplicitDismiss}
       headless
-      className={css.dialog as string}
+      className="w-[min(600px,100%)] p-0"
     >
-      <div className={css.content}>
-        <h2 ref={titleRef} className={css.title} tabIndex={focusTitle ? -1 : undefined}>{title}</h2>
-        <div className={css.body}>{children}</div>
+      <div className="flex max-h-[calc(100vh_-_48px)] flex-col overflow-y-auto p-7 max-[560px]:p-6">
+        <h2 ref={titleRef} className="m-0 text-xl leading-7 font-medium text-foreground outline-none" tabIndex={focusTitle ? -1 : undefined}>{title}</h2>
+        <div className="mt-5">{children}</div>
       </div>
     </Modal>
   )

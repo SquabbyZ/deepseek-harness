@@ -6,14 +6,13 @@ import {
   type SessionSummary, type SubagentAddress, type SubagentCatalogSnapshot,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import {
-  IconChevronDownOutline14, IconChevronRightOutline14, IconRefreshOutline14, StateDot,
+  IconChevronDownOutline14, IconChevronRightOutline14, IconRefreshOutline14, StateDot, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { NS } from './locales.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-subagent/client'
 import type {} from '@deepseek-ai/dsh-token-meter/client'
-import css from './SubagentCatalogAction.module.css'
 
 type CatalogEntry = SubagentCatalogSnapshot['entries'][number]
 type Catalogs = SessionListState['subagentsByParent']
@@ -188,20 +187,20 @@ function CatalogLoadingRows({
   const children = Object.values(summaries).filter(summary => (
     summary.origin === 'subagent' && summary.parentId === parentSessionId
   ))
-  if (children.length === 0) return <div className={css.notice}>{t('loading.label')}</div>
+  if (children.length === 0) return <div className="px-3 py-2.5 text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]">{t('loading.label')}</div>
   return children.map(summary => (
-    <div key={summary.id} className={css.node}>
+    <div key={summary.id} className="catalog-node relative min-w-0">
       <div
         role="treeitem"
         aria-disabled="true"
         aria-level={level}
         aria-label={t('loading.aria')}
-        className={`${css.row} ${css.disabled} ${css.loadingRow}`}
+        className="catalog-row relative flex min-h-[50px] w-full cursor-default items-start gap-2 rounded-lg border-0 bg-transparent p-[7px_8px_7px_11px] text-left text-[13px] leading-[18px] text-[var(--dsw-alias-label-dimmed)] outline-none"
       >
-        <span className={css.disclosureSpace} />
-        <StateDot state={summary.running ? 'ongoing' : 'done'} />
-        <span className={css.content}>
-          <span className={css.label}>{t('loading.label')}</span>
+        <span className="h-[18px] w-[14px] flex-none" />
+        <StateDot state={summary.running ? 'ongoing' : 'done'} className="mt-1" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap font-normal text-inherit">{t('loading.label')}</span>
         </span>
       </div>
     </div>
@@ -228,11 +227,11 @@ function CatalogRows({
         />
       )}
       {catalog.state === 'error' && (
-        <div className={css.error}>
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]">
           <span>{catalog.error?.message ?? t('load.error')}</span>
           <button
             type="button"
-            className={css.refresh}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent p-[4px_6px] text-inherit hover:bg-[var(--dsw-alias-interactive-bg-hover)]"
             onClick={() => { refresh(parentSessionId) }}
           >
             <IconRefreshOutline14 />
@@ -244,20 +243,20 @@ function CatalogRows({
         if (entry.kind === 'diagnostic') {
           const reason = diagnosticReason(entry, t)
           return (
-            <div key={entry.id} className={css.node}>
+            <div key={entry.id} className="catalog-node relative min-w-0">
               <div
                 role="treeitem"
                 aria-disabled="true"
                 aria-level={level}
                 aria-label={`${entry.id} ${reason}`}
-                className={`${css.row} ${css.disabled}`}
+                className="catalog-row relative flex min-h-[50px] w-full cursor-not-allowed items-start gap-2 rounded-lg border-0 bg-transparent p-[7px_8px_7px_11px] text-left text-[13px] leading-[18px] text-[var(--dsw-alias-label-dimmed)] outline-none"
                 title={reason}
               >
-                {reserveDisclosure && <span className={css.disclosureSpace} />}
-                <StateDot state="error" />
-                <span className={css.content}>
-                  <span className={css.label}>{entry.id}</span>
-                  <span className={css.summary}>{reason}</span>
+                {reserveDisclosure && <span className="h-[18px] w-[14px] flex-none" />}
+                <StateDot state="error" className="mt-1" />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="overflow-hidden text-ellipsis whitespace-nowrap font-normal text-inherit">{entry.id}</span>
+                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] leading-4 text-[var(--dsw-alias-label-tertiary)]">{reason}</span>
                 </span>
               </div>
             </div>
@@ -320,42 +319,45 @@ function CatalogRows({
         }
 
         return (
-          <div key={entry.id} className={css.node}>
+          <div key={entry.id} className="catalog-node relative min-w-0">
             <div
               role="treeitem"
               tabIndex={0}
               aria-level={level}
               aria-label={[label, secondary, metrics].filter(value => value !== '').join(' ')}
               {...knownLeaf ? {} : { 'aria-expanded': isExpanded }}
-              className={css.row}
+              className="catalog-row group relative flex min-h-[50px] w-full cursor-pointer items-start gap-2 rounded-lg border-0 bg-transparent p-[7px_8px_7px_11px] text-left text-[13px] leading-[18px] text-foreground outline-none"
               onClick={open}
               onKeyDown={handleKey}
             >
               {knownLeaf
-                ? reserveDisclosure && <span className={css.disclosureSpace} />
+                ? reserveDisclosure && <span className="h-[18px] w-[14px] flex-none" />
                 : (
                   <button
                     type="button"
                     tabIndex={-1}
-                    className={`${css.disclosure} ${isExpanded ? css.disclosureOpen : ''}`}
+                    className={cn(
+                      'inline-flex h-[18px] w-[14px] shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-[var(--dsw-alias-label-tertiary)] transition-transform duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:text-foreground',
+                      isExpanded && 'rotate-90',
+                    )}
                     aria-label={t(isExpanded ? 'branch.collapse' : 'branch.expand', { label })}
                     onClick={toggle}
                   >
                     <IconChevronRightOutline14 />
                   </button>
                 )}
-              <div className={css.clickarea}>
-                <StateDot state={entry.activity === 'running' ? 'ongoing' : 'done'} />
-                <span className={css.content}>
-                  <span className={css.label}>{label}</span>
-                  <span className={css.summary}>{secondary}</span>
+              <div className="group-focus-visible:bg-[var(--dsw-alias-interactive-bg-hover)] group-hover:bg-[var(--dsw-alias-interactive-bg-hover)] m-[-7px_-8px] flex min-w-0 flex-1 items-start gap-2 self-stretch rounded-lg p-[7px_8px]">
+                <StateDot state={entry.activity === 'running' ? 'ongoing' : 'done'} className="mt-1" />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="overflow-hidden text-ellipsis whitespace-nowrap font-normal text-inherit">{label}</span>
+                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] leading-4 text-[var(--dsw-alias-label-tertiary)]">{secondary}</span>
                 </span>
                 {metrics !== '' && (
-                  <span className={css.metrics}>
-                    {tokenMetric !== undefined && <span className={css.metricToken}>{tokenMetric}</span>}
+                  <span className="grid shrink-0 grid-rows-[18px_16px] whitespace-nowrap text-right text-[11px] leading-4 text-[var(--dsw-alias-label-tertiary)] [font-variant-numeric:tabular-nums]">
+                    {tokenMetric !== undefined && <span className="row-start-1 leading-[18px]">{tokenMetric}</span>}
                     {durationMetric !== undefined && (
                       <span
-                        className={css.metricDuration}
+                        className="row-start-2"
                         title={t('duration.exactTitle', { duration: durationMetric.exact })}
                       >
                         {durationMetric.compact}
@@ -368,7 +370,7 @@ function CatalogRows({
             {isExpanded && !knownLeaf && (
               <div
                 role="group"
-                className={css.children}
+                className="catalog-children relative ml-[18px] pl-1"
                 aria-busy={childLoading || undefined}
               >
                 {childCatalog === undefined
@@ -563,11 +565,11 @@ export function SubagentCatalogAction({
   }
 
   return (
-    <div className={css.root} ref={rootRef} onKeyDown={navigate}>
+    <div className="relative" ref={rootRef} onKeyDown={navigate}>
       <button
         ref={triggerRef}
         type="button"
-        className={css.trigger}
+        className="inline-flex min-h-7 cursor-pointer items-center gap-[3px] rounded-md border-0 bg-transparent p-[3px_2px] text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)] hover:text-[var(--dsw-alias-label-secondary)] focus-visible:text-[var(--dsw-alias-label-secondary)]"
         aria-haspopup="tree"
         aria-expanded={open}
         aria-label={t(
@@ -582,14 +584,18 @@ export function SubagentCatalogAction({
           queueMicrotask(() => { focusAt(0) })
         }}
       >
-        <span className={css.activitySlot}>
+        <span className="inline-flex size-2.5 shrink-0">
           {descendants.runningCount > 0 && <StateDot state="ongoing" />}
         </span>
-        <span className={css.count}>{t(totalCountKey, { count: descendantCount })}</span>
-        <IconChevronDownOutline14 className={open ? css.triggerOpen : undefined} />
+        <span className="mx-[5px]">{t(totalCountKey, { count: descendantCount })}</span>
+        <IconChevronDownOutline14 className={cn('transition-transform duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]', open && 'rotate-180')} />
       </button>
       {open && (
-        <div className={css.menu} role="tree" aria-label={t('tree.aria')}>
+        <div
+          className="catalog-menu absolute left-0 top-[calc(100%+5px)] z-[100] flex max-h-[min(560px,calc(100vh-140px))] w-[336px] max-w-[min(400px,calc(100vw-32px))] flex-col overflow-auto rounded-xl bg-[var(--dsw-specific-menu)] p-1 shadow-[var(--dsw-shadow-lv3)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
+          role="tree"
+          aria-label={t('tree.aria')}
+        >
           <CatalogRows
             parentSessionId={sessionId}
             catalog={presentedCatalog}

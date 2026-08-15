@@ -13,8 +13,6 @@ import {
   type TrajectoryTimelineMode,
   type TrajectoryTimeRange,
 } from './timeline.ts'
-import css from './TrajectoryTimeline.module.css'
-
 const MINIMUM_DRAG_PX = 3
 const MINIMUM_ZOOM_OPERATIONS = 4
 const EDGE_PAN_ZONE_FRACTION = 0.08
@@ -187,7 +185,7 @@ function rangeFraction(
 
 function LaneLabels() {
   return (
-    <div className={css.labels} aria-hidden="true">
+    <div className={'tl-labels'} aria-hidden="true">
       <span>Input</span>
       <span>Model</span>
       <span>Tools</span>
@@ -212,7 +210,7 @@ function EarlierHistoryBoundary({
     >
       <button
         type="button"
-        className={css.earlierHistory}
+        className={'tl-earlierHistory'}
         data-earlier-history
         data-loading={loading || undefined}
         aria-label={loading ? 'Loading earlier history' : 'Load earlier history'}
@@ -380,11 +378,11 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
 
   if (model === null) {
     return (
-      <section ref={rootRef} className={css.root} aria-label="Trajectory timeline">
-        <div className={css.plot}>
+      <section ref={rootRef} className={'tl-root'} aria-label="Trajectory timeline">
+        <div className={'tl-plot'}>
           <LaneLabels />
-          <div className={css.track}>
-            <span className={css.empty}>No timing data</span>
+          <div className={'tl-track'}>
+            <span className={'tl-empty'}>No timing data</span>
             {hasEarlierRecords && (
               <EarlierHistoryBoundary
                 loading={loadingEarlier}
@@ -575,12 +573,12 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
   }
 
   return (
-    <section ref={rootRef} className={css.root} aria-label="Trajectory timeline">
-      <div className={css.plot}>
+    <section ref={rootRef} className={'tl-root'} aria-label="Trajectory timeline">
+      <div className={'tl-plot'}>
         <LaneLabels />
         <div
           ref={trackRef}
-          className={css.track}
+          className={'tl-track'}
           data-panning={panning || undefined}
           aria-label="Timeline overview; drag horizontally to focus events"
           tabIndex={0}
@@ -609,7 +607,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
           )}
           {hover !== null && hover.recordIndex === null && draft === null && (
             <div
-              className={css.hoverLine}
+              className={'tl-hoverLine'}
               data-timeline-hover-line
               aria-hidden="true"
               style={{
@@ -620,7 +618,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
           {visibleRange !== null && (
             <>
               <div
-                className={css.selection}
+                className={'tl-selection'}
                 data-dragging={draft === null ? undefined : 'true'}
                 aria-hidden="true"
                 style={{
@@ -629,7 +627,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
                 } as CSSProperties}
               />
               <div
-                className={css.selectionEdges}
+                className={'tl-selectionEdges'}
                 data-dragging={draft === null ? undefined : 'true'}
                 aria-hidden="true"
                 style={{
@@ -640,7 +638,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
             </>
           )}
           <div
-            className={css.turnBoundaries}
+            className={'tl-turnBoundaries'}
             data-animate-viewport={animateViewport || undefined}
             aria-hidden="true"
             style={projectedDomainStyle}
@@ -652,7 +650,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
                 && boundary.time <= domainStart + domainDuration)
               .map(boundary => (
                 <span
-                  className={css.turnBoundary}
+                  className={'tl-turnBoundary'}
                   data-turn={boundary.turn}
                   key={boundary.turn}
                   style={{
@@ -663,7 +661,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
               ))}
           </div>
           <div
-            className={css.lanes}
+            className={'tl-lanes'}
             data-animate-viewport={animateViewport || undefined}
             data-timeline-domain
             style={projectedDomainStyle}
@@ -693,7 +691,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
                   >
                     <span
                       aria-hidden="true"
-                      className={css.span}
+                      className={'tl-span'}
                       data-timeline-span={span.kind}
                       data-timeline-record-index={span.index}
                       data-assistant-timing={ttftFraction === null ? undefined : 'true'}

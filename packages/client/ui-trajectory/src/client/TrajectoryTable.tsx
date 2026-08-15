@@ -26,8 +26,6 @@ import {
 import type { TrajectoryVirtualRow } from './trajectory-virtual-rows.ts'
 import type { TrajectoryTurnModel } from './layout.ts'
 import { trajectoryPreviewText } from './trajectory-preview.ts'
-import css from './TrajectoryTable.module.css'
-
 const BOTTOM_FOLLOW_THRESHOLD_PX = 2
 const OLDER_LOAD_THRESHOLD_PX = 48
 const HISTORY_LOAD_ROW_HEIGHT_PX = 30
@@ -43,6 +41,16 @@ const KIND_LABEL: Record<TrajectoryCellKind, string> = {
   message: 'ASSISTANT',
   tool: 'TOOL',
   subtool: 'SUBTOOL',
+}
+
+const KIND_TAG_CLASS: Record<TrajectoryCellKind, string> = {
+  system: 'tt-systemNeutral',
+  user: 'tt-user',
+  context: 'tt-contextGreen',
+  compacted: 'tt-compacted',
+  message: 'tt-assistantVioletBright',
+  tool: 'tt-toolAmber',
+  subtool: 'tt-subtoolAmber',
 }
 
 function ToolWrenchIcon(): ReactNode {
@@ -288,7 +296,7 @@ function StartedAtValue({ timestamp }: { timestamp: number | null }) {
     <dd>
       <button
         type="button"
-        className={css.timestampToggle}
+        className={'tt-timestampToggle'}
         title={showUnix ? 'Show local time' : 'Show Unix timestamp'}
         onClick={(event) => {
           if (clickSelectsText(event.currentTarget)) return
@@ -333,7 +341,7 @@ function throughput(metrics: AssistantMetricDetail): string {
 
 function AssistantTimingPanel({ metrics }: { metrics: AssistantMetricDetail }) {
   return (
-    <dl className={css.overview}>
+    <dl className={'tt-overview'}>
       <div><dt>Started</dt><StartedAtValue timestamp={metrics.stepStartTime} /></div>
       <div><dt>Total duration</dt><dd>{totalTime(metrics)}</dd></div>
       <div><dt>TTFT</dt><dd>{ttft(metrics)}</dd></div>
@@ -691,13 +699,13 @@ function TokenRows({ cell }: { cell: TrajectoryCellProps }) {
         <dd>{cell.output === undefined ? '—' : `${cell.output} tok`}</dd>
       </div>
       {cell.think !== undefined && (
-        <div className={css.requestTokenDetail}>
+        <div className={'tt-requestTokenDetail'}>
           <dt>Reasoning</dt>
           <dd>{cell.think} tok</dd>
         </div>
       )}
       {content !== undefined && (
-        <div className={css.requestTokenDetail}>
+        <div className={'tt-requestTokenDetail'}>
           <dt>Content</dt>
           <dd>{content} tok</dd>
         </div>
@@ -716,30 +724,30 @@ function inputTotal(usage: TrajectoryUsage): number | undefined {
 }
 
 function UsageRows({ usage }: { usage: TrajectoryUsage | undefined }) {
-  if (usage === undefined) return <p className={css.noPayload}>Usage not reported</p>
+  if (usage === undefined) return <p className={'tt-noPayload'}>Usage not reported</p>
   const totalInput = inputTotal(usage)
   const otherOutput = usage.output !== undefined && usage.reasoning !== undefined
     ? usage.output - usage.reasoning
     : undefined
   return (
-    <dl className={css.overview}>
+    <dl className={'tt-overview'}>
       {totalInput !== undefined && (
         <div><dt>Input</dt><dd>{totalInput} tok</dd></div>
       )}
       {usage.cacheRead !== undefined && (
-        <div className={css.requestTokenDetail}>
+        <div className={'tt-requestTokenDetail'}>
           <dt>Cached</dt>
           <dd>{usage.cacheRead} tok</dd>
         </div>
       )}
       {usage.cacheWrite !== undefined && (
-        <div className={css.requestTokenDetail}>
+        <div className={'tt-requestTokenDetail'}>
           <dt>Cache created</dt>
           <dd>{usage.cacheWrite} tok</dd>
         </div>
       )}
       {usage.input !== undefined && (
-        <div className={css.requestTokenDetail}>
+        <div className={'tt-requestTokenDetail'}>
           <dt>Other</dt>
           <dd>{usage.input} tok</dd>
         </div>
@@ -748,13 +756,13 @@ function UsageRows({ usage }: { usage: TrajectoryUsage | undefined }) {
         <div><dt>Output</dt><dd>{usage.output} tok</dd></div>
       )}
       {usage.reasoning !== undefined && (
-        <div className={css.requestTokenDetail}>
+        <div className={'tt-requestTokenDetail'}>
           <dt>Reasoning</dt>
           <dd>{usage.reasoning} tok</dd>
         </div>
       )}
       {otherOutput !== undefined && (
-        <div className={css.requestTokenDetail}>
+        <div className={'tt-requestTokenDetail'}>
           <dt>Content</dt>
           <dd>{otherOutput} tok</dd>
         </div>
@@ -771,13 +779,13 @@ function RequestUsagePanel({
   cumulative: TrajectoryUsage | undefined
 }) {
   return (
-    <div className={css.usagePanel}>
-      <section className={css.usageGroup}>
-        <h4 className={css.usageHeading}>This request</h4>
+    <div className={'tt-usagePanel'}>
+      <section className={'tt-usageGroup'}>
+        <h4 className={'tt-usageHeading'}>This request</h4>
         <UsageRows usage={usage} />
       </section>
-      <section className={css.usageGroup}>
-        <h4 className={css.usageHeading}>Session cumulative</h4>
+      <section className={'tt-usageGroup'}>
+        <h4 className={'tt-usageHeading'}>Session cumulative</h4>
         <UsageRows usage={cumulative} />
       </section>
     </div>
@@ -792,13 +800,13 @@ function RequestOptions({
   preview?: boolean
 }) {
   if (options === undefined) {
-    return <p className={css.noPayload}>Options not recorded</p>
+    return <p className={'tt-noPayload'}>Options not recorded</p>
   }
   return (
     <JsonTree
       data={options}
       label="Request options JSON"
-      className={preview ? css.jsonPreview : css.jsonPayload}
+      className={preview ? 'tt-jsonPreview' : 'tt-jsonPayload'}
     />
   )
 }
@@ -828,7 +836,7 @@ function messageSourceLabel(source: unknown): string {
 
 function MessageSource({ record }: { record: TableRecord }) {
   const source = record.cell.messageSource
-  if (source === undefined) return <p className={css.noPayload}>Source not recorded</p>
+  if (source === undefined) return <p className={'tt-noPayload'}>Source not recorded</p>
   const data = typeof source === 'object' && source !== null
     ? source
     : { value: source }
@@ -836,7 +844,7 @@ function MessageSource({ record }: { record: TableRecord }) {
     <JsonTree
       data={data}
       label="Message source JSON"
-      className={css.jsonPayload}
+      className={'tt-jsonPayload'}
     />
   )
 }
@@ -1012,16 +1020,16 @@ function RecordListText({
   toolCallText,
 }: Pick<RecordPresentationValue, 'displayText' | 'toolCallOnly' | 'toolCallText'>) {
   if (toolCallOnly) {
-    return <span className={css.toolCallOnly}>(tool call only)</span>
+    return <span className={'tt-toolCallOnly'}>(tool call only)</span>
   }
   if (toolCallText === undefined) return displayText || '—'
   return (
     <>
-      <span className={css.toolCallNameTypeface}>
+      <span className={'tt-toolCallNameTypeface'}>
         {toolCallText.name || '—'}
       </span>
       {toolCallText.args !== undefined && (
-        <span className={css.toolCallPayload}>
+        <span className={'tt-toolCallPayload'}>
           {toolCallText.args}
         </span>
       )}
@@ -1040,13 +1048,13 @@ function MarkdownFragment({
 }) {
   if (rendered) {
     return (
-      <div className={preview ? css.markdownPreview : css.markdownPayload}>
+      <div className={preview ? 'tt-markdownPreview' : 'tt-markdownPayload'}>
         <MarkdownText text={text} />
       </div>
     )
   }
   return (
-    <pre className={`${css.payload} ${preview ? css.payloadPreview : ''}`}>
+    <pre className={`${'tt-payload'} ${preview ? 'tt-payloadPreview' : ''}`}>
       {text}
     </pre>
   )
@@ -1060,36 +1068,36 @@ function SourceBlocks({
   onOpenCall: (callId: string) => void
 }) {
   return (
-    <div className={css.sourceBlocks}>
+    <div className={'tt-sourceBlocks'}>
       {blocks.map((block, index) => (
-        <section className={css.sourceBlock} key={index}>
+        <section className={'tt-sourceBlock'} key={index}>
           {block.callId !== undefined
             ? (
               <button
                 type="button"
-                className={css.sourceBlockJumpTarget}
+                className={'tt-sourceBlockJumpTarget'}
                 aria-label={`Open Block #${index + 1} tool call summary`}
                 title="Open tool call summary"
                 onClick={() => {
                   if (block.callId !== undefined) onOpenCall(block.callId)
                 }}
               >
-                <span className={css.sourceBlockLabel}>
+                <span className={'tt-sourceBlockLabel'}>
                   {`Block #${index + 1} ${block.type}`}
                 </span>
-                <IconChevronRightOutline14 className={css.sourceBlockJumpIcon} size={12} />
+                <IconChevronRightOutline14 className={'tt-sourceBlockJumpIcon'} size={12} />
               </button>
             )
             : (
-              <div className={css.sourceBlockHeader}>
-                <span className={css.sourceBlockLabel}>
+              <div className={'tt-sourceBlockHeader'}>
+                <span className={'tt-sourceBlockLabel'}>
                   {`Block #${index + 1} ${block.type}`}
                 </span>
               </div>
             )}
           {block.imageSrc !== undefined
             ? <PanelImage block={block} />
-            : <pre className={css.sourceBlockContent}>{block.content}</pre>}
+            : <pre className={'tt-sourceBlockContent'}>{block.content}</pre>}
         </section>
       ))}
     </div>
@@ -1106,14 +1114,14 @@ function PanelImage({
   if (block.imageSrc === undefined) return null
   return (
     <a
-      className={preview ? `${css.panelImageLink} ${css.panelImageLinkPreview}` : css.panelImageLink}
+      className={preview ? `${'tt-panelImageLink'} ${'tt-panelImageLinkPreview'}` : 'tt-panelImageLink'}
       href={block.imageSrc}
       target="_blank"
       rel="noopener noreferrer"
       title="Open image"
     >
       <img
-        className={css.panelImage}
+        className={'tt-panelImage'}
         src={block.imageSrc}
         alt={block.imageAlt ?? ''}
       />
@@ -1131,7 +1139,7 @@ function MessageImages({
   const images = blocks?.filter(block => block.imageSrc !== undefined) ?? []
   if (images.length === 0) return null
   return (
-    <div className={preview ? `${css.messageImages} ${css.messageImagesPreview}` : css.messageImages}>
+    <div className={preview ? `${'tt-messageImages'} ${'tt-messageImagesPreview'}` : 'tt-messageImages'}>
       {images.map((block, index) => <PanelImage block={block} preview={preview} key={index} />)}
     </div>
   )
@@ -1150,21 +1158,21 @@ function AssistantToolCalls({
   if (calls.length === 0) return null
   return (
     <ul className={preview
-      ? `${css.assistantToolCalls} ${css.assistantToolCallsPreview}`
-      : css.assistantToolCalls}
+      ? `${'tt-assistantToolCalls'} ${'tt-assistantToolCallsPreview'}`
+      : 'tt-assistantToolCalls'}
     >
       {calls.map((call, index) => (
         <li key={call.callId ?? index}>
           <button
             type="button"
-            className={css.assistantToolCallButton}
+            className={'tt-assistantToolCallButton'}
             title="Open tool call summary"
             onClick={() => {
               if (call.callId !== undefined) onOpenCall(call.callId)
             }}
           >
             <svg
-              className={css.assistantToolCallIcon}
+              className={'tt-assistantToolCallIcon'}
               width="12"
               height="12"
               viewBox="0 0 24 24"
@@ -1179,12 +1187,12 @@ function AssistantToolCalls({
                 strokeLinejoin="round"
               />
             </svg>
-            <span className={css.assistantToolCallText}>
-              <span className={css.assistantToolCallName}>
+            <span className={'tt-assistantToolCallText'}>
+              <span className={'tt-assistantToolCallName'}>
                 {call.toolName ?? 'tool-call'}
               </span>
               {call.content !== '' && (
-                <span className={css.assistantToolCallArgs}>{call.content}</span>
+                <span className={'tt-assistantToolCallArgs'}>{call.content}</span>
               )}
             </span>
           </button>
@@ -1197,7 +1205,7 @@ function AssistantToolCalls({
 function ToolGlyph() {
   return (
     <svg
-      className={css.toolCatalogIcon}
+      className={'tt-toolCatalogIcon'}
       width="12"
       height="12"
       viewBox="0 0 24 24"
@@ -1216,25 +1224,25 @@ function ToolGlyph() {
 }
 
 function ToolCatalog({ tools }: { tools: ConversationPromptSnapshot['tools'] }) {
-  if (tools.length === 0) return <p className={css.noPayload}>No tools in this request</p>
+  if (tools.length === 0) return <p className={'tt-noPayload'}>No tools in this request</p>
   return (
-    <div className={css.toolCatalog}>
+    <div className={'tt-toolCatalog'}>
       {tools.map((tool, index) => (
-        <details className={css.toolCatalogItem} key={`${tool.name}:${index}`}>
-          <summary className={css.toolCatalogSummary}>
-            <IconChevronRightOutline14 className={css.toolCatalogChevron} size={12} />
+        <details className={'tt-toolCatalogItem'} key={`${tool.name}:${index}`}>
+          <summary className={'tt-toolCatalogSummary'}>
+            <IconChevronRightOutline14 className={'tt-toolCatalogChevron'} size={12} />
             <ToolGlyph />
-            <span className={css.toolCatalogName}>{tool.name}</span>
-            <span className={css.toolCatalogDescription}>{tool.description}</span>
+            <span className={'tt-toolCatalogName'}>{tool.name}</span>
+            <span className={'tt-toolCatalogDescription'}>{tool.description}</span>
           </summary>
-          <div className={css.toolCatalogDefinition}>
+          <div className={'tt-toolCatalogDefinition'}>
             {tool.description !== '' && (
-              <p className={css.toolCatalogFullDescription}>{tool.description}</p>
+              <p className={'tt-toolCatalogFullDescription'}>{tool.description}</p>
             )}
             <JsonTree
               data={tool.parameters}
               label={`${tool.name} parameters JSON`}
-              className={css.toolCatalogTree}
+              className={'tt-toolCatalogTree'}
             />
           </div>
         </details>
@@ -1277,11 +1285,11 @@ function PromptDiffSection({
   const lines = promptDiffLines(before, after)
   if (lines.length === 0) return null
   return (
-    <section className={css.promptDiffSection}>
-      <h3 className={css.promptDiffTitle}>{title}</h3>
-      <pre className={css.promptDiff}>
+    <section className={'tt-promptDiffSection'}>
+      <h3 className={'tt-promptDiffTitle'}>{title}</h3>
+      <pre className={'tt-promptDiff'}>
         {lines.map((line, index) => (
-          <span className={css[`promptDiffLine${line.kind}`]} key={index}>
+          <span className={`tt-promptDiffLine${line.kind}`} key={index}>
             {line.text || ' '}
             {'\n'}
           </span>
@@ -1301,7 +1309,7 @@ function SystemPromptDiff({
   const toolsBefore = JSON.stringify(before.tools, null, 2)
   const toolsAfter = JSON.stringify(after.tools, null, 2)
   return (
-    <div className={css.promptDiffSections}>
+    <div className={'tt-promptDiffSections'}>
       {before.system !== after.system && (
         <PromptDiffSection
           title="System Prompt"
@@ -1331,16 +1339,16 @@ function ToolOutputBlocks({
 }) {
   return (
     <div className={[
-      css.resultBlocks,
-      preview ? css.resultBlocksPreview : undefined,
-      error ? css.errorPayload : undefined,
+      'tt-resultBlocks',
+      preview ? 'tt-resultBlocksPreview' : undefined,
+      error ? 'tt-errorPayload' : undefined,
     ].filter((value): value is string => value !== undefined).join(' ')}
     >
       {blocks.map((block, index) => (
         block.imageSrc !== undefined
           ? <PanelImage block={block} preview={preview} key={index} />
           : block.content !== ''
-            ? <pre className={css.resultBlockText} key={index}>{block.content}</pre>
+            ? <pre className={'tt-resultBlockText'} key={index}>{block.content}</pre>
             : null
       ))}
     </div>
@@ -1374,21 +1382,21 @@ function MarkdownRecordContent({
       return <MarkdownFragment text={source} rendered={false} preview={preview} />
     }
     return (
-      <div className={`${css.assistantContent} ${css.assistantContentRendered}`}>
+      <div className={`${'tt-assistantContent'} ${'tt-assistantContentRendered'}`}>
         <div className={
           preview && !record.cell.outputDetail
-            ? `${css.thinkingQuote} ${css.thinkingQuoteOnlyPreview}`
-            : css.thinkingQuote
+            ? `${'tt-thinkingQuote'} ${'tt-thinkingQuoteOnlyPreview'}`
+            : 'tt-thinkingQuote'
         }
         >
           <button
             type="button"
-            className={css.thinkingToggle}
+            className={'tt-thinkingToggle'}
             aria-expanded={thinkingExpanded}
             onClick={() => { onThinkingExpandedChange(!thinkingExpanded) }}
           >
             Thinking
-            <IconChevronRightOutline14 className={css.thinkingChevron} size={12} />
+            <IconChevronRightOutline14 className={'tt-thinkingChevron'} size={12} />
           </button>
           {thinkingExpanded && (
             <MarkdownFragment
@@ -1399,7 +1407,7 @@ function MarkdownRecordContent({
           )}
         </div>
         {record.cell.outputDetail && (
-          <div className={css.assistantOutput}>
+          <div className={'tt-assistantOutput'}>
             <MarkdownFragment
               text={record.cell.outputDetail}
               rendered={rendered}
@@ -1427,7 +1435,7 @@ function MarkdownRecordContent({
     const emptyLabel = isToolCallOnly(record.cell)
       ? 'Tool call only'
       : record.cell.text || 'No content'
-    return <p className={css.noPayload}>{emptyLabel}</p>
+    return <p className={'tt-noPayload'}>{emptyLabel}</p>
   }
   if (!rendered || (!hasImages && !hasToolCalls)) {
     return <MarkdownFragment text={source ?? ''} rendered={rendered} preview={preview} />
@@ -1451,7 +1459,7 @@ function RecordTiming({ record }: { record: TableRecord }) {
   return record.cell.kind === 'message' && record.cell.assistantMetrics !== undefined
     ? <AssistantTimingPanel metrics={record.cell.assistantMetrics} />
     : (
-      <dl className={css.overview}>
+      <dl className={'tt-overview'}>
         <div><dt>Started</dt><StartedAtValue timestamp={record.cell.startedAt ?? null} /></div>
         <div><dt>Duration</dt><dd>{formatElapsedSeconds(record.cell.timeSeconds)}</dd></div>
         <div><dt>Timing source</dt><dd>{record.cell.timeSeconds === null ? 'Not available' : 'Session timestamps'}</dd></div>
@@ -1474,7 +1482,7 @@ function RequestTiming({
       ? null
       : Math.max(0, (request.completedAt - request.startedAt) / 1000)
     return (
-      <dl className={css.overview}>
+      <dl className={'tt-overview'}>
         <div><dt>Started</dt><StartedAtValue timestamp={request.startedAt} /></div>
         <div><dt>Duration</dt><dd>{formatElapsedSeconds(duration)}</dd></div>
         <div>
@@ -1485,7 +1493,7 @@ function RequestTiming({
     )
   }
   return (
-    <dl className={css.overview}>
+    <dl className={'tt-overview'}>
       <div>
         <dt>Started</dt>
         <StartedAtValue timestamp={anchor?.cell.startedAt ?? null} />
@@ -1508,10 +1516,10 @@ function RecordPayload({
   const missing = direction === 'input'
     ? 'No payload captured'
     : 'No result captured'
-  if (!value) return <p className={css.noPayload}>{missing}</p>
+  if (!value) return <p className={'tt-noPayload'}>{missing}</p>
   const error = direction === 'output' && record.cell.isError === true
-  const payloadClass = preview ? css.jsonPreview : css.jsonPayload
-  const payloadClassName = error ? `${payloadClass} ${css.errorPayload}` : payloadClass
+  const payloadClass = preview ? 'tt-jsonPreview' : 'tt-jsonPayload'
+  const payloadClassName = error ? `${payloadClass} ${'tt-errorPayload'}` : payloadClass
 
   const json = parseJsonContainer(value)
   const singleTextResult = direction === 'output'
@@ -1550,8 +1558,8 @@ function RecordPayload({
   if (markdown) {
     return (
       <div className={[
-        preview ? css.markdownPreview : css.markdownPayload,
-        error ? css.errorPayload : undefined,
+        preview ? 'tt-markdownPreview' : 'tt-markdownPayload',
+        error ? 'tt-errorPayload' : undefined,
       ].filter((className): className is string => className !== undefined).join(' ')}
       >
         <MarkdownText text={value} />
@@ -1569,10 +1577,10 @@ function RecordPayload({
   }
   return (
     <pre className={[
-      css.payload,
-      preview ? css.payloadPreview : undefined,
-      error ? css.errorPayload : undefined,
-      value === 'No output' ? css.noOutputText : undefined,
+      'tt-payload',
+      preview ? 'tt-payloadPreview' : undefined,
+      error ? 'tt-errorPayload' : undefined,
+      value === 'No output' ? 'tt-noOutputText' : undefined,
     ].filter((value): value is string => value !== undefined).join(' ')}
     >
       {value}
@@ -1588,29 +1596,29 @@ function RecordSchema({
   preview?: boolean
 }) {
   if (!record.cell.schemaDetail) {
-    return <p className={css.noPayload}>Schema unavailable</p>
+    return <p className={'tt-noPayload'}>Schema unavailable</p>
   }
   const schema = parseToolSchema(record.cell.schemaDetail)
   if (schema !== undefined) {
     return (
-      <div className={preview ? `${css.schema} ${css.schemaPreview}` : css.schema}>
-        <header className={css.schemaIntro}>
-          <h3 className={css.schemaName}>{schema.name}</h3>
-          <p className={css.schemaDescription}>{schema.description}</p>
+      <div className={preview ? `${'tt-schema'} ${'tt-schemaPreview'}` : 'tt-schema'}>
+        <header className={'tt-schemaIntro'}>
+          <h3 className={'tt-schemaName'}>{schema.name}</h3>
+          <p className={'tt-schemaDescription'}>{schema.description}</p>
         </header>
-        <section className={css.schemaParameters}>
-          <h4 className={css.schemaParametersTitle}>Parameters</h4>
+        <section className={'tt-schemaParameters'}>
+          <h4 className={'tt-schemaParametersTitle'}>Parameters</h4>
           <JsonTree
             data={schema.parameters}
             label={`${schema.name} parameters JSON`}
-            className={css.schemaTree}
+            className={'tt-schemaTree'}
           />
         </section>
       </div>
     )
   }
   return (
-    <pre className={`${css.payload} ${preview ? css.payloadPreview : ''}`}>
+    <pre className={`${'tt-payload'} ${preview ? 'tt-payloadPreview' : ''}`}>
       {record.cell.schemaDetail}
     </pre>
   )
@@ -1663,19 +1671,19 @@ function OverviewSection({
   children: ReactNode
 }) {
   return (
-    <section className={css.overviewSection}>
-      <h3 className={css.overviewHeading}>
+    <section className={'tt-overviewSection'}>
+      <h3 className={'tt-overviewHeading'}>
         <button
           type="button"
-          className={css.overviewTitle}
+          className={'tt-overviewTitle'}
           onClick={onOpen}
         >
           <span>{label}</span>
-          <IconChevronRightOutline14 className={css.overviewTitleIcon} size={12} />
+          <IconChevronRightOutline14 className={'tt-overviewTitleIcon'} size={12} />
         </button>
       </h3>
       <div
-        className={`${css.overviewPreview} ${css.summaryScrollRegion}`}
+        className={`${'tt-overviewPreview'} ${'tt-summaryScrollRegion'}`}
         data-summary-scroll-region=""
       >
         {children}
@@ -2193,10 +2201,10 @@ export function TrajectoryTable({
   const historyRowOffset = hasOlderRecords ? 1 : 0
 
   return (
-    <div ref={rootRef} className={css.split} style={splitStyle}>
+    <div ref={rootRef} className={'tt-split'} style={splitStyle}>
       <div
         ref={tablePaneRef}
-        className={css.tablePane}
+        className={'tt-tablePane'}
         data-trajectory-scroll=""
         onScroll={(event) => {
           const pane = event.currentTarget
@@ -2210,33 +2218,33 @@ export function TrajectoryTable({
         }}
       >
         {showInitialLoading && (
-          <div className={css.historyLoading} role="status" aria-live="polite">
-            <span className={css.historyLoadingBar}>
-              <span className={css.historyLoadingSpinner} aria-hidden="true" />
+          <div className={'tt-historyLoading'} role="status" aria-live="polite">
+            <span className={'tt-historyLoadingBar'}>
+              <span className={'tt-historyLoadingSpinner'} aria-hidden="true" />
               Loading trajectory…
             </span>
           </div>
         )}
         <table
-          className={css.table}
+          className={'tt-table'}
           data-scroll-ready={tableScrollReady || undefined}
           aria-rowcount={records.length + historyRowOffset}
         >
           <colgroup>
-            <col className={css.eventColumn} />
-            <col className={css.contentColumn} />
+            <col className={'tt-eventColumn'} />
+            <col className={'tt-contentColumn'} />
           </colgroup>
           <tbody>
             {hasOlderRecords && (
               <tr
-                className={css.historyLoadRow}
+                className={'tt-historyLoadRow'}
                 data-history-load=""
                 aria-rowindex={1}
               >
                 <td colSpan={2}>
                   <button
                     type="button"
-                    className={css.historyLoadButton}
+                    className={'tt-historyLoadButton'}
                     disabled={olderBusy || onLoadOlder === undefined}
                     aria-label={olderBusy
                       ? 'Loading earlier history…'
@@ -2247,12 +2255,12 @@ export function TrajectoryTable({
                     }}
                   >
                     {olderBusy && (
-                      <span className={css.historyLoadingSpinner} aria-hidden="true" />
+                      <span className={'tt-historyLoadingSpinner'} aria-hidden="true" />
                     )}
                     <span aria-hidden="true">
                       {olderBusy ? 'Loading earlier history…' : 'Load earlier history'}
                     </span>
-                    <span className={css.visuallyHidden} role="status" aria-live="polite">
+                    <span className={'tt-visuallyHidden'} role="status" aria-live="polite">
                       {olderBusy ? 'Loading earlier history…' : ''}
                     </span>
                   </button>
@@ -2260,7 +2268,7 @@ export function TrajectoryTable({
               </tr>
             )}
             {virtualTop > 0 && (
-              <tr className={css.virtualSpacer} data-virtual-spacer="top" aria-hidden="true">
+              <tr className={'tt-virtualSpacer'} data-virtual-spacer="top" aria-hidden="true">
                 <td
                   colSpan={2}
                   style={{
@@ -2377,13 +2385,13 @@ export function TrajectoryTable({
                         selectRecord(record.cell.index)
                       }}
                     >
-                      <td className={css.event}>
+                      <td className={'tt-event'}>
                         {request !== undefined && (
                           <button
                             type="button"
                             className={requestSelected
-                              ? `${css.requestBoundaryControl} ${css.requestBoundaryControlActive}`
-                              : css.requestBoundaryControl}
+                              ? `${'tt-requestBoundaryControl'} ${'tt-requestBoundaryControlActive'}`
+                              : 'tt-requestBoundaryControl'}
                             aria-label={requestLabel}
                             aria-pressed={requestSelected}
                             data-label={requestLabel}
@@ -2404,66 +2412,52 @@ export function TrajectoryTable({
                         {record.turn !== null
                     && activeTurn === record.turn
                     && !isInitialSystem && (
-                          <span className={css.turnRail} aria-hidden="true" />
+                          <span className={'tt-turnRail'} aria-hidden="true" />
                         )}
                         {!isCollapsedSummary && selectedIndex === record.cell.index && (
-                          <span className={css.selectionRail} aria-hidden="true" />
+                          <span className={'tt-selectionRail'} aria-hidden="true" />
                         )}
                         {!isCollapsedSummary
                     && !isRequestOnly
                     && record.turnStart && (
                           <span
                             className={sectionActive
-                              ? `${css.turnLabel} ${css.turnLabelActive}`
-                              : css.turnLabel}
+                              ? `${'tt-turnLabel'} ${'tt-turnLabelActive'}`
+                              : 'tt-turnLabel'}
                             aria-label={sectionLabel(record.turn)}
                           >
                             {record.turn === null
                               ? sectionLabel(record.turn)
                               : (
                                 <>
-                                  <span className={css.turnLabelFull} aria-hidden="true">
+                                  <span className={'tt-turnLabelFull'} aria-hidden="true">
                                     {sectionLabel(record.turn)}
                                   </span>
-                                  <span className={css.turnLabelCompact} aria-hidden="true">
+                                  <span className={'tt-turnLabelCompact'} aria-hidden="true">
                                     #{record.turn}
                                   </span>
                                 </>
                               )}
                           </span>
                         )}
-                        <div className={css.eventInner}>
+                        <div className={'tt-eventInner'}>
                           {!isCollapsedSummary && !isRequestOnly && (
                             <span
-                              className={css.kindSlot}
+                              className={'tt-kindSlot'}
                             >
                               <span
-                                className={`${css.kindTag} ${
-                                  record.cell.kind === 'system'
-                                    ? css.systemNeutral
-                                    : record.cell.kind === 'context'
-                                      ? css.contextGreen
-                                      : record.cell.kind === 'compacted'
-                                        ? css.compacted
-                                        : record.cell.kind === 'tool'
-                                          ? css.toolAmber
-                                          : record.cell.kind === 'message'
-                                            ? css.assistantVioletBright
-                                            : record.cell.kind === 'subtool'
-                                              ? css.subtoolAmber
-                                              : css[record.cell.kind]
-                                }`}
+                                className={`${'tt-kindTag'} ${KIND_TAG_CLASS[record.cell.kind]}`}
                                 data-role-kind={record.cell.kind}
                               >
                                 <Tooltip
                                   label={KIND_LABEL[record.cell.kind]}
                                   side="right"
                                 >
-                                  <span className={css.kindTagIcon} aria-hidden="true">
+                                  <span className={'tt-kindTagIcon'} aria-hidden="true">
                                     {KIND_ICON[record.cell.kind]}
                                   </span>
                                 </Tooltip>
-                                <span className={css.kindTagLabel}>
+                                <span className={'tt-kindTagLabel'}>
                                   {KIND_LABEL[record.cell.kind]}
                                 </span>
                               </span>
@@ -2471,24 +2465,24 @@ export function TrajectoryTable({
                           )}
                         </div>
                       </td>
-                      <td className={css.content}>
+                      <td className={'tt-content'}>
                         {isRequestOnly
                           ? null
                           : record.collapsedSummary !== undefined
                             ? (
-                              <span className={css.collapsedTurnContent} title={record.collapsedSummary}>
-                                <span className={css.collapsedTurnEllipsis}>…</span>
-                                <span className={css.collapsedTurnText}>{record.collapsedSummary}</span>
+                              <span className={'tt-collapsedTurnContent'} title={record.collapsedSummary}>
+                                <span className={'tt-collapsedTurnEllipsis'}>…</span>
+                                <span className={'tt-collapsedTurnText'}>{record.collapsedSummary}</span>
                               </span>
                             )
                             : (
                               <span
-                                className={resultText === undefined ? css.contentText : css.resultPreview}
+                                className={resultText === undefined ? 'tt-contentText' : 'tt-resultPreview'}
                                 title={resultText === undefined
                                   ? listDisplayText
                                   : `${listDisplayText} → ${resultText}`}
                               >
-                                <span className={resultText === undefined ? undefined : css.resultRequest}>
+                                <span className={resultText === undefined ? undefined : 'tt-resultRequest'}>
                                   <RecordListText
                                     displayText={displayText}
                                     toolCallOnly={toolCallOnly}
@@ -2496,11 +2490,11 @@ export function TrajectoryTable({
                                   />
                                 </span>
                                 {resultText !== undefined && (
-                                  <span className={record.cell.isError ? `${css.inlineResult} ${css.error}` : css.inlineResult}>
-                                    <span className={css.arrow}>→</span>
+                                  <span className={record.cell.isError ? `${'tt-inlineResult'} ${'tt-error'}` : 'tt-inlineResult'}>
+                                    <span className={'tt-arrow'}>→</span>
                                     <span className={resultText === 'No output'
-                                      ? `${css.inlineResultText} ${css.noOutputText}`
-                                      : css.inlineResultText}
+                                      ? `${'tt-inlineResultText'} ${'tt-noOutputText'}`
+                                      : 'tt-inlineResultText'}
                                     >
                                       {resultText}
                                     </span>
@@ -2515,7 +2509,7 @@ export function TrajectoryTable({
               </RecordPresentation>
             ))}
             {virtualBottom > 0 && (
-              <tr className={css.virtualSpacer} data-virtual-spacer="bottom" aria-hidden="true">
+              <tr className={'tt-virtualSpacer'} data-virtual-spacer="bottom" aria-hidden="true">
                 <td
                   colSpan={2}
                   style={{
@@ -2531,12 +2525,12 @@ export function TrajectoryTable({
         || promptSelected
         || (selected !== undefined && selectedState !== undefined)) && (
         <aside
-          className={css.details}
+          className={'tt-details'}
           aria-label="Event details"
           style={detailsWidth === null ? undefined : { width: detailsWidth }}
         >
           <div
-            className={css.detailsResizeHandle}
+            className={'tt-detailsResizeHandle'}
             role="separator"
             aria-label="Resize event details"
             aria-controls="trajectory-detail-panel"
@@ -2611,16 +2605,16 @@ export function TrajectoryTable({
               event.preventDefault()
             }}
           />
-          <div className={css.detailsHeader}>
-            <div className={css.detailsTitle}>
+          <div className={'tt-detailsHeader'}>
+            <div className={'tt-detailsTitle'}>
               {selectedRequest !== null
                 ? (
                   <>
-                    <span className={css.requestDetailsDot} aria-hidden="true" />
-                    <span className={css.requestDetailsName}>
+                    <span className={'tt-requestDetailsDot'} aria-hidden="true" />
+                    <span className={'tt-requestDetailsName'}>
                       Request #{selectedRequestNumber ?? '—'}
                     </span>
-                    <span className={css.detailsLocation}>
+                    <span className={'tt-detailsLocation'}>
                       {selectedRequestInfo?.purpose === 'compaction'
                         ? `Compaction · ${sectionLabel(selectedRequest.turn)}`
                         : sectionLabel(selectedRequest.turn)}
@@ -2630,29 +2624,16 @@ export function TrajectoryTable({
                 : promptSelected
                   ? (
                     <>
-                      <span className={`${css.kindTag} ${css.systemNeutral}`}>SYSTEM</span>
-                      <span className={css.detailsLocation}>{selected?.cell.text}</span>
+                      <span className={`${'tt-kindTag'} ${'tt-systemNeutral'}`}>SYSTEM</span>
+                      <span className={'tt-detailsLocation'}>{selected?.cell.text}</span>
                     </>
                   )
                   : selected !== undefined && (
                     <>
-                      <span className={`${css.kindTag} ${
-                        selected.cell.kind === 'context'
-                          ? css.contextGreen
-                          : selected.cell.kind === 'compacted'
-                            ? css.compacted
-                            : selected.cell.kind === 'tool'
-                              ? css.toolAmber
-                              : selected.cell.kind === 'message'
-                                ? css.assistantVioletBright
-                                : selected.cell.kind === 'subtool'
-                                  ? css.subtoolAmber
-                                  : css[selected.cell.kind]
-                      }`}
-                      >
+                      <span className={`${'tt-kindTag'} ${KIND_TAG_CLASS[selected.cell.kind]}`}>
                         {KIND_LABEL[selected.cell.kind]}
                       </span>
-                      <span className={css.detailsLocation}>
+                      <span className={'tt-detailsLocation'}>
                         {selected.cell.kind === 'compacted'
                           ? sectionLabel(selected.turn)
                           : `${sectionLabel(selected.turn)} · ${selected.group}`}
@@ -2662,14 +2643,14 @@ export function TrajectoryTable({
             </div>
             <button
               type="button"
-              className={css.close}
+              className={'tt-close'}
               aria-label="Close details"
               onClick={clearInspectorSelection}
             >
               <span aria-hidden="true">×</span>
             </button>
           </div>
-          <div className={css.detailTabs} role="tablist" aria-label="Event details">
+          <div className={'tt-detailTabs'} role="tablist" aria-label="Event details">
             {selectedTabs.map(tab => (
               <button
                 key={tab.id}
@@ -2678,7 +2659,7 @@ export function TrajectoryTable({
                 role="tab"
                 aria-controls="trajectory-detail-panel"
                 aria-selected={activeTab === tab.id}
-                className={activeTab === tab.id ? `${css.detailTab} ${css.detailTabActive}` : css.detailTab}
+                className={activeTab === tab.id ? `${'tt-detailTab'} ${'tt-detailTabActive'}` : 'tt-detailTab'}
                 onClick={() => { activateTab(tab.id) }}
               >
                 {tab.label}
@@ -2688,8 +2669,8 @@ export function TrajectoryTable({
           <div
             id="trajectory-detail-panel"
             className={activeTab === 'overview'
-              ? `${css.detailBody} ${css.detailBodySummary}`
-              : css.detailBody}
+              ? `${'tt-detailBody'} ${'tt-detailBodySummary'}`
+              : 'tt-detailBody'}
             role="tabpanel"
             aria-labelledby={`trajectory-detail-${activeTab}`}
           >
@@ -2698,12 +2679,12 @@ export function TrajectoryTable({
               && activeTab === 'overview' && (
               <>
                 <dl
-                  className={`${css.overview} ${css.summaryScrollRegion}`}
+                  className={`${'tt-overview'} ${'tt-summaryScrollRegion'}`}
                   data-summary-scroll-region=""
                 >
                   <div>
                     <dt>Status</dt>
-                    <dd className={selectedRequestState === 'error' ? css.error : undefined}>
+                    <dd className={selectedRequestState === 'error' ? 'tt-error' : undefined}>
                       {statusLabel(selectedRequestState)}
                     </dd>
                   </div>
@@ -2746,7 +2727,7 @@ export function TrajectoryTable({
                   {selectedRequestInfo?.error !== undefined && (
                     <div>
                       <dt>Error</dt>
-                      <dd className={css.error}>{selectedRequestInfo.error}</dd>
+                      <dd className={'tt-error'}>{selectedRequestInfo.error}</dd>
                     </div>
                   )}
                   {selectedRequestInfo?.retry !== undefined && (
@@ -2769,10 +2750,10 @@ export function TrajectoryTable({
                   {selectedRequestResult !== undefined && (
                     <div>
                       <dt>Result</dt>
-                      <dd className={css.overviewParentLinks}>
+                      <dd className={'tt-overviewParentLinks'}>
                         <button
                           type="button"
-                          className={css.overviewHierarchyNavLink}
+                          className={'tt-overviewHierarchyNavLink'}
                           onClick={() => {
                             openRecordSummary(selectedRequestResult)
                           }}
@@ -2783,7 +2764,7 @@ export function TrajectoryTable({
                               : 'Assistant Message'}
                           </span>
                           <IconChevronRightOutline14
-                            className={css.overviewHierarchyJumpIconTight}
+                            className={'tt-overviewHierarchyJumpIconTight'}
                             size={11}
                           />
                         </button>
@@ -2791,7 +2772,7 @@ export function TrajectoryTable({
                     </div>
                   )}
                 </dl>
-                <div className={css.overviewSections}>
+                <div className={'tt-overviewSections'}>
                   {selectedRequestOptions !== undefined && (
                     <OverviewSection label="Options" onOpen={() => { activateTab('options') }}>
                       <RequestOptions options={selectedRequestOptions} preview />
@@ -2836,9 +2817,9 @@ export function TrajectoryTable({
             )}
             {promptSelected && activeTab === 'system-prompt' && (
               selectedPrompt.system === ''
-                ? <p className={css.noPayload}>No system prompt in this request</p>
+                ? <p className={'tt-noPayload'}>No system prompt in this request</p>
                 : (
-                  <div className={`${css.markdownPayload} ${css.systemPrompt}`}>
+                  <div className={`${'tt-markdownPayload'} ${'tt-systemPrompt'}`}>
                     <MarkdownText text={selectedPrompt.system} />
                   </div>
                 )
@@ -2852,12 +2833,12 @@ export function TrajectoryTable({
               && activeTab === 'overview' && (
               <>
                 <dl
-                  className={`${css.overview} ${css.summaryScrollRegion}`}
+                  className={`${'tt-overview'} ${'tt-summaryScrollRegion'}`}
                   data-summary-scroll-region=""
                 >
                   <div>
                     <dt>Status</dt>
-                    <dd className={selectedState === 'error' ? css.error : undefined}>
+                    <dd className={selectedState === 'error' ? 'tt-error' : undefined}>
                       {statusLabel(selectedState)}
                     </dd>
                   </div>
@@ -2872,7 +2853,7 @@ export function TrajectoryTable({
                 </dl>
                 {selected.cell.outputDetail !== undefined && (
                   <div
-                    className={`${css.compactedSummary} ${css.summaryScrollRegion}`}
+                    className={`${'tt-compactedSummary'} ${'tt-summaryScrollRegion'}`}
                     data-summary-scroll-region=""
                   >
                     <MarkdownRecordContent
@@ -2893,21 +2874,21 @@ export function TrajectoryTable({
               && activeTab === 'overview' && (
               <>
                 <dl
-                  className={`${css.overview} ${css.summaryScrollRegion}`}
+                  className={`${'tt-overview'} ${'tt-summaryScrollRegion'}`}
                   data-summary-scroll-region=""
                 >
                   {selected.cell.messageSource !== undefined && (
                     <div>
                       <dt>Source</dt>
-                      <dd className={css.overviewParentLinks}>
+                      <dd className={'tt-overviewParentLinks'}>
                         <button
                           type="button"
-                          className={css.overviewHierarchyNavLink}
+                          className={'tt-overviewHierarchyNavLink'}
                           onClick={() => { activateTab('source') }}
                         >
                           <span>{messageSourceLabel(selected.cell.messageSource)}</span>
                           <IconChevronRightOutline14
-                            className={css.overviewHierarchyJumpIconTight}
+                            className={'tt-overviewHierarchyJumpIconTight'}
                             size={11}
                           />
                         </button>
@@ -2921,18 +2902,18 @@ export function TrajectoryTable({
                           ? 'Source'
                           : 'Hierarchy'}
                       </dt>
-                      <dd className={css.overviewParentLinks}>
+                      <dd className={'tt-overviewParentLinks'}>
                         {selectedAssistantRequestTarget !== undefined && (
                           <button
                             type="button"
-                            className={css.overviewHierarchyNavLink}
+                            className={'tt-overviewHierarchyNavLink'}
                             onClick={() => {
                               selectRequest(selectedAssistantRequestTarget)
                             }}
                           >
                             <span>Request #{selectedAssistantRequest ?? '—'}</span>
                             <IconChevronRightOutline14
-                              className={css.overviewHierarchyJumpIconTight}
+                              className={'tt-overviewHierarchyJumpIconTight'}
                               size={11}
                             />
                           </button>
@@ -2940,12 +2921,12 @@ export function TrajectoryTable({
                         {selectedParentMessage !== undefined && (
                           <button
                             type="button"
-                            className={css.overviewHierarchyNavLink}
+                            className={'tt-overviewHierarchyNavLink'}
                             onClick={() => { openRecordSummary(selectedParentMessage) }}
                           >
                             <span>Assistant Message</span>
                             <IconChevronRightOutline14
-                              className={css.overviewHierarchyJumpIconTight}
+                              className={'tt-overviewHierarchyJumpIconTight'}
                               size={11}
                             />
                           </button>
@@ -2953,12 +2934,12 @@ export function TrajectoryTable({
                         {selectedParentTool !== undefined && (
                           <button
                             type="button"
-                            className={css.overviewHierarchyNavLink}
+                            className={'tt-overviewHierarchyNavLink'}
                             onClick={() => { openRecordSummary(selectedParentTool) }}
                           >
                             <span>Tool Call</span>
                             <IconChevronRightOutline14
-                              className={css.overviewHierarchyJumpIconTight}
+                              className={'tt-overviewHierarchyJumpIconTight'}
                               size={11}
                             />
                           </button>
@@ -2968,7 +2949,7 @@ export function TrajectoryTable({
                   )}
                   <div>
                     <dt>Status</dt>
-                    <dd className={selectedState === 'error' ? css.error : undefined}>
+                    <dd className={selectedState === 'error' ? 'tt-error' : undefined}>
                       {statusLabel(selectedState)}
                     </dd>
                   </div>
@@ -2982,7 +2963,7 @@ export function TrajectoryTable({
                     </div>
                   )}
                 </dl>
-                <div className={css.overviewSections}>
+                <div className={'tt-overviewSections'}>
                   {isMarkdownRecord(selected)
                     ? (
                       <>

@@ -3,7 +3,6 @@ import { memo, useMemo, type ReactNode } from 'react'
 import type { ToolCallBlock } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ToolCallOwnerProps, ToolTreeProps } from '../contract/slots.ts'
 import { GenericToolCard } from './toolviews/GenericToolCard.tsx'
-import css from './ToolCallTree.module.css'
 
 /** Resolve a Tool call's wire name from either lifecycle form. */
 function callName(node: ToolCallBlock): string {
@@ -30,7 +29,7 @@ const ToolCall = memo(function ToolCall({
   }), [callId, toolName, block, openFile, cwd, inspectCall])
   return (
     <div
-      className={css.callRow}
+      className="rounded-md"
       data-chat-anchor-key={`call:${callId}`}
       data-chat-call-id={callId}
       data-selected={selected || undefined}
@@ -62,7 +61,7 @@ const ToolCallBranch = memo(function ToolCallBranch({
       t={t}
     >
       {block.subCalls.length > 0 ? (
-        <div className={css.subCalls} data-subcalls>
+        <div className="m-[4px_0_2px_22px] flex flex-col gap-1 border-l border-border pl-2" data-subcalls>
           {block.subCalls.map(child => (
             <ToolCallBranch
               key={child.callId}

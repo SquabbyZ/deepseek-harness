@@ -16,8 +16,6 @@ import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import { relativeTime } from '../tree.ts'
-import css from './Rows.module.css'
-
 /** The standard locale seat, prop-passed from the browser root. */
 type RowTranslate = WorkspaceBrowserProps['t']
 
@@ -58,10 +56,10 @@ function WorkspaceHoverContent({ label, cwd, createdAt, t }: {
   t: RowTranslate
 }) {
   return (
-    <div className={css.hoverContent}>
-      <div className={css.hoverTitle}>{label}</div>
-      <div className={css.hoverPath}>{cwd}</div>
-      <div className={css.hoverTime}>{createdLabel(createdAt, t)}</div>
+    <div className={'wsr-hoverContent'}>
+      <div className={'wsr-hoverTitle'}>{label}</div>
+      <div className={'wsr-hoverPath'}>{cwd}</div>
+      <div className={'wsr-hoverTime'}>{createdLabel(createdAt, t)}</div>
     </div>
   )
 }
@@ -128,7 +126,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, t }: 
   ]
   const ownRow = (
     <div
-      className={clsx(css.projectRow, menuOpen && css.menuOpen)}
+      className={clsx('wsr-projectRow', menuOpen && 'wsr-menuOpen')}
       role="treeitem"
       aria-expanded={row.expanded}
       onClick={onToggle}
@@ -142,16 +140,16 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, t }: 
         }}
       onDragEnd={drag?.end}
     >
-      <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
+      <span className={clsx('wsr-slot', 'wsr-folder', active && 'wsr-folderActive')}>
         {row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
       </span>
-      <span className={clsx(css.slot, css.chevron)}>
-        <IconTriangleRightFill14 className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+      <span className={clsx('wsr-slot', 'wsr-chevron')}>
+        <IconTriangleRightFill14 className={clsx('wsr-arrow', row.expanded && 'wsr-arrowOpen')} />
       </span>
-      <span className={css.projectText}>
-        <span className={css.title}>{label}</span>
+      <span className={'wsr-projectText'}>
+        <span className={'wsr-title'}>{label}</span>
       </span>
-      <span className={css.rowActions}>
+      <span className={'wsr-rowActions'}>
         {actions !== undefined && (
           <Menu
             open={menuOpen}
@@ -171,7 +169,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, t }: 
             anchor={(
               <button
                 type="button"
-                className={css.iconButton}
+                className={'wsr-iconButton'}
                 aria-label={t('actions.workspace.aria', { name: label })}
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v) }}
               >
@@ -182,7 +180,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, t }: 
         )}
         <button
           type="button"
-          className={css.iconButton}
+          className={'wsr-iconButton'}
           aria-label={t('actions.newSession.aria', { name: label })}
           onClick={(e) => { e.stopPropagation(); onCreate() }}
         >
@@ -265,7 +263,7 @@ function SessionStatusDots({ statuses }: { statuses: readonly [SessionStatus, ..
     <>
       <StateDot state={statuses[0].state} />
       {statuses.map(status => (
-        <span className={css.visuallyHidden} key={status.label}>{status.label}</span>
+        <span className={'wsr-visuallyHidden'} key={status.label}>{status.label}</span>
       ))}
     </>
   )
@@ -275,13 +273,13 @@ function SessionStatusDots({ statuses }: { statuses: readonly [SessionStatus, ..
 function SessionHoverContent({ node, now, t }: { node: SessionNode; now: number; t: RowTranslate }) {
   const statuses = sessionStatuses(node, t)
   return (
-    <div className={css.hoverContent}>
-      <div className={css.hoverTitle}>{displayTitle(node, t)}</div>
+    <div className={'wsr-hoverContent'}>
+      <div className={'wsr-hoverTitle'}>{displayTitle(node, t)}</div>
       {/* Same placeholder rule as the row's trailing cell: no timestamp
           before the first prompt. */}
-      {!node.blank && <div className={css.hoverTime}>{hoverTimeLabel(node.updatedAt, now, t)}</div>}
+      {!node.blank && <div className={'wsr-hoverTime'}>{hoverTimeLabel(node.updatedAt, now, t)}</div>}
       {statuses.map(status => (
-        <div className={css.hoverStatus} key={status.label}>
+        <div className={'wsr-hoverStatus'} key={status.label}>
           <StateDot state={status.state} />
           <span>{status.label}</span>
         </div>
@@ -312,23 +310,23 @@ export function SearchResultItem({ result, currentId, onOpen, t }: {
   return (
     <button
       type="button"
-      className={clsx(css.searchResultRow, selected && css.selected)}
+      className={clsx('wsr-searchResultRow', selected && 'wsr-selected')}
       role="treeitem"
       aria-selected={selected}
       onClick={() => { onOpen(result.id) }}
     >
-      <span className={css.searchResultHeading}>
-        <span className={css.slot}>
+      <span className={'wsr-searchResultHeading'}>
+        <span className={'wsr-slot'}>
           {(primaryStatus.state !== 'done' || result.completed) && (
             <SessionStatusDots statuses={statuses} />
           )}
         </span>
-        <span className={css.searchResultTitle}>{result.title}</span>
+        <span className={'wsr-searchResultTitle'}>{result.title}</span>
       </span>
-      <span className={css.searchResultMeta}>
-        <span className={css.searchResultWorkspace}>{result.workspace}</span>
+      <span className={'wsr-searchResultMeta'}>
+        <span className={'wsr-searchResultWorkspace'}>{result.workspace}</span>
         {result.snippet !== undefined && (
-          <span className={css.searchResultSnippet}>{result.snippet}</span>
+          <span className={'wsr-searchResultSnippet'}>{result.snippet}</span>
         )}
       </span>
     </button>
@@ -380,16 +378,16 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
   const sessionMenuItems = [
     { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
     { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
-    // 20-native glyph in the menu's 16px icon slot (Menu.module.css .itemIcon).
+    // 20-native glyph in the menu's 16px icon slot (primitives.css .menu-item-icon).
     { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
   ]
   // Figma session cell: pad 8, status slot 16, then a 4px title gap.
   const ownRow = (
     <div
       className={clsx(
-        css.sessionRow, selected && css.selected, menuOpen && css.menuOpen,
-        flat && !showStatus && css.flatSessionRowWithoutStatus,
-        drag?.marker === 'before' && css.dropBefore, drag?.marker === 'after' && css.dropAfter,
+        'wsr-sessionRow', selected && 'wsr-selected', menuOpen && 'wsr-menuOpen',
+        flat && !showStatus && 'wsr-flatSessionRowWithoutStatus',
+        drag?.marker === 'before' && 'wsr-dropBefore', drag?.marker === 'after' && 'wsr-dropAfter',
       )}
       role="treeitem"
       aria-selected={selected}
@@ -423,18 +421,18 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
           finished-but-unviewed reminder, which returns after activity stops
           and is cleared by opening the session. */}
       {(!flat || showStatus) && (
-        <span className={css.slot}>
+        <span className={'wsr-slot'}>
           {showStatus && <SessionStatusDots statuses={statuses} />}
         </span>
       )}
-      <span className={css.title}>{title}</span>
+      <span className={'wsr-title'}>{title}</span>
       {/* A blank New Session row is a provisional placeholder: nothing has
           happened in it yet, so a "now" timestamp and the row verbs
           (rename/fork/archive) would all act on content that does not
           exist — both trailing cells stay off until the first prompt. */}
-      {!row.blank && <span className={css.time}>{timeLabel(row.updatedAt, now, t)}</span>}
+      {!row.blank && <span className={'wsr-time'}>{timeLabel(row.updatedAt, now, t)}</span>}
       {!row.blank && (
-        <span className={css.rowActions}>
+        <span className={'wsr-rowActions'}>
           <Menu
             open={menuOpen}
             onClose={() => { setMenuOpen(false) }}
@@ -450,7 +448,7 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
             anchor={(
               <button
                 type="button"
-                className={css.iconButton}
+                className={'wsr-iconButton'}
                 aria-label={t('actions.session.aria', { name: title })}
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v) }}
               >

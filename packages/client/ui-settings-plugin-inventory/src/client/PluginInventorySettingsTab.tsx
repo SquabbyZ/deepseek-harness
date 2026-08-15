@@ -3,10 +3,11 @@ import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/clien
 import {
   IconChevronDownOutline14,
   IconSearchOutline16,
+  ShadcnButton,
+  ShadcnInput,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PluginInventoryLocaleKey } from './locales.ts'
-import css from './PluginInventorySettingsTab.module.css'
 
 /** Registration-side Remote face used by the section. */
 export interface PluginInventorySettingsTabInjected {
@@ -27,6 +28,31 @@ type ViewState =
   | { readonly status: 'loading' }
   | { readonly status: 'error' }
   | { readonly status: 'ready'; readonly snapshot: PluginInventorySnapshot }
+
+const SECTION = 'flex w-full max-w-[760px] flex-col gap-[14px] text-foreground'
+const STATUS = 'm-0 text-[13px] leading-5 text-[var(--dsw-alias-label-tertiary)]'
+const FAILURE = 'flex items-center gap-2.5 text-[13px] leading-5 text-[var(--dsw-alias-state-error-primary)]'
+const RETRY = 'h-auto rounded-md border-border bg-transparent px-2.5 py-1 text-[13px] leading-5 font-normal text-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0'
+const CATALOG = 'flex flex-col gap-3'
+const SEARCH = 'relative flex w-full items-center text-[var(--dsw-alias-label-tertiary)]'
+const SEARCH_INPUT = 'h-9 rounded-lg border-border bg-card py-0 pl-9 pr-[34px] text-[13px] text-foreground shadow-none placeholder:text-[var(--dsw-alias-label-tertiary)] focus-visible:border-[var(--dsw-alias-state-business-primary)] focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_color-mix(in_srgb,var(--dsw-alias-state-business-primary)_18%,transparent)]'
+const CATALOG_HEADING = 'flex items-baseline gap-[7px] px-0.5'
+const CATALOG_HEADING_H3 = 'm-0 text-[13px] leading-5 font-semibold'
+const CATALOG_HEADING_COUNT = 'text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)] [font-variant-numeric:tabular-nums]'
+const CARDS = 'm-0 grid list-none grid-cols-2 items-start gap-2.5 p-0 max-[680px]:grid-cols-1'
+const CARD = 'group min-w-0 overflow-hidden rounded-[10px] border border-border bg-popover data-[open=true]:border-[var(--dsw-alias-border-l1)] data-[open=true]:shadow-[var(--dsw-shadow-lv1)]'
+const CARD_CONTENT = 'h-auto min-h-[52px] w-full items-center justify-between gap-3 rounded-none border-0 bg-transparent px-[14px] py-3 text-left text-inherit hover:bg-[var(--dsw-alias-interactive-bg-hover)] group-data-[open=true]:bg-[var(--dsw-alias-interactive-bg-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--dsw-alias-state-business-primary)] focus-visible:-outline-offset-2 focus-visible:ring-0'
+const CARD_TITLE = 'min-w-0 overflow-hidden text-sm leading-5 font-semibold text-ellipsis whitespace-nowrap'
+const CARD_TRAILING = 'inline-flex flex-none items-center gap-[7px] text-[var(--dsw-alias-label-tertiary)]'
+const STATUS_DOT = 'inline-block h-[7px] w-[7px] flex-none rounded-full bg-[var(--dsw-alias-label-tertiary)] data-[phase=active]:bg-[var(--dsw-alias-state-success-primary)] data-[phase=failed]:bg-[var(--dsw-alias-state-error-primary)] data-[phase=loading]:bg-[var(--dsw-alias-state-business-primary)]'
+const CONFIG_TAG = 'inline-flex min-h-5 items-center rounded-[5px] px-1.5 py-px bg-card text-[11px] leading-4 whitespace-nowrap text-[var(--dsw-alias-label-secondary)] data-[enabled=true]:bg-[color-mix(in_srgb,var(--dsw-alias-state-success-primary)_10%,transparent)] data-[enabled=true]:text-[var(--dsw-alias-state-success-primary)]'
+const CHEVRON = 'flex-none text-[var(--dsw-alias-label-tertiary)] group-data-[open=true]:rotate-180 motion-safe:transition-transform motion-safe:duration-[140ms] motion-safe:ease-[var(--ds-ease-in-out)]'
+const CARD_DETAILS = 'border-t border-border bg-[var(--dsw-alias-bg-module-platform)] px-[14px] pt-2.5 pb-3'
+const ENTRY_VALUE = 'block text-[var(--dsw-alias-label-primary)] [font-family:var(--ds-font-family-code)] text-xs leading-[18px] [overflow-wrap:anywhere]'
+const DETAILS = 'mt-2 grid grid-cols-[76px_minmax(0,1fr)] gap-x-2.5 gap-y-1.5'
+const DETAILS_DIV = '[display:contents]'
+const DETAILS_DT = 'text-[11px] leading-[17px] text-[var(--dsw-alias-label-tertiary)]'
+const DETAILS_DD = 'm-0 min-w-0 text-xs leading-[17px] text-[var(--dsw-alias-label-secondary)] [overflow-wrap:anywhere]'
 
 const PHASE_KEYS = {
   pending: 'pending',
@@ -97,37 +123,38 @@ export function PluginInventorySettingsTab({ list, t }: PluginInventorySettingsT
   }
 
   return (
-    <div className={css.section} aria-busy={state.status === 'loading'}>
-      {state.status === 'loading' ? <p className={css.status}>{t('loading')}</p> : null}
+    <div className={SECTION} aria-busy={state.status === 'loading'}>
+      {state.status === 'loading' ? <p className={STATUS}>{t('loading')}</p> : null}
       {state.status === 'error' ? (
-        <div className={css.failure}>
-          <p role="alert">{t('error')}</p>
-          <button type="button" onClick={retry}>{t('retry')}</button>
+        <div className={FAILURE}>
+          <p className="m-0" role="alert">{t('error')}</p>
+          <ShadcnButton variant="outline" className={RETRY} onClick={retry}>{t('retry')}</ShadcnButton>
         </div>
       ) : null}
       {state.status === 'ready' ? (
-        <div className={css.catalog}>
-          <label className={css.search}>
-            <IconSearchOutline16 aria-hidden="true" />
-            <span className={css.visuallyHidden}>{t('search')}</span>
-            <input
+        <div className={CATALOG}>
+          <label className={SEARCH}>
+            <IconSearchOutline16 className="pointer-events-none absolute left-3" aria-hidden="true" />
+            <span className="sr-only">{t('search')}</span>
+            <ShadcnInput
               type="search"
+              className={SEARCH_INPUT}
               value={query}
               placeholder={t('search')}
               aria-label={t('search')}
               onChange={(event) => { setQuery(event.currentTarget.value) }}
             />
           </label>
-          <div className={css.catalogHeading}>
-            <h3>{t('catalog')}</h3>
-            <span data-plugin-count={filteredEntries.length}>{filteredEntries.length}</span>
+          <div className={CATALOG_HEADING}>
+            <h3 className={CATALOG_HEADING_H3}>{t('catalog')}</h3>
+            <span className={CATALOG_HEADING_COUNT} data-plugin-count={filteredEntries.length}>{filteredEntries.length}</span>
           </div>
-          {state.snapshot.entries.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
+          {state.snapshot.entries.length === 0 ? <p className={STATUS}>{t('empty')}</p> : null}
           {state.snapshot.entries.length > 0 && filteredEntries.length === 0
-            ? <p className={css.status}>{t('emptySearch')}</p>
+            ? <p className={STATUS}>{t('emptySearch')}</p>
             : null}
           {filteredEntries.length > 0 ? (
-            <ul className={css.cards}>
+            <ul className={CARDS}>
               {filteredEntries.map((entry) => {
                 const status = phaseLabel(entry.fiberPhase, t)
                 const title = moduleShortName(entry.moduleName)
@@ -136,14 +163,14 @@ export function PluginInventorySettingsTab({ list, t }: PluginInventorySettingsT
                 const detailId = `${catalogId}-details-${encodeURIComponent(entry.entryId)}`
                 return (
                   <li
-                    className={css.card}
+                    className={CARD}
                     key={entry.entryId}
                     data-plugin-entry={entry.entryId}
                     data-open={open ? 'true' : undefined}
                   >
-                    <button
-                      className={css.cardContent}
-                      type="button"
+                    <ShadcnButton
+                      className={CARD_CONTENT}
+                      variant="ghost"
                       aria-expanded={open}
                       aria-controls={detailId}
                       aria-label={entry.enabled ? `${title}, ${status}, ${configuration}` : `${title}, ${configuration}`}
@@ -151,35 +178,35 @@ export function PluginInventorySettingsTab({ list, t }: PluginInventorySettingsT
                         setExpanded(current => current === entry.entryId ? null : entry.entryId)
                       }}
                     >
-                      <strong className={css.cardTitle} title={entry.moduleName}>{title}</strong>
-                      <span className={css.cardTrailing}>
+                      <strong className={CARD_TITLE} title={entry.moduleName}>{title}</strong>
+                      <span className={CARD_TRAILING}>
                         {entry.enabled ? (
                           <span
-                            className={css.statusDot}
+                            className={STATUS_DOT}
                             data-phase={entry.fiberPhase ?? 'unobserved'}
                             role="img"
                             aria-label={status}
                             title={status}
                           />
                         ) : null}
-                        <span className={css.configTag} data-enabled={entry.enabled ? 'true' : 'false'}>
+                        <span className={CONFIG_TAG} data-enabled={entry.enabled ? 'true' : 'false'}>
                           {configuration}
                         </span>
-                        <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+                        <IconChevronDownOutline14 className={CHEVRON} size={12} aria-hidden="true" />
                       </span>
-                    </button>
+                    </ShadcnButton>
                     {open ? (
-                      <div className={css.cardDetails} id={detailId}>
-                        <code className={css.entryValue} data-loader-entry>{entry.entryId}</code>
-                        <dl className={css.details}>
-                          <div>
-                            <dt>{t('configuration')}</dt>
-                            <dd>{configuration}</dd>
+                      <div className={CARD_DETAILS} id={detailId}>
+                        <code className={ENTRY_VALUE} data-loader-entry>{entry.entryId}</code>
+                        <dl className={DETAILS}>
+                          <div className={DETAILS_DIV}>
+                            <dt className={DETAILS_DT}>{t('configuration')}</dt>
+                            <dd className={DETAILS_DD}>{configuration}</dd>
                           </div>
                           {entry.enabled ? (
-                            <div>
-                              <dt>{t('cordis')}</dt>
-                              <dd>{status}</dd>
+                            <div className={DETAILS_DIV}>
+                              <dt className={DETAILS_DT}>{t('cordis')}</dt>
+                              <dd className={DETAILS_DD}>{status}</dd>
                             </div>
                           ) : null}
                         </dl>

@@ -4,9 +4,17 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  IconChevronLeftOutline14, IconChevronRightOutline14, IconCloseFill14,
+  IconChevronLeftOutline14, IconChevronRightOutline14, IconCloseFill14, ShadcnButton,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import css from './AttachmentRail.module.css'
+
+/** Edge arrow: 24px circle overlaid at the rail edges. */
+const ARROW_BASE = 'absolute top-1/2 z-[2] grid size-6 place-items-center rounded-full border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-specific-input-major)] p-0 text-[var(--dsw-alias-label-secondary)] shadow-[var(--dsw-shadow-lv2)] cursor-pointer -translate-y-1/2 hover:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-[var(--dsw-alias-label-secondary)]'
+
+/** Thumbnail card: 64px rounded cover with a zoom cursor. */
+const THUMBNAIL_BASE = 'size-16 cursor-zoom-in overflow-hidden rounded-2xl border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-alias-interactive-bg-hover)] p-0 hover:bg-[var(--dsw-alias-interactive-bg-hover)]'
+
+/** Hover/focus-revealed remove control (coarse pointers keep it visible). */
+const REMOVE_BASE = 'absolute top-1 right-1 z-[1] grid size-[18px] cursor-pointer place-items-center rounded-full border-none bg-[var(--dsw-alias-button-contrast-fill)] p-0 text-[var(--dsw-alias-label-primary-inverted)] opacity-0 transition-opacity duration-200 ease-in-out group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none hover:bg-[var(--dsw-alias-button-contrast-fill)] hover:text-[var(--dsw-alias-label-primary-inverted)]'
 
 /** One rail thumbnail; strings arrive resolved (zero-cordis atom). */
 export interface AttachmentRailItem {
@@ -40,7 +48,6 @@ const WHEEL_LINE_PX = 16
 function pageBehavior(): ScrollBehavior {
   // jsdom (the unit lane) implements no matchMedia despite lib.dom's
   // non-optional typing; the optional call keeps that lane on the default.
-  // oxlint-disable-next-line typescript/no-unnecessary-condition
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
 }
 
@@ -146,54 +153,54 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
     el.scrollBy({ left: direction * Math.max(el.clientWidth - 64, 200), behavior: pageBehavior() })
   }
   return (
-    <div className={css.root}>
+    <div className="relative min-w-0">
       {edges.left && (
-        <button
-          type="button"
-          className={clsx(css.arrow, css.arrowLeft)}
+        <ShadcnButton
+          variant="ghost"
+          className={clsx(ARROW_BASE, 'left-1')}
           aria-label={labels.scrollLeft}
           onClick={() => { page(-1) }}
         >
           <IconChevronLeftOutline14 />
-        </button>
+        </ShadcnButton>
       )}
       <div
         ref={railRef}
-        className={css.rail}
+        className="flex gap-2.5 overflow-x-auto overflow-y-hidden dsh-scrollbar-hidden [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
         role="group"
         aria-label={labels.group}
         onScroll={updateEdges}
       >
         {items.map(item => (
-          <div key={item.id} className={css.item}>
-            <button
-              type="button"
-              className={css.thumbnail}
+          <div key={item.id} className="group relative flex-none size-16">
+            <ShadcnButton
+              variant="ghost"
+              className={THUMBNAIL_BASE}
               title={labels.open}
               onClick={() => { onOpen(item) }}
             >
-              <img src={item.previewUrl} alt={item.alt} />
-            </button>
-            <button
-              type="button"
-              className={css.remove}
+              <img className="block h-full w-full object-cover" src={item.previewUrl} alt={item.alt} />
+            </ShadcnButton>
+            <ShadcnButton
+              variant="ghost"
+              className={REMOVE_BASE}
               aria-label={item.removeLabel}
               onClick={() => { onRemove(item) }}
             >
               <IconCloseFill14 size={12} />
-            </button>
+            </ShadcnButton>
           </div>
         ))}
       </div>
       {edges.right && (
-        <button
-          type="button"
-          className={clsx(css.arrow, css.arrowRight)}
+        <ShadcnButton
+          variant="ghost"
+          className={clsx(ARROW_BASE, 'right-1')}
           aria-label={labels.scrollRight}
           onClick={() => { page(1) }}
         >
           <IconChevronRightOutline14 />
-        </button>
+        </ShadcnButton>
       )}
     </div>
   )

@@ -1,6 +1,5 @@
 /** The Personalization section: one column rendering feature-owned item contributions. */
 import type { PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import css from './PersonalizationSection.module.css'
 
 /** Full component props: section owner share plus item render share. */
 export type PersonalizationSectionComponentProps =
@@ -13,7 +12,7 @@ export type PersonalizationSectionComponentProps =
  */
 export function PersonalizationSection({ renderSlot }: PersonalizationSectionComponentProps) {
   return (
-    <div className={css.section}>
+    <div className="flex w-full flex-col dsh-settings-section">
       {renderSlot('settings.personalization.item', {})}
     </div>
   )

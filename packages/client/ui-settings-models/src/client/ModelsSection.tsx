@@ -15,14 +15,47 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
-import { Button, IconPlusOutline16, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconPlusOutline16, Modal, NativeSelect, ShadcnButton, cn } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
 import { deriveKeyRef, messageOf, protocolChoices, providerUsable } from './store.ts'
 import type { ModelsSettingsState, ModelsSettingsStore, ProviderRow } from './store.ts'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
-import styles from './ModelsSection.module.css'
+
+const SECTION = 'flex flex-col gap-3 max-w-[720px] text-foreground'
+const TITLE = 'm-0 text-base leading-6 font-medium text-foreground'
+const INTRO = 'm-0 text-sm leading-[22px] text-[var(--dsw-alias-label-tertiary)]'
+const NOTICE = 'm-0 text-xs leading-[18px] text-[var(--dsw-alias-state-warn-label)]'
+const SAVED_NOTICE = 'm-0 text-xs leading-[18px] text-[var(--dsw-alias-state-success-primary)]'
+const ERROR = 'error m-0 text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+const ROWS = 'mt-3 mb-0 flex list-none flex-col gap-2 px-0'
+const ROW_CARD = 'flex flex-col gap-3 rounded-xl border border-border px-[14px] py-3'
+const SETUP_CARD = 'flex list-none flex-col gap-[14px] rounded-xl bg-[var(--dsw-alias-bg-module-platform)] px-4 py-[14px]'
+const ADD_CARD = 'flex list-none flex-col gap-[14px] rounded-xl bg-[var(--dsw-alias-bg-module-platform)] px-4 py-[14px]'
+const ROW_HEAD = 'flex items-center gap-2.5'
+const ROW_IDENTITY = 'inline-flex min-w-0 items-center gap-1.5'
+const ROW_NAME = 'text-sm leading-[22px] font-medium text-foreground'
+const ROW_TAG = 'flex-none rounded border border-input px-1.5 py-px text-[11px] leading-4 text-[var(--dsw-alias-label-secondary)]'
+const CRED_DOT = 'inline-block h-2 w-2 flex-none rounded-full'
+const ROW_ACTIONS = 'ml-auto inline-flex items-center gap-1'
+const ADD_BLOCK = 'flex flex-col gap-3'
+const ADD_ACTIONS = 'flex flex-wrap gap-2.5'
+const FIELD = 'flex flex-col gap-1.5'
+const FIELD_LABEL = 'inline-flex items-center gap-2.5 text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)]'
+const INPUT =
+  'h-8 rounded-lg border-border bg-card px-2.5 py-0 text-sm leading-[22px] text-foreground shadow-none placeholder:text-[var(--dsw-alias-label-dimmed)] focus:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0 disabled:opacity-60 disabled:cursor-default'
+const SECONDARY_BUTTON =
+  'inline-flex h-9 items-center justify-center gap-1 rounded-[18px] border border-border bg-transparent px-[14px] text-sm leading-[22px] font-normal text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ROW_SECONDARY_BUTTON =
+  'inline-flex h-7 items-center justify-center gap-1 rounded-[14px] border border-border bg-transparent px-2.5 text-xs leading-[18px] font-normal text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ROW_DANGER_BUTTON =
+  'inline-flex h-7 items-center justify-center rounded-[14px] border-none bg-transparent px-2.5 text-xs leading-[18px] font-normal text-[var(--dsw-alias-state-error-primary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-danger)] hover:text-[var(--dsw-alias-state-error-primary)] disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ADD_BUTTON =
+  'inline-flex h-11 min-w-[180px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-input bg-transparent px-[14px] text-sm leading-[22px] font-normal text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const DELETE_DIALOG = 'w-[min(480px,100%)]'
+const DELETE_CONFIRM =
+  'enabled:border-[var(--dsw-alias-state-error-primary)] enabled:text-[var(--dsw-alias-state-error-primary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-danger)]'
 
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
 export interface ModelsSectionInjected {
@@ -239,11 +272,11 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const errorText = state.error ?? ''
     return (
-      <div className={styles['section']}>
-        <p className={styles['error']}>{`${t('loadFailed')}: ${errorText}`}</p>
-        <button type="button" className={styles['secondaryButton']} onClick={() => { void controller.load() }}>
+      <div className={SECTION}>
+        <p className={ERROR}>{`${t('loadFailed')}: ${errorText}`}</p>
+        <ShadcnButton variant="ghost" className={SECONDARY_BUTTON} onClick={() => { void controller.load() }}>
           {t('retry')}
-        </button>
+        </ShadcnButton>
       </div>
     )
   }
@@ -272,18 +305,18 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
   const protocols = protocolChoices(state.namespaces.get('llm-pi-ai'))
 
   return (
-    <div className={styles['section']}>
-      <h2 className={styles['title']}>{t('title')}</h2>
-      <p className={styles['intro']}>{t('intro')}</p>
-      {!state.writable && state.status === 'ready' ? <p className={styles['notice']}>{t('readOnly')}</p> : null}
+    <div className={SECTION}>
+      <h2 className={TITLE}>{t('title')}</h2>
+      <p className={INTRO}>{t('intro')}</p>
+      {!state.writable && state.status === 'ready' ? <p className={NOTICE}>{t('readOnly')}</p> : null}
       {savedIdentity === undefined
         ? null
         : (
-          <p className={styles['savedNotice']} role="status" aria-live="polite">
+          <p className={SAVED_NOTICE} role="status" aria-live="polite">
             {providerCopy(t('savedProvider'), savedIdentity)}
           </p>
         )}
-      <ul className={styles['rows']}>
+      <ul className={ROWS}>
         {configured.map((row) => {
           const target = targetOf(row)
           const namespace = state.namespaces.get(target.settingsNs)
@@ -293,7 +326,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
             // First-run posture: the provider exists but has no key — the
             // setup card IS its presence on the page, until the user closes it.
             return (
-              <li key={row.entry.provider} className={styles['setupCard']}>
+              <li key={row.entry.provider} className={SETUP_CARD}>
                 {renderProviderEditor({
                   target,
                   namespace,
@@ -311,20 +344,20 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
             && row.apiKeyEnv !== undefined
             && row.credential?.configured === false
           return (
-            <li key={row.entry.provider} className={styles['rowCard']}>
-              <div className={styles['rowHead']}>
-                <span className={styles['rowIdentity']}>
-                  <span className={styles['rowName']}>{row.entry.displayName}</span>
+            <li key={row.entry.provider} className={ROW_CARD}>
+              <div className={ROW_HEAD}>
+                <span className={ROW_IDENTITY}>
+                  <span className={ROW_NAME}>{row.entry.displayName}</span>
                   {/* Only the adapter can tell a hand-declared route from a
                       shipped one it also has a stored profile for, so the tag
                       follows its answer and stays off when it gives none. */}
                   {row.entry.declared === true
-                    ? <span className={styles['rowTag']}>{t('customTag')}</span>
+                    ? <span className={ROW_TAG}>{t('customTag')}</span>
                     : null}
                   {credentialConfigured
                     ? (
                       <span
-                        className={`${styles['credentialDot']} ${styles['credentialDotConfigured']}`}
+                        className={cn(CRED_DOT, 'credentialDotConfigured bg-[var(--dsw-alias-state-success-primary)]')}
                         role="img"
                         aria-label={t('credentialConfigured')}
                         title={t('credentialConfigured')}
@@ -333,7 +366,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                     : credentialMissing
                       ? (
                         <span
-                          className={`${styles['credentialDot']} ${styles['credentialDotMissing']}`}
+                          className={cn(CRED_DOT, 'credentialDotMissing bg-[var(--dsw-alias-state-error-primary)]')}
                           role="img"
                           aria-label={t('credentialMissing')}
                           title={t('credentialMissing')}
@@ -341,10 +374,10 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                       )
                       : null}
                 </span>
-                <span className={styles['rowActions']}>
-                  <button
-                    type="button"
-                    className={styles['secondaryButton']}
+                <span className={ROW_ACTIONS}>
+                  <ShadcnButton
+                    variant="ghost"
+                    className={ROW_SECONDARY_BUTTON}
                     aria-label={providerCopy(t('editProvider'), target)}
                     onClick={() => {
                       setSavedTarget(undefined)
@@ -357,12 +390,12 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                     }}
                   >
                     {t('edit')}
-                  </button>
+                  </ShadcnButton>
                   {row.removable
                     ? (
-                      <button
-                        type="button"
-                        className={styles['dangerButton']}
+                      <ShadcnButton
+                        variant="ghost"
+                        className={ROW_DANGER_BUTTON}
                         aria-label={providerCopy(t('removeProvider'), target)}
                         disabled={!state.writable}
                         onClick={() => {
@@ -372,7 +405,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                         }}
                       >
                         {t('remove')}
-                      </button>
+                      </ShadcnButton>
                     )
                     : null}
                 </span>
@@ -391,27 +424,29 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
           )
         })}
       </ul>
-      <div className={styles['addBlock']}>
+      <div className={ADD_BLOCK}>
         {addTarget !== undefined && addNamespace !== undefined
           ? (
-            <div className={styles['addCard']}>
-              <div className={styles['field']}>
-                <span className={styles['fieldLabel']}>{t('provider')}</span>
-                <select
-                  className={`${styles['input']} ${styles['selectInput']}`}
-                  value={addTarget.provider}
-                  aria-label={t('provider')}
-                  onChange={(event) => {
-                    const row = addable.find(candidate => candidate.entry.provider === event.target.value)
-                    /* v8 ignore next -- the select only lists addable rows */
-                    if (row === undefined) return
-                    setEditing(targetOf(row))
-                  }}
-                >
-                  {addable.map(row => (
-                    <option key={row.entry.provider} value={row.entry.provider}>{row.entry.displayName}</option>
-                  ))}
-                </select>
+            <div className={ADD_CARD}>
+              <div className={FIELD}>
+                <span className={FIELD_LABEL}>{t('provider')}</span>
+                <div className="max-w-[240px]">
+                  <NativeSelect
+                    className={INPUT}
+                    value={addTarget.provider}
+                    aria-label={t('provider')}
+                    onChange={(event) => {
+                      const row = addable.find(candidate => candidate.entry.provider === event.target.value)
+                      /* v8 ignore next -- the select only lists addable rows */
+                      if (row === undefined) return
+                      setEditing(targetOf(row))
+                    }}
+                  >
+                    {addable.map(row => (
+                      <option key={row.entry.provider} value={row.entry.provider}>{row.entry.displayName}</option>
+                    ))}
+                  </NativeSelect>
+                </div>
               </div>
               <ProviderEditor
                 key={addTarget.provider}
@@ -429,7 +464,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
           )
           : declaring
             ? (
-              <div className={styles['addCard']}>
+              <div className={ADD_CARD}>
                 <CustomProviderCard
                   taken={state.rows.map(row => row.entry.provider)}
                   protocols={protocols}
@@ -450,10 +485,10 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
               // adapter already knows, or declare one it does not. Side by side
               // and equal-width so they read as siblings and line up with the
               // rows above, rather than two pills of different lengths.
-              <div className={styles['addActions']}>
-                <button
-                  type="button"
-                  className={styles['addButton']}
+              <div className={ADD_ACTIONS}>
+                <ShadcnButton
+                  variant="ghost"
+                  className={ADD_BUTTON}
                   disabled={addable.length === 0 || !state.writable}
                   onClick={() => {
                     const first = addable[0]
@@ -468,10 +503,10 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                   {/* Same glyph as the composer's attach button. */}
                   <IconPlusOutline16 size={14} />
                   {t('add')}
-                </button>
-                <button
-                  type="button"
-                  className={styles['addButton']}
+                </ShadcnButton>
+                <ShadcnButton
+                  variant="ghost"
+                  className={ADD_BUTTON}
                   disabled={protocols.length === 0 || !state.writable}
                   onClick={() => {
                     setSavedTarget(undefined)
@@ -482,7 +517,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                 >
                   <IconPlusOutline16 size={14} />
                   {t('customAdd')}
-                </button>
+                </ShadcnButton>
               </div>
             )}
       </div>
@@ -499,7 +534,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
               : t('deleteDescriptionWithCredential'),
             deleteTarget,
           )}
-        className={styles['deleteDialog'] as string}
+        className={DELETE_DIALOG}
         footer={(
           <>
             <Button variant="outline" autoFocus disabled={deleting} onClick={closeDelete}>
@@ -507,7 +542,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
             </Button>
             <Button
               variant="outline"
-              className={styles['deleteConfirm']}
+              className={DELETE_CONFIRM}
               disabled={deleting}
               onClick={confirmDelete}
             >
@@ -518,7 +553,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
           </>
         )}
       >
-        {deleteFailure === undefined ? null : <p className={styles['error']}>{deleteFailure}</p>}
+        {deleteFailure === undefined ? null : <p className={ERROR}>{deleteFailure}</p>}
       </Modal>
     </div>
   )

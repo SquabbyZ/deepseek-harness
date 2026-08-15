@@ -10,11 +10,11 @@
  * name for display (the full path is unavailable by browser security).
  */
 import { useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { ShadcnButton, ShadcnInput } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { BackgroundCrop } from '../theme-settings.ts'
 import type { createAppearanceRowStore } from './settings-store.ts'
-import css from './BackgroundRow.module.css'
 
 /** Injected business face: the background write (t rides the standard locale seat). */
 export interface BackgroundRowInjected {
@@ -143,18 +143,18 @@ export function BackgroundRow({ t, setBackground, setBackgroundName, setBackgrou
   const activeCrop = draftCrop ?? backgroundCrop
 
   return (
-    <div className={css.group}>
-      <div className={css.title}>{t('background.title')}</div>
-      <div className={css.body}>
-        <label className={css.upload}>
-          <input type="file" accept="image/*" className={css.hiddenInput} onChange={onFileChange} />
+    <div className="flex flex-col gap-2 border-b border-border py-4">
+      <div className="text-sm font-normal leading-[22px] text-foreground">{t('background.title')}</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-border px-4 py-1.5 text-sm leading-[22px] text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)]">
+          <ShadcnInput type="file" accept="image/*" className="sr-only" onChange={onFileChange} />
           {t('background.upload')}
         </label>
-        <label className={css.url}>
-          <span className={css.urlLabel}>{t('background.url')}</span>
-          <input
+        <label className="inline-flex flex-[1_1_240px] items-center gap-2">
+          <span className="text-sm leading-[22px] text-[var(--dsw-alias-label-secondary)]">{t('background.url')}</span>
+          <ShadcnInput
             type="text"
-            className={css.urlInput}
+            className="box-border h-auto min-w-0 flex-[1_1_0] rounded-lg border border-border bg-card px-3 py-1.5 text-sm leading-[22px] text-foreground shadow-none focus-visible:ring-0"
             placeholder={t('background.urlPlaceholder')}
             value={urlValue}
             onChange={(event) => {
@@ -165,36 +165,40 @@ export function BackgroundRow({ t, setBackground, setBackgroundName, setBackgrou
           />
         </label>
         {background !== '' && (
-          <button type="button" className={css.clear} onClick={() => {
-            setBackground('')
-            setBackgroundName('')
-            setBackgroundCrop(null)
-          }}>
+          <ShadcnButton
+            variant="ghost"
+            className="rounded-lg border border-border bg-transparent px-4 py-1.5 text-sm font-normal leading-[22px] text-foreground cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)]"
+            onClick={() => {
+              setBackground('')
+              setBackgroundName('')
+              setBackgroundCrop(null)
+            }}
+          >
             {t('background.clear')}
-          </button>
+          </ShadcnButton>
         )}
       </div>
       {backgroundName !== '' && (
-        <div className={css.fileName}>
-          <span className={css.fileNameLabel}>{t('background.fileName')}</span>
-          <span className={css.fileNameValue}>{backgroundName}</span>
+        <div className="flex items-center gap-2 text-[13px] leading-5">
+          <span className="text-[var(--dsw-alias-label-secondary)]">{t('background.fileName')}</span>
+          <span className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-foreground">{backgroundName}</span>
         </div>
       )}
       {background !== '' && (
-        <div className={css.crop}>
-          <div className={css.cropLabel}>{t('background.cropLabel')}</div>
+        <div className="flex flex-col gap-2">
+          <div className="text-[13px] leading-5 text-[var(--dsw-alias-label-secondary)]">{t('background.cropLabel')}</div>
           <div
-            className={css.cropArea}
+            className="relative inline-block max-w-full cursor-crosshair touch-none select-none self-start align-top leading-[0]"
             aria-label={t('background.cropLabel')}
             onPointerDown={onCropPointerDown}
             onPointerMove={onCropPointerMove}
             onPointerUp={onCropPointerEnd}
             onPointerCancel={onCropPointerEnd}
           >
-            <img className={css.cropImage} src={background} alt="" draggable={false} />
+            <img className="block h-auto w-auto max-h-[180px] max-w-full pointer-events-none" src={background} alt="" draggable={false} />
             {activeCrop !== null && (
               <div
-                className={css.cropBox}
+                className="pointer-events-none absolute border border-[var(--dsw-alias-brand-primary)] bg-[color-mix(in_srgb,var(--dsw-alias-brand-primary)_18%,transparent)]"
                 style={{
                   left: `${activeCrop.x * 100}%`,
                   top: `${activeCrop.y * 100}%`,
@@ -205,9 +209,13 @@ export function BackgroundRow({ t, setBackground, setBackgroundName, setBackgrou
             )}
           </div>
           {backgroundCrop !== null && (
-            <button type="button" className={css.clearCrop} onClick={() => { setBackgroundCrop(null) }}>
+            <ShadcnButton
+              variant="ghost"
+              className="self-start rounded-lg border border-border bg-transparent px-3 py-1 text-[13px] font-normal leading-5 text-foreground cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)]"
+              onClick={() => { setBackgroundCrop(null) }}
+            >
               {t('background.clearCrop')}
-            </button>
+            </ShadcnButton>
           )}
         </div>
       )}

@@ -18,7 +18,6 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/slots.ts'
-import css from './WorkspacePicker.module.css'
 
 const ADD_WORKSPACE = '::add-workspace'
 
@@ -194,7 +193,7 @@ export function WorkspacePickFlow({
         portal
         getAnchorRect={getAnchorRect}
       />
-      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && <div className={css.menuStatus} role="status">{t('picker.loading')}</div>}
+      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && <div className="mt-2 text-xs leading-[18px] text-[var(--dsw-alias-label-secondary)]" role="status">{t('picker.loading')}</div>}
       {renderDirectoryFlow(flowOwner)}
       <Modal
         open={errorOpen}
@@ -203,14 +202,14 @@ export function WorkspacePickFlow({
         title={t('folderError.title')}
         footer={(
           <>
-            <Button variant="outline" className={css.modalAction} onClick={closeModal}>{t('cancel')}</Button>
+            <Button variant="outline" className="min-w-[72px]" onClick={closeModal}>{t('cancel')}</Button>
             {/* Retrying needs an occupant to serve the flow; without one the
               * button would open a flow nobody can answer or cancel. */}
-            <Button variant="primary" className={css.modalAction} disabled={!flowAvailable} onClick={openDirectoryFlow}>{t('folderError.retry')}</Button>
+            <Button variant="primary" className="min-w-[72px]" disabled={!flowAvailable} onClick={openDirectoryFlow}>{t('folderError.retry')}</Button>
           </>
         )}
       >
-        <div className={css.modalError} role="alert">{modalError}</div>
+        <div className="mt-2 text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]" role="alert">{modalError}</div>
       </Modal>
     </>
   )

@@ -6,7 +6,19 @@
  * card's save is the single point where a draft becomes a document mutation.
  */
 
-import css from './fields.module.css'
+import { ShadcnButton, ShadcnInput } from '@deepseek-ai/dsh-client-ui-primitives'
+
+const FIELD = 'flex flex-col gap-1.5 py-3 dsh-plugin-field'
+const HEAD = 'flex items-center gap-2'
+const LABEL = 'min-w-0 flex-1 text-[13px] leading-[1.5] font-medium text-foreground'
+const BADGES = 'inline-flex items-center gap-2'
+const BADGE = 'rounded-full px-2 py-px text-[11px] leading-[17px] font-medium whitespace-nowrap bg-[var(--dsw-alias-bg-module-platform)] text-[var(--dsw-alias-label-secondary)]'
+const BADGE_MUTED = 'rounded-full px-2 py-px text-[11px] leading-[17px] whitespace-nowrap text-[var(--dsw-alias-label-tertiary)]'
+const RESET = 'border-none bg-transparent p-0 text-xs leading-[1.5] font-normal text-[var(--dsw-alias-label-secondary)] hover:enabled:text-foreground disabled:cursor-default disabled:opacity-100 focus-visible:ring-0'
+const INPUT = 'h-[34px] rounded-lg border-border bg-popover px-3 py-0 text-[13px] leading-[1.5] text-foreground shadow-none focus-visible:outline-none focus-visible:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0 disabled:text-[var(--dsw-alias-label-tertiary)] disabled:cursor-default disabled:opacity-100'
+const INPUT_INVALID = 'h-[34px] rounded-lg border-[var(--dsw-alias-label-error)] bg-popover px-3 py-0 text-[13px] leading-[1.5] text-foreground shadow-none focus-visible:outline-none focus-visible:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0 disabled:text-[var(--dsw-alias-label-tertiary)] disabled:cursor-default disabled:opacity-100'
+const INVALID = 'm-0 text-xs leading-[1.5] text-[var(--dsw-alias-label-error)]'
+const HINT = 'm-0 text-xs leading-[1.5] text-[var(--dsw-alias-label-tertiary)]'
 
 /** What every field control needs regardless of its value type. */
 export interface FieldProps {
@@ -50,28 +62,28 @@ export function ValueField(props: FieldProps & {
   placeholder?: string
 }) {
   return (
-    <div className={css.field}>
-      <div className={css.head}>
-        <label className={css.label} htmlFor={props.id}>{props.label}</label>
+    <div className={FIELD}>
+      <div className={HEAD}>
+        <label className={LABEL} htmlFor={props.id}>{props.label}</label>
         {props.overridden
           ? (
-            <span className={css.badges}>
-              <span className={css.badge}>{props.overriddenLabel}</span>
-              <button
-                type="button"
-                className={css.reset}
+            <span className={BADGES}>
+              <span className={BADGE}>{props.overriddenLabel}</span>
+              <ShadcnButton
+                variant="ghost"
+                className={RESET}
                 disabled={props.disabled}
                 onClick={props.onReset}
               >
                 {props.resetLabel}
-              </button>
+              </ShadcnButton>
             </span>
           )
           : null}
       </div>
-      <input
+      <ShadcnInput
         id={props.id}
-        className={props.invalid ? css.inputInvalid : css.input}
+        className={props.invalid ? INPUT_INVALID : INPUT}
         type="text"
         {...props.numeric === true ? { inputMode: 'numeric' as const } : {}}
         {...props.invalid ? { 'aria-invalid': true } : {}}
@@ -80,7 +92,7 @@ export function ValueField(props: FieldProps & {
         disabled={props.disabled}
         onChange={(event) => { props.onEdit(event.target.value) }}
       />
-      <p className={props.invalid ? css.invalid : css.hint}>
+      <p className={props.invalid ? INVALID : HINT}>
         {props.invalid ? props.invalidLabel : props.hint}
       </p>
     </div>
@@ -101,23 +113,23 @@ export function SecretField(props: Pick<FieldProps, 'id' | 'label' | 'hint' | 't
   stateLabel: string
 }) {
   return (
-    <div className={css.field}>
-      <div className={css.head}>
-        <label className={css.label} htmlFor={props.id}>{props.label}</label>
-        <span className={css.badges}>
-          <span className={props.configured ? css.badge : css.badgeMuted}>{props.stateLabel}</span>
+    <div className={FIELD}>
+      <div className={HEAD}>
+        <label className={LABEL} htmlFor={props.id}>{props.label}</label>
+        <span className={BADGES}>
+          <span className={props.configured ? BADGE : BADGE_MUTED}>{props.stateLabel}</span>
         </span>
       </div>
-      <input
+      <ShadcnInput
         id={props.id}
-        className={css.input}
+        className={INPUT}
         type="password"
         autoComplete="off"
         value={props.text}
         disabled={props.disabled}
         onChange={(event) => { props.onEdit(event.target.value) }}
       />
-      <p className={css.hint}>{props.hint}</p>
+      <p className={HINT}>{props.hint}</p>
     </div>
   )
 }

@@ -17,12 +17,11 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { DiscoveredModelView, IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
-import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Modal, ShadcnButton, ShadcnInput, cn } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatCapacity, parseCapacity } from './DeepSeekModelsEditor.tsx'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import { messageOf } from './store.ts'
 import type { en } from './locales.ts'
-import styles from './ModelsSection.module.css'
 
 /**
  * One configured model row. Structurally open, exactly like the DeepSeek
@@ -88,6 +87,34 @@ export interface ModelListEditorProps {
   /** Disable every control (read-only deployment or a pending write). */
   disabled: boolean
 }
+
+const MODEL_CATALOG = 'flex flex-col gap-2.5 border-t border-border pt-3'
+const MODEL_LIST_HEAD = 'flex items-start justify-between gap-3'
+const MODEL_CATALOG_HEADING = 'flex flex-col gap-0.5'
+const MODEL_CATALOG_TITLE = 'text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)]'
+const MODEL_CATALOG_META = 'm-0 text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const MODEL_EMPTY = 'm-0 rounded-lg border border-dashed border-input p-3 text-center text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const MODEL_ENTRY = 'rounded-lg border border-border p-1.5'
+const MODEL_ROW = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_auto] items-center gap-1.5'
+const MODEL_ADVANCED = 'grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2 px-1 pt-2 pb-0.5'
+const MODEL_FIELD = 'flex flex-col gap-1'
+const MODEL_FIELD_LABEL = 'text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const INPUT =
+  'h-8 rounded-lg border-border bg-card px-2.5 py-0 text-sm leading-[22px] text-foreground shadow-none placeholder:text-[var(--dsw-alias-label-dimmed)] focus:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0 disabled:opacity-60 disabled:cursor-default'
+const LINK_BUTTON =
+  'inline-flex h-7 items-center rounded-[14px] border-none bg-transparent px-2.5 text-xs leading-[18px] font-normal text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-[var(--dsw-alias-label-secondary)] disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ICON_BUTTON =
+  'inline-flex h-7 w-7 items-center justify-center rounded-md border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ICON_BUTTON_DANGER =
+  'hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-danger)] hover:enabled:text-[var(--dsw-alias-state-error-primary)]'
+const ADD_MODEL_BUTTON =
+  'inline-flex h-7 items-center gap-1 self-start rounded-[14px] border border-border bg-transparent px-2.5 text-xs leading-[18px] font-normal text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const ERROR = 'error m-0 text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+const FETCH_DIALOG =
+  'max-w-[520px] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]'
+const CANDIDATE_LIST = 'm-0 flex max-h-80 list-none flex-col gap-0.5 overflow-y-auto p-0'
+const CANDIDATE_LABEL = 'flex cursor-pointer items-center gap-2 px-2 py-1.5'
+const CANDIDATE_ID = 'flex-[1_1_auto] [font-family:var(--ds-font-family-code)] text-[13px] [overflow-wrap:anywhere]'
 
 /** Disclosure chevron; rotates to point down while its row is open. */
 function IconChevron({ open }: { open: boolean }): ReactNode {
@@ -294,33 +321,33 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // draft with neither has nothing to ask about.
   const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
   return (
-    <section className={styles['modelCatalog']} aria-label={t('models')}>
-      <div className={styles['modelListHead']}>
-        <div className={styles['modelCatalogHeading']}>
-          <span className={styles['modelCatalogTitle']}>{t('models')}</span>
+    <section className={MODEL_CATALOG} aria-label={t('models')}>
+      <div className={MODEL_LIST_HEAD}>
+        <div className={MODEL_CATALOG_HEADING}>
+          <span className={MODEL_CATALOG_TITLE}>{t('models')}</span>
           {props.overridden === undefined
             ? null
             : (
-              <span className={styles['modelCatalogMeta']}>
+              <span className={MODEL_CATALOG_META}>
                 {props.overridden ? t('modelsCustomized') : t('modelsInherited')}
               </span>
             )}
         </div>
         {props.overridden === true && props.onReset !== undefined
           ? (
-            <button
-              type="button"
-              className={styles['linkButton']}
+            <ShadcnButton
+              variant="ghost"
+              className={LINK_BUTTON}
               disabled={disabled}
               onClick={props.onReset}
             >
               {t('resetModels')}
-            </button>
+            </ShadcnButton>
           )
           : null}
-        <button
-          type="button"
-          className={styles['linkButton']}
+        <ShadcnButton
+          variant="ghost"
+          className={LINK_BUTTON}
           disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
           title={props.probeBlocked !== undefined
             ? t(props.probeBlocked)
@@ -328,14 +355,14 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           onClick={() => { void fetchModels() }}
         >
           {busy ? t('fetching') : t('fetchModels')}
-        </button>
+        </ShadcnButton>
       </div>
-      {models.length === 0 ? <p className={styles['modelEmpty']}>{t('modelsEmpty')}</p> : null}
+      {models.length === 0 ? <p className={MODEL_EMPTY}>{t('modelsEmpty')}</p> : null}
       {models.map((model, index) => (
-        <div key={index} className={styles['modelEntry']}>
-          <div className={styles['modelRow']}>
-            <input
-              className={styles['input']}
+        <div key={index} className={MODEL_ENTRY}>
+          <div className={MODEL_ROW}>
+            <ShadcnInput
+              className={INPUT}
               type="text"
               value={textOf(model, 'id')}
               placeholder={t('modelId')}
@@ -343,8 +370,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               disabled={disabled}
               onChange={(event) => { patch(index, { id: event.target.value }) }}
             />
-            <input
-              className={styles['input']}
+            <ShadcnInput
+              className={INPUT}
               type="text"
               value={textOf(model, 'name')}
               placeholder={t('modelName')}
@@ -352,19 +379,19 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               disabled={disabled}
               onChange={(event) => { patch(index, { name: event.target.value === '' ? undefined : event.target.value }) }}
             />
-            <button
-              type="button"
-              className={styles['iconButton']}
+            <ShadcnButton
+              variant="ghost"
+              className={ICON_BUTTON}
               aria-label={`${t('modelAdvanced')} ${index + 1}`}
               aria-expanded={expanded.has(index)}
               title={t('modelAdvanced')}
               onClick={() => { toggleExpanded(index) }}
             >
               <IconChevron open={expanded.has(index)} />
-            </button>
-            <button
-              type="button"
-              className={`${styles['iconButton']} ${styles['iconButtonDanger']}`}
+            </ShadcnButton>
+            <ShadcnButton
+              variant="ghost"
+              className={cn(ICON_BUTTON, ICON_BUTTON_DANGER)}
               aria-label={`${t('removeModel')} ${index + 1}`}
               title={t('removeModel')}
               disabled={disabled}
@@ -386,15 +413,15 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               }}
             >
               <IconTrash />
-            </button>
+            </ShadcnButton>
           </div>
           {expanded.has(index)
             ? (
-              <div className={styles['modelAdvanced']}>
-                <label className={styles['modelField']}>
-                  <span className={styles['modelFieldLabel']}>{t('modelContextWindow')}</span>
-                  <input
-                    className={styles['input']}
+              <div className={MODEL_ADVANCED}>
+                <label className={MODEL_FIELD}>
+                  <span className={MODEL_FIELD_LABEL}>{t('modelContextWindow')}</span>
+                  <ShadcnInput
+                    className={INPUT}
                     type="text"
                     inputMode="numeric"
                     value={capacityText(model, index, 'contextWindow')}
@@ -404,10 +431,10 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
                     onChange={(event) => { editCapacity(index, 'contextWindow', event.target.value) }}
                   />
                 </label>
-                <label className={styles['modelField']}>
-                  <span className={styles['modelFieldLabel']}>{t('modelMaxTokens')}</span>
-                  <input
-                    className={styles['input']}
+                <label className={MODEL_FIELD}>
+                  <span className={MODEL_FIELD_LABEL}>{t('modelMaxTokens')}</span>
+                  <ShadcnInput
+                    className={INPUT}
                     type="text"
                     inputMode="numeric"
                     value={capacityText(model, index, 'maxTokens')}
@@ -422,22 +449,22 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             : null}
         </div>
       ))}
-      <button
-        type="button"
-        className={styles['addModelButton']}
+      <ShadcnButton
+        variant="ghost"
+        className={ADD_MODEL_BUTTON}
         disabled={disabled}
         onClick={() => { onChange([...models, { id: '' }]) }}
       >
         {t('addModel')}
-      </button>
-      {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
+      </ShadcnButton>
+      {failure !== undefined ? <p className={ERROR}>{failure}</p> : null}
       <Modal
         open={candidates !== undefined}
         onClose={closePicker}
         title={t('fetchTitle')}
         closeLabel={t('close')}
         description={t('fetchDescription')}
-        className={styles['fetchDialog'] as string}
+        className={FETCH_DIALOG}
         footer={(
           <>
             <Button variant="outline" onClick={closePicker}>{t('cancel')}</Button>
@@ -445,10 +472,10 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           </>
         )}
       >
-        <ul className={styles['candidateList']}>
+        <ul className={CANDIDATE_LIST}>
           {(candidates ?? []).map(candidate => (
-            <li key={candidate.id} className={styles['candidate']}>
-              <label className={styles['candidateLabel']}>
+            <li key={candidate.id} className="rounded-md">
+              <label className={CANDIDATE_LABEL}>
                 <input
                   type="checkbox"
                   checked={picked.has(candidate.id)}
@@ -457,7 +484,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
                 {/* The id alone: it is the string adoption writes, and the
                     capacities the endpoint reported are adopted with it and
                     editable in the row that appears. */}
-                <span className={styles['candidateId']}>{candidate.id}</span>
+                <span className={CANDIDATE_ID}>{candidate.id}</span>
               </label>
             </li>
           ))}

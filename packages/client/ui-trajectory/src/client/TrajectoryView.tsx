@@ -26,7 +26,6 @@ import {
 import { trajectoryRecordId } from './trajectory-record.ts'
 import { TrajectorySearchIndex } from './trajectory-search-index.ts'
 import { EMPTY_TRAJECTORY_SNAPSHOT } from './trajectory-snapshot-builder.ts'
-import css from './views.module.css'
 
 const EMPTY_TURN_IDS: ReadonlySet<number> = new Set()
 const EMPTY_RECORD_IDS: ReadonlySet<string> = new Set()
@@ -444,7 +443,7 @@ export function TrajectoryView({
   }, [loadOlder])
 
   return (
-    <div className={css.root} data-conversation-composer-overlay="">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden box-border text-foreground bg-card [--dsh-trajectory-toolbar-height:32px]" data-conversation-composer-overlay="">
       <TrajectoryToolbar
         actualDuration={actualDuration}
         onActualDurationChange={(nextActualDuration) => {
@@ -476,7 +475,7 @@ export function TrajectoryView({
         onRecordSelect={handleTimelineRecordSelect}
         onRecordFocus={handleTimelineRecordFocus}
       />
-      <div className={css.ledger}>
+      <div className="relative z-0 isolate flex min-h-0 min-w-0 flex-1 overflow-hidden [--dsh-trajectory-bottom-clearance:calc(var(--dsh-composer-height,_152px)_+_16px)]">
         <TrajectoryTable
           requestNumbers={requestNumbers}
           turns={timelineTurns}

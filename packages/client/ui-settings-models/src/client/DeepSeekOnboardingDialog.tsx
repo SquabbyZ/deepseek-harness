@@ -16,7 +16,6 @@ import { onboardingReadiness } from './store.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
-import styles from './DeepSeekOnboardingDialog.module.css'
 
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
 export interface DeepSeekOnboardingInjected {
@@ -95,8 +94,8 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
 
   return (
     <OnboardingModal title={t('onboardingTitle')}>
-      <p className={styles.description}>{t('onboardingDescription')}</p>
-      <div className={styles.editor}>
+      <p className="m-0 text-sm leading-6 text-[var(--dsw-alias-label-secondary)]">{t('onboardingDescription')}</p>
+      <div className="mt-6 max-[560px]:mt-5">
         <ProviderEditor
           provider={row.entry.provider}
           displayName={row.entry.displayName}

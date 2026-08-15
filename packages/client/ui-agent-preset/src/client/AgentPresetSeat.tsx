@@ -20,7 +20,6 @@ import { IconAgentPresetOutline16, IconChevronDownOutline14, Menu } from '@deeps
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
-import css from './AgentPresetSeat.module.css'
 
 /** Registration-side business face for the hero chip. */
 export interface AgentPresetSeatInjected {
@@ -111,11 +110,11 @@ export function AgentPresetSeat({ load, select, introduced, useAgentPresetSeat, 
   const stagger = introStaggerMs(characters.length)
   const shownLabel = introducing
     ? (
-      <span className={css.introText}>
+      <span className="inline-block whitespace-pre">
         {characters.map((character, index) => (
           <span
             key={index}
-            className={css.introChar}
+            className="dsh-seat-intro-char inline-block whitespace-pre"
             style={{ animationDelay: `${INTRO_TEXT_DELAY_MS + index * stagger}ms` }}
           >
             {character}
@@ -136,9 +135,9 @@ export function AgentPresetSeat({ load, select, introduced, useAgentPresetSeat, 
           // Name and description together: the id alone never says what a
           // preset does, which is why the roster carries display copy.
           label: (
-            <span className={css.item}>
-              <span className={css.itemName}>{text.name}</span>
-              <span className={css.itemDesc}>{text.description ?? t('noDescription')}</span>
+            <span className="flex max-w-[280px] flex-col gap-0.5">
+              <span className="text-[13px] leading-5 text-foreground">{text.name}</span>
+              <span className="whitespace-normal text-xs leading-4 text-[var(--dsw-alias-label-caption)]">{text.description ?? t('noDescription')}</span>
             </span>
           ),
         }
@@ -153,16 +152,16 @@ export function AgentPresetSeat({ load, select, introduced, useAgentPresetSeat, 
       anchor={(
         <button
           type="button"
-          className={css.seat}
+          className="inline-flex min-h-7 max-w-[min(100%,240px)] cursor-pointer items-center gap-1 overflow-hidden whitespace-nowrap rounded-[16px] bg-transparent px-2 text-[13px] font-medium leading-5 text-foreground text-ellipsis enabled:hover:bg-[var(--dsw-alias-interactive-bg-hover)] aria-expanded:bg-[var(--dsw-alias-interactive-bg-hover)] disabled:cursor-default disabled:text-[var(--dsw-alias-label-quaternary)]"
           aria-haspopup="menu"
           aria-expanded={open}
           title={state.error ?? t('seatHint')}
           disabled={state.busy}
           onClick={() => { setOpen(value => !value) }}
         >
-          <IconAgentPresetOutline16 className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
+          <IconAgentPresetOutline16 className={introducing ? 'dsh-seat-intro-icon shrink-0 text-foreground' : 'shrink-0 text-foreground'} />
           {shownLabel}
-          <IconChevronDownOutline14 className={css.chevron} />
+          <IconChevronDownOutline14 className="shrink-0 text-[var(--dsw-alias-label-caption)]" />
         </button>
       )}
     />

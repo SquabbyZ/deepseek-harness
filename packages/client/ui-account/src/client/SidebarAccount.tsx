@@ -12,14 +12,26 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-  IconUserOutline16, Modal, Tooltip,
+  IconUserOutline16, Modal, ShadcnButton, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the sidebar footer.action slot declaration into this program.
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { AccountIdentity, AccountState } from './account-store.ts'
-import css from './SidebarAccount.module.css'
+
+/** Shared 24px avatar circle (image, initial, or placeholder). */
+const AVATAR_BASE = 'flex-none inline-flex size-6 items-center justify-center overflow-hidden rounded-full object-cover'
+
+const AVATAR_INITIAL_BASE = 'flex-none inline-flex size-6 items-center justify-center overflow-hidden rounded-full bg-[var(--dsw-alias-button-tool-bar-fill)] text-[13px] font-medium leading-5'
+
+const AVATAR_PLACEHOLDER_BASE = 'flex-none inline-flex size-6 items-center justify-center overflow-hidden rounded-full bg-[var(--dsw-alias-interactive-bg-hover)] text-[var(--dsw-alias-label-secondary)]'
+
+/** Seat: compact pill (avatar + name) matching the settings trigger's rhythm. */
+const SEAT_BASE = 'flex-none inline-flex items-center justify-start gap-2 max-w-full h-[34px] cursor-pointer rounded-xl border-none bg-transparent px-2 py-[5px] text-sm font-normal leading-[22px] text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)]'
+
+/** Rail seat: the same 36x36 circle box as the other rail controls. */
+const SEAT_RAIL = 'size-9 justify-center gap-0 rounded-full p-0'
 
 /** Registrant-owned dependencies of {@link SidebarAccount}. */
 export interface SidebarAccountInjected {
@@ -54,10 +66,10 @@ function GitHubMark({ size = 16 }: { size?: number }) {
 /** Avatar cell: the linked avatar image, or a circle with the name's first letter. */
 function Avatar({ identity }: { identity: AccountIdentity }) {
   if (identity.avatar !== undefined && identity.avatar !== '') {
-    return <img className={css.avatar} src={identity.avatar} alt="" />
+    return <img className={AVATAR_BASE} src={identity.avatar} alt="" />
   }
   const initial = identity.name.trim().charAt(0).toUpperCase()
-  return <span className={css.avatarInitial}>{initial}</span>
+  return <span className={AVATAR_INITIAL_BASE}>{initial}</span>
 }
 
 /**
@@ -88,10 +100,10 @@ export function SidebarAccount({ wide, t, useAccount, load, login, logout }: Sid
         ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className={`${css.seat}${wide ? '' : ` ${css.rail}`}`} aria-label={identity.name}>
+              <ShadcnButton variant="ghost" className={`${SEAT_BASE}${wide ? '' : ` ${SEAT_RAIL}`}`} aria-label={identity.name}>
                 <Avatar identity={identity} />
-                {wide && <span className={css.name}>{identity.name}</span>}
-              </button>
+                {wide && <span className="min-w-0 max-w-[160px] overflow-hidden whitespace-nowrap text-ellipsis">{identity.name}</span>}
+              </ShadcnButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onSelect={() => { void logout() }}>{t('logout')}</DropdownMenuItem>
@@ -100,29 +112,29 @@ export function SidebarAccount({ wide, t, useAccount, load, login, logout }: Sid
         )
         : (
           <Tooltip label={t('notSignedIn')} delayMs={500}>
-            <button
-              type="button"
-              className={`${css.seat}${wide ? '' : ` ${css.rail}`}`}
+            <ShadcnButton
+              variant="ghost"
+              className={`${SEAT_BASE}${wide ? '' : ` ${SEAT_RAIL}`}`}
               aria-label={t('notSignedIn')}
               onClick={() => { setLoginOpen(true) }}
             >
-              <span className={css.avatarPlaceholder}><IconUserOutline16 size={16} /></span>
-            </button>
+              <span className={AVATAR_PLACEHOLDER_BASE}><IconUserOutline16 size={16} /></span>
+            </ShadcnButton>
           </Tooltip>
         )}
 
       <Modal open={loginOpen} onClose={() => { setLoginOpen(false) }} title={t('loginTitle')} closeLabel={t('close')}>
-        <div className={css.dialogBody}>
+        <div className="flex flex-col gap-2">
           <Button
             variant="primary"
-            className={css.signIn}
+            className="w-full justify-center"
             icon={<GitHubMark />}
             disabled={signingIn}
             onClick={() => { void login() }}
           >
             {signingIn ? t('signingIn') : t('signIn')}
           </Button>
-          {state.error !== null && <p role="alert" className={css.error}>{t(state.error)}</p>}
+          {state.error !== null && <p role="alert" className="m-0 text-[13px] leading-5 text-[var(--dsw-alias-state-error-primary)]">{t(state.error)}</p>}
         </div>
       </Modal>
     </>

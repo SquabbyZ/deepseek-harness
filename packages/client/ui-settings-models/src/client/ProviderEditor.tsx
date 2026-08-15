@@ -27,6 +27,7 @@ import type { CredentialView, IApiClient, SettingsNamespaceView, SettingsPathOpV
 import {
   deletePath, getPath, hasPath, nodeAtPath, rehydrateSchema, setPath, validateDraft,
 } from '@deepseek-ai/dsh-client-schema-form'
+import { NativeSelect, ShadcnInput } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels,
 } from './DeepSeekModelsEditor.tsx'
@@ -35,13 +36,28 @@ import { EditorFooter } from './EditorFooter.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
 import { deriveKeyRef, messageOf, protocolChoices } from './store.ts'
 import type { en } from './locales.ts'
-import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
 type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
 
 /** The public DeepSeek endpoint shown as the deepseek base-URL placeholder. */
 const DEEPSEEK_PUBLIC_BASE_URL = 'https://api.deepseek.com'
+
+const FIELD = 'flex flex-col gap-1.5'
+const FIELD_LABEL = 'inline-flex items-center gap-2.5 text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)]'
+const EDITOR = 'flex flex-col gap-[14px] rounded-xl bg-[var(--dsw-alias-bg-module-platform)] px-4 py-[14px]'
+const ADD_BLOCK = 'flex flex-col gap-3'
+const EDITOR_HEADER = 'flex items-baseline gap-2'
+const EDITOR_TITLE = 'text-sm leading-[22px] font-medium text-foreground'
+const EDITOR_ROUTE = 'text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const ADVANCED_HINT = 'advancedHint m-0 text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const ERROR = 'error m-0 text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+const INPUT =
+  'h-8 rounded-lg border-border bg-card px-2.5 py-0 text-sm leading-[22px] text-foreground shadow-none placeholder:text-[var(--dsw-alias-label-dimmed)] focus:border-[var(--dsw-alias-brand-primary)] focus-visible:ring-0 disabled:opacity-60 disabled:cursor-default'
+const CUSTOMIZED = 'border-t border-border pt-2.5'
+const CUSTOMIZED_SUMMARY =
+  'flex w-fit cursor-pointer list-none items-center gap-1.5 -ml-1 rounded-md px-1 py-0.5 text-xs leading-[18px] font-medium text-[var(--dsw-alias-label-secondary)] hover:text-foreground dsh-customized-summary'
+const CUSTOMIZED_BODY = 'flex flex-col gap-3 pt-3'
 
 /** Props of {@link ProviderEditor}. */
 export interface ProviderEditorProps {
@@ -309,7 +325,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   if (node === undefined) {
     // A directory entry addressing a position its schema cannot resolve is a
     // host-side inconsistency; showing it beats a blank card.
-    return <p className={styles['error']}>{`${props.provider}: unresolvable settings path`}</p>
+    return <p className={ERROR}>{`${props.provider}: unresolvable settings path`}</p>
   }
 
   const keyLocked = keyState?.writable === false
@@ -359,10 +375,10 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     }
     return (
       <>
-        <div className={styles['field']}>
-          <span className={styles['fieldLabel']}>{t('keyInput')}</span>
-          <input
-            className={styles['input']}
+        <div className={FIELD}>
+          <span className={FIELD_LABEL}>{t('keyInput')}</span>
+          <ShadcnInput
+            className={INPUT}
             type="password"
             autoComplete="off"
             value={keyDraft}
@@ -374,20 +390,20 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
             disabled={disabled || keyLocked}
             onChange={(event) => { setKeyDraft(event.target.value) }}
           />
-          {shownKeyFailure === undefined ? null : <p className={styles['error']}>{t(shownKeyFailure)}</p>}
+          {shownKeyFailure === undefined ? null : <p className={ERROR}>{t(shownKeyFailure)}</p>}
         </div>
-        {props.credentialOnly === true ? null : <details className={styles['customized']}>
-          <summary className={styles['customizedSummary']}>{t('customized')}</summary>
-          <div className={styles['customizedBody']}>
+        {props.credentialOnly === true ? null : <details className={CUSTOMIZED}>
+          <summary className={CUSTOMIZED_SUMMARY}>{t('customized')}</summary>
+          <div className={CUSTOMIZED_BODY}>
             {/* The name and the protocol are the create card's two remaining
                 profile fields; a route the adapter ships defaults both from
                 its catalog entry and neither belongs on its card. */}
             {ownsIdentity
               ? (
-                <div className={styles['field']}>
-                  <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
-                  <input
-                    className={styles['input']}
+                <div className={FIELD}>
+                  <span className={FIELD_LABEL}>{t('customDisplayName')}</span>
+                  <ShadcnInput
+                    className={INPUT}
                     type="text"
                     value={stringAt(draft, 'displayName') ?? ''}
                     // What this route is called the moment the field is
@@ -406,10 +422,10 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 </div>
               )
               : null}
-            <div className={styles['field']}>
-              <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
-              <input
-                className={styles['input']}
+            <div className={FIELD}>
+              <span className={FIELD_LABEL}>{t('baseUrl')}</span>
+              <ShadcnInput
+                className={INPUT}
                 type="text"
                 value={stringAt(draft, 'baseURL') ?? ''}
                 placeholder={family === 'deepseek'
@@ -426,24 +442,26 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 on the create card. */}
             {ownsIdentity
               ? (
-                <div className={styles['field']}>
-                  <span className={styles['fieldLabel']}>{t('customApi')}</span>
-                  <select
-                    className={`${styles['input']} ${styles['selectInput']}`}
-                    value={probeApi ?? ''}
-                    aria-label={t('customApi')}
-                    disabled={disabled}
-                    onChange={(event) => { setField('api', event.target.value) }}
-                  >
-                    {/* A profile naming no protocol — hand-written into
-                        settings.yaml with no model to need one — selects
-                        nothing rather than reading as if it had picked the
-                        first choice. The option is named because a screen
-                        reader announces it either way, and an empty one is
-                        announced as a choice with no identity. */}
-                    {probeApi === undefined ? <option value="">{t('customApiUnset')}</option> : null}
-                    {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
-                  </select>
+                <div className={FIELD}>
+                  <span className={FIELD_LABEL}>{t('customApi')}</span>
+                  <div className="max-w-[240px]">
+                    <NativeSelect
+                      className={INPUT}
+                      value={probeApi ?? ''}
+                      aria-label={t('customApi')}
+                      disabled={disabled}
+                      onChange={(event) => { setField('api', event.target.value) }}
+                    >
+                      {/* A profile naming no protocol — hand-written into
+                          settings.yaml with no model to need one — selects
+                          nothing rather than reading as if it had picked the
+                          first choice. The option is named because a screen
+                          reader announces it either way, and an empty one is
+                          announced as a choice with no identity. */}
+                      {probeApi === undefined ? <option value="">{t('customApiUnset')}</option> : null}
+                      {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
+                    </NativeSelect>
+                  </div>
                 </div>
               )
               : null}
@@ -468,25 +486,25 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   }
 
   return (
-    <div className={props.credentialOnly === true ? styles['addBlock'] : styles['editor']}>
+    <div className={props.credentialOnly === true ? ADD_BLOCK : EDITOR}>
       {props.hideTitle === true
         ? null
         : (
-          <div className={styles['editorHeader']}>
-            <span className={styles['editorTitle']}>{props.displayName}</span>
+          <div className={EDITOR_HEADER}>
+            <span className={EDITOR_TITLE}>{props.displayName}</span>
             {props.provider !== props.displayName
-              ? <span className={styles['editorRoute']}>{props.provider}</span>
+              ? <span className={EDITOR_ROUTE}>{props.provider}</span>
               : null}
           </div>
         )}
       {layout === 'unknown'
-        ? <p className={styles['advancedHint']}>{`${t('advancedHint')} (${namespace.ns})`}</p>
+        ? <p className={ADVANCED_HINT}>{`${t('advancedHint')} (${namespace.ns})`}</p>
         : curatedFields(layout)}
-      {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
+      {failure !== undefined ? <p className={ERROR}>{failure}</p> : null}
       {props.credentialOnly === true || modelFailure === undefined
         ? null
         : (
-          <p className={styles['advancedHint']}>
+          <p className={ADVANCED_HINT}>
             {`${t('model')} ${String(modelFailure.index + 1)}: ${t(modelFailure.key)}`}
           </p>
         )}

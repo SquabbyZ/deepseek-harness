@@ -12,11 +12,12 @@
 import { useEffect, useRef } from 'react'
 import { useSyncExternalStore } from 'react'
 import clsx from 'clsx'
-import { IconCheckOutline16, RiskConfirmation, useAnchoredMaxHeight } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconCheckOutline16, RiskConfirmation, ShadcnButton, ShadcnInput, useAnchoredMaxHeight,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { filterOptions } from './popup.ts'
 import type { PopupSelectController } from './popup.ts'
-import css from './PopupSelectView.module.css'
 
 /** Design cap on the card height (same MenuDropdown family as the slash menu). */
 const MAX_HEIGHT = 320
@@ -108,14 +109,14 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
       {state.confirming === null && (
         <div
           ref={cardRef}
-          className={css.card}
+          className="absolute bottom-[calc(100%_+_4px)] left-0 z-[100] flex flex-col p-1 min-w-[min(220px,100%)] max-w-full max-h-[320px] overflow-hidden rounded-xl border border-[var(--dsw-alias-border-inverted)] bg-[var(--dsw-specific-menu)] shadow-[var(--dsw-shadow-lv3)] outline-none [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
           style={{ maxHeight }}
           aria-label={t('overlay.aria', { command: String(state.command) })}
           onKeyDown={onKeyDown}
         >
-          <input
+          <ShadcnInput
             ref={searchRef}
-            className={css.search}
+            className="h-auto m-[2px_2px_4px] rounded-lg border border-[var(--dsw-alias-border-inverted)] bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none shadow-none focus-visible:ring-0"
             type="text"
             placeholder={t('search.placeholder')}
             aria-label={t('search.aria')}
@@ -124,33 +125,33 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
             onChange={(ev) => { popup.setSearch(ev.currentTarget.value) }}
           />
           {state.error !== null && (
-            <div className={css.error} role="alert">
-              <span className={css.errorText}>{state.error}</span>
+            <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-[var(--dsw-alias-state-error-primary)]" role="alert">
+              <span className="flex-1 overflow-hidden text-ellipsis">{state.error}</span>
               {state.status === 'failed' && (
-                <button type="button" className={css.retry} onClick={() => { popup.retry() }}>{t('retry')}</button>
+                <ShadcnButton variant="ghost" className="h-auto cursor-pointer rounded-md border border-[var(--dsw-alias-border-inverted)] bg-transparent px-2 py-0.5 text-xs text-foreground hover:bg-transparent hover:text-foreground" onClick={() => { popup.retry() }}>{t('retry')}</ShadcnButton>
               )}
             </div>
           )}
-          {state.status === 'pending' && <div className={css.status}>{t('status.loading')}</div>}
-          {state.submitting && <div className={css.status}>{t('status.applying')}</div>}
-          {state.status === 'ready' && rows.length === 0 && <div className={css.status}>{t('status.empty')}</div>}
+          {state.status === 'pending' && <div className="px-2.5 py-2 text-[13px] text-[var(--dsw-alias-label-tertiary)]">{t('status.loading')}</div>}
+          {state.submitting && <div className="px-2.5 py-2 text-[13px] text-[var(--dsw-alias-label-tertiary)]">{t('status.applying')}</div>}
+          {state.status === 'ready' && rows.length === 0 && <div className="px-2.5 py-2 text-[13px] text-[var(--dsw-alias-label-tertiary)]">{t('status.empty')}</div>}
           {state.status === 'ready' && (
-            <div role="listbox" aria-label={t('listbox.aria', { command: String(state.command) })} className={css.viewport}>
+            <div role="listbox" aria-label={t('listbox.aria', { command: String(state.command) })} className="flex min-h-0 flex-col overflow-y-auto">
               {rows.map((option, index) => (
                 <div
                   key={option.id}
                   role="option"
                   aria-selected={index === state.active}
-                  className={clsx(css.row, index === state.active && css.rowActive)}
+                  className={clsx('flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer text-[13px] text-foreground', index === state.active && 'bg-[var(--dsw-alias-interactive-bg-hover)]')}
                   // mousedown would race the document capture listener; the shell
                   // owns focus anyway, so a plain click (inside the card → no
                   // dismiss) works.
                   onClick={() => { void popup.select(index) }}
                   onMouseEnter={() => { popup.highlight(index) }}
                 >
-                  <span className={css.label}>{option.label}</span>
-                  {option.detail !== undefined && <span className={css.detail}>{option.detail}</span>}
-                  {option.active === true && <span className={css.check}><IconCheckOutline16 /></span>}
+                  <span className="min-w-0 flex-auto overflow-hidden whitespace-nowrap text-ellipsis">{option.label}</span>
+                  {option.detail !== undefined && <span className="overflow-hidden whitespace-nowrap text-ellipsis text-xs text-[var(--dsw-alias-label-tertiary)]">{option.detail}</span>}
+                  {option.active === true && <span className="inline-flex flex-none text-foreground"><IconCheckOutline16 /></span>}
                 </div>
               ))}
             </div>

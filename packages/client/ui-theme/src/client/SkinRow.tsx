@@ -5,12 +5,18 @@
  * theme snapshot mirror, never the resolved active tokens.
  */
 import clsx from 'clsx'
+import { ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SkinId } from '../theme-settings.ts'
 import type { ThemeKey } from './locales.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { createAppearanceRowStore } from './settings-store.ts'
-import css from './SkinRow.module.css'
+
+/** Shared flexed-cube geometry (figma 'Selector Cube'): 1 1 180px, centered. */
+const CUBE_BASE = 'box-border flex-[1_1_180px] flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-transparent px-8 py-5 text-sm font-normal leading-[22px] text-foreground cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)]'
+
+/** Selected cube: module-platform fill + bluish-400 border (static token). */
+const CUBE_SELECTED = 'bg-[var(--dsw-alias-bg-module-platform)] border-[var(--dsw-static-neutral-bluish-400)] hover:bg-[var(--dsw-alias-bg-module-platform)]'
 
 /** Injected business face: the skin write (t rides the standard locale seat). */
 export interface SkinRowInjected {
@@ -38,19 +44,19 @@ const SKINS: readonly { id: SkinId; labelKey: ThemeKey }[] = [
 export function SkinRow({ t, setSkin, useStore }: SkinRowComponentProps) {
   const skin = useStore(s => s.skin)
   return (
-    <div className={css.group}>
-      <div className={css.title}>{t('skin.title')}</div>
-      <div className={css.cubeRow}>
+    <div className="flex flex-col gap-2 border-b border-border py-4">
+      <div className="text-sm font-normal leading-[22px] text-foreground">{t('skin.title')}</div>
+      <div className="flex flex-wrap items-stretch gap-2">
         {SKINS.map(({ id, labelKey }) => (
-          <button
+          <ShadcnButton
             key={id}
-            type="button"
-            className={clsx(css.skinCube, skin === id && css.selected)}
+            variant="ghost"
+            className={clsx(CUBE_BASE, skin === id && CUBE_SELECTED)}
             aria-pressed={skin === id}
             onClick={() => { setSkin(id) }}
           >
             {t(labelKey)}
-          </button>
+          </ShadcnButton>
         ))}
       </div>
     </div>

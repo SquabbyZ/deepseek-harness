@@ -18,9 +18,8 @@
 // the error color.
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
-import clsx from 'clsx'
 import {
-  CodeBlock, DiffBlock, DisclosureRow, IconInspectOutline12, ReadBlock, SearchBlock, StateDot, TerminalBlock, WebBlock,
+  CodeBlock, DiffBlock, DisclosureRow, IconInspectOutline12, ReadBlock, SearchBlock, StateDot, TerminalBlock, WebBlock, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WebBlockProps } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
@@ -29,7 +28,6 @@ import { CHAT_READ_MAX_LINES, type ReadCardModel } from '../models/read-card-mod
 import { CHAT_SEARCH_MAX_LINES, type SearchCardModel } from '../models/search-card-model.ts'
 import { terminalBlockLabels, type TerminalCardModel } from '../models/terminal-card-model.ts'
 import type { ToolRowState, ToolRowVariant } from '../models/tool-call-model.ts'
-import css from './ToolRow.module.css'
 
 export interface ToolRowProps {
   /** The render site's conversation locale seat (terminal/code body copy). */
@@ -171,6 +169,7 @@ export function ToolRow({
   const suffix = failureLine === null ? summarySuffix ?? null : null
   // The failure line is error prose, not the path: no open-file affordance.
   const fileLink = filePath !== undefined && onOpenFile !== undefined && failureLine === null
+  const cordis = toolName?.startsWith('cordis_') ?? false
   const toggleExpand = () => {
     setExpanded(v => !v)
   }
@@ -192,13 +191,13 @@ export function ToolRow({
   // row keeps DisclosureRow's icon→chevron hover preview (its default) instead
   // of losing it with the icon.
   return (
-    <div className={css.root} data-variant={variant} data-tool={toolName} data-state={state}>
-      {status !== null && <span className={css.visuallyHidden}>{status}</span>}
+    <div className="group/tool flex flex-col" data-variant={variant} data-tool={toolName} data-state={state}>
+      {status !== null && <span className="absolute size-px overflow-hidden whitespace-nowrap [clip:rect(0_0_0_0)]">{status}</span>}
       <DisclosureRow
-        rowClassName={css.row}
-        leadingClassName={css.leading}
-        titleClassName={css.title}
-        chevronClassName={css.chevron}
+        rowClassName="row-sweep"
+        leadingClassName={cordis ? 'text-[var(--dsw-alias-state-business-primary)]' : undefined}
+        titleClassName={cordis ? 'font-medium text-[var(--dsw-alias-state-business-primary)]' : 'font-normal'}
+        chevronClassName="text-[var(--dsw-alias-label-secondary)]"
         icon={leadingFor(state, icon)}
         title={title}
         open={open}
@@ -210,11 +209,11 @@ export function ToolRow({
           /* An empty summary drops the separator with it (a row that is only
              its title shows no trailing dot). */
           <>
-            <span className={css.sep} aria-hidden />
+            <span className={cn('mx-2 size-0.5 flex-none rounded-[1px]', cordis ? 'bg-[var(--dsw-alias-state-business-primary)]' : 'bg-[var(--dsw-alias-label-caption)]')} aria-hidden />
             {fileLink ? (
               <button
                 type="button"
-                className={css.fileLink}
+                className="m-0 flex-1 min-w-0 cursor-pointer overflow-hidden border-none bg-transparent p-0 text-left text-sm leading-6 text-[var(--dsw-alias-label-secondary)] underline decoration-[var(--dsw-alias-label-quaternary)] underline-offset-[3px] [font:inherit] hover:text-foreground hover:decoration-current"
                 onClick={openFile}
                 onKeyDown={fileLinkKeyDown}
               >
@@ -222,66 +221,70 @@ export function ToolRow({
               </button>
             ) : (
               <span
-                className={clsx(css.summary, failureLine !== null && css.errorSummary)}
+                className={cn(
+                  'flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-6',
+                  failureLine !== null ? 'text-[var(--dsw-alias-state-error-primary)]' : 'text-[var(--dsw-alias-label-tertiary)]',
+                  '_summary_',
+                )}
               >
                 {summaryText}
               </span>
             )}
-            {suffix !== null && <span className={css.summarySuffix}>{suffix}</span>}
+            {suffix !== null && <span className="ml-1 flex-none whitespace-nowrap text-sm leading-6 text-[var(--dsw-alias-label-tertiary)]">{suffix}</span>}
           </>
         )}
       >
         {/* The wrapper (sibling of the header row, so clicks inside never
             toggle it) carries the expanded body and the Inspect pill below. */}
-        <div className={css.bodyWrap}>
+        <div className="flex flex-col">
           {terminalBody !== null
             ? (
               <TerminalBlock
                 {...terminalBody.card}
                 maxLines={Infinity}
                 labels={terminalBlockLabels(t)}
-                className={css.terminalBody}
+                className="m-[4px_0_4px_4px] border border-[var(--dsw-alias-border-l1)] [--dsl-terminal-font:var(--dsw-font-markdown-code-block-small)] [--dsl-terminal-line-height:18px] [--dsl-terminal-output-max-height:224px]"
               />
             )
             : diffBody !== null
-              ? <DiffBlock {...diffBody.card} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
+              ? <DiffBlock {...diffBody.card} maxLines={CHAT_DIFF_MAX_LINES} className="m-[4px_0_4px_4px]" />
               : readBody !== null
-                ? <ReadBlock {...readBody} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
+                ? <ReadBlock {...readBody} maxLines={CHAT_READ_MAX_LINES} className="m-[4px_0_4px_4px]" />
                 : searchBody !== null
                   ? (
                     <>
-                      <SearchBlock {...searchBody.card} maxLines={CHAT_SEARCH_MAX_LINES} className={css.searchBody} />
+                      <SearchBlock {...searchBody.card} maxLines={CHAT_SEARCH_MAX_LINES} className="m-[4px_0_4px_4px]" />
                       {/* A capped search's recovery locator lives only in the result
                           text; show it below the card so the dropped rows survive. */}
                       {searchBody.recovery !== undefined && (
-                        <div className={css.searchRecovery}>{searchBody.recovery}</div>
+                        <div className="m-[4px_0_4px_4px] whitespace-pre-wrap text-[var(--dsw-alias-label-tertiary)] [font:var(--dsw-font-xs-13)] [overflow-wrap:anywhere]">{searchBody.recovery}</div>
                       )}
                     </>
                   )
                   : webBody !== null
-                    ? <WebBlock {...webBody} className={css.webBody} />
+                    ? <WebBlock {...webBody} className="m-[4px_0_4px_4px]" />
                     : (
                       <>
                         {variant === 'code' && body !== null && (
-                          <div className={css.bodyScroll}>
-                            <CodeBlock code={body} lang="typescript" copyLabel={t('copy')} copiedLabel={t('copied')} className={css.codeBody} />
+                          <div className="max-h-[260px] overflow-y-auto">
+                            <CodeBlock code={body} lang="typescript" copyLabel={t('copy')} copiedLabel={t('copied')} className="m-[4px_0_4px_4px] [--dsl-code-block-content-font:var(--dsw-font-markdown-code-block-small)]" />
                           </div>
                         )}
                         {(cardBody !== null || outputText !== null) && (
-                          <div className={css.ioCard}>
+                          <div className="ioCard m-[4px_0_4px_4px] flex flex-col rounded-xl border border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-alias-markdown-code-block)] [font:var(--dsw-font-markdown-code-block-small)]">
                             {cardBody !== null && (
-                              <div className={css.ioSection}>
-                                <span className={css.ioLabel}>IN</span>
-                                <span className={css.ioText}>{cardBody}</span>
+                              <div className="tool-scroll-thin grid max-h-[150px] grid-cols-[max-content_1fr] items-baseline gap-x-3.5 overflow-y-auto px-4 py-3">
+                                <span className="sticky top-0 self-start text-[var(--dsw-alias-label-caption)]">IN</span>
+                                <span className="min-w-0 whitespace-pre-wrap text-[var(--dsw-alias-label-secondary)] [word-break:break-word] data-[error]:text-[var(--dsw-alias-state-error-primary)]">{cardBody}</span>
                               </div>
                             )}
                             {cardBody !== null && outputText !== null && (
-                              <span className={css.ioDivider} aria-hidden />
+                              <span className="h-px flex-none bg-[var(--dsw-alias-border-l2)]" aria-hidden />
                             )}
                             {outputText !== null && (
-                              <div className={css.ioSection}>
-                                <span className={css.ioLabel}>OUT</span>
-                                <span className={css.ioText} data-error={state === 'error' || undefined}>
+                              <div className="tool-scroll-thin grid max-h-[150px] grid-cols-[max-content_1fr] items-baseline gap-x-3.5 overflow-y-auto px-4 py-3">
+                                <span className="sticky top-0 self-start text-[var(--dsw-alias-label-caption)]">OUT</span>
+                                <span className="min-w-0 whitespace-pre-wrap text-[var(--dsw-alias-label-secondary)] [word-break:break-word] data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error={state === 'error' || undefined}>
                                   {outputText}
                                 </span>
                               </div>
@@ -293,7 +296,7 @@ export function ToolRow({
           {inspect !== undefined && (
             <button
               type="button"
-              className={css.inspectButton}
+              className="group-hover/tool:opacity-100 focus-visible:opacity-100 m-[4px_0_2px_4px] inline-flex cursor-pointer items-center gap-1 self-start rounded-full border border-border bg-background px-2 py-0.5 text-[11px] leading-4 text-[var(--dsw-alias-label-secondary)] opacity-0 transition-opacity duration-100 hover:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-foreground"
               onClick={inspect}
             >
               <IconInspectOutline12 />

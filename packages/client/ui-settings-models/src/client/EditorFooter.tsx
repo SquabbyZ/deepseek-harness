@@ -14,8 +14,8 @@
  */
 
 import type { ReactNode } from 'react'
+import { ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { en } from './locales.ts'
-import styles from './ModelsSection.module.css'
 
 /** Props of {@link EditorFooter}. */
 export interface EditorFooterProps {
@@ -37,6 +37,12 @@ export interface EditorFooterProps {
   onSubmit: () => void
 }
 
+const SECONDARY_BUTTON =
+  'inline-flex h-9 items-center justify-center gap-1 rounded-[18px] border border-border bg-transparent px-[14px] text-sm leading-[22px] font-normal text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+
+const PRIMARY_BUTTON =
+  'inline-flex h-9 items-center justify-center gap-1 rounded-[18px] border-none bg-[var(--dsw-alias-button-primary-fill)] px-[14px] text-sm leading-[22px] font-normal text-[var(--dsw-alias-label-primary-foreground)] hover:enabled:bg-[var(--dsw-alias-button-primary-hover)] hover:text-[var(--dsw-alias-label-primary-foreground)] disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+
 /**
  * Render one provider card's action row.
  * @param props - the labels, commit gating, and handlers the owning card supplies.
@@ -45,23 +51,23 @@ export interface EditorFooterProps {
 export function EditorFooter(props: EditorFooterProps): ReactNode {
   const { t } = props
   return (
-    <div className={styles['editorActions']}>
-      <button
-        type="button"
-        className={styles['secondaryButton']}
+    <div className="flex justify-end gap-2">
+      <ShadcnButton
+        variant="ghost"
+        className={SECONDARY_BUTTON}
         disabled={props.busy}
         onClick={props.onCancel}
       >
         {t(props.cancelLabel ?? 'cancel')}
-      </button>
-      <button
-        type="button"
-        className={styles['primaryButton']}
+      </ShadcnButton>
+      <ShadcnButton
+        variant="ghost"
+        className={PRIMARY_BUTTON}
         disabled={props.submitDisabled}
         onClick={props.onSubmit}
       >
         {props.busy ? t(props.submitBusyLabel) : t(props.submitLabel)}
-      </button>
+      </ShadcnButton>
     </div>
   )
 }

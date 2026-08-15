@@ -9,8 +9,6 @@ import type { WorkflowRunKey } from './locales.ts'
 import type {
   WorkflowRunMemberData, WorkflowRunPhaseData, WorkflowRunStatus,
 } from './workflow-definition.ts'
-import css from './WorkflowRunPanel.module.css'
-
 /** Navigation action injected from the plugin's own SessionRuntime access. */
 export interface WorkflowRunInjected {
   readonly openSession: (id: SessionId) => void
@@ -144,14 +142,14 @@ function RunHeader({ children, count, name, requiresExpansion, status, t }: {
       expandOnRowClick
       previewChevron={false}
       keepContentWhenOpen
-      rowClassName={css.runHeader}
-      leadingClassName={css.runLeading}
-      titleClassName={css.runTitle}
+      rowClassName={'wr-runHeader'}
+      leadingClassName={'wr-runLeading'}
+      titleClassName={'wr-runTitle'}
       collapsedContent={(
         <>
-          <span className={css.separator} aria-hidden />
-          <span className={css.runSummary}>{memberCount(count, t)}</span>
-          <span className={css.statusTail} data-status={status}>
+          <span className={'wr-separator'} aria-hidden />
+          <span className={'wr-runSummary'}>{memberCount(count, t)}</span>
+          <span className={'wr-statusTail'} data-status={status}>
             <StateDot state={dotState(status)} />
             <span>{t(STATUS_KEYS[status])}</span>
           </span>
@@ -172,18 +170,18 @@ function MemberRow({ member, navigable, openSession, t }: {
   const name = readableMember(member.label, t)
   const content = (
     <>
-      <span className={css.dotSlot}><StateDot state={dotState(member.status)} /></span>
-      <span className={css.memberLabelWrap} data-member-label-wrap><span className={css.memberLabel} data-member-label>{name}</span></span>
-      <span className={css.memberStatus} data-member-status-text>{t(STATUS_KEYS[member.status])}</span>
+      <span className={'wr-dotSlot'}><StateDot state={dotState(member.status)} /></span>
+      <span className={'wr-memberLabelWrap'} data-member-label-wrap><span className={'wr-memberLabel'} data-member-label>{name}</span></span>
+      <span className={'wr-memberStatus'} data-member-status-text>{t(STATUS_KEYS[member.status])}</span>
     </>
   )
   if (!navigable) {
-    return <div className={css.memberRow} data-member-status={member.status}>{content}</div>
+    return <div className={'wr-memberRow'} data-member-status={member.status}>{content}</div>
   }
   return (
     <button
       type="button"
-      className={css.memberButton}
+      className={'wr-memberButton'}
       data-member-status={member.status}
       aria-label={t('member.open', { name })}
       onClick={() => { openSession(member.childId) }}
@@ -208,19 +206,19 @@ function PhaseSection({ phase, navigable, openSession, t }: {
       expandOnRowClick
       previewChevron={false}
       keepContentWhenOpen
-      className={css.phase}
-      rowClassName={css.phaseHeader}
-      leadingClassName={css.phaseLeading}
-      titleClassName={css.phaseTitle}
+      className={'wr-phase'}
+      rowClassName={'wr-phaseHeader'}
+      leadingClassName={'wr-phaseLeading'}
+      titleClassName={'wr-phaseTitle'}
       collapsedContent={(
         <>
-          <span className={css.separator} aria-hidden />
-          <span className={css.phaseCount} data-phase-count>{memberCount(phase.members.length, t)}</span>
-          <span className={css.phaseStatus} data-phase-status-text>{phaseStatusSummary(phase.members, t)}</span>
+          <span className={'wr-separator'} aria-hidden />
+          <span className={'wr-phaseCount'} data-phase-count>{memberCount(phase.members.length, t)}</span>
+          <span className={'wr-phaseStatus'} data-phase-status-text>{phaseStatusSummary(phase.members, t)}</span>
         </>
       )}
     >
-      <div className={css.members}>
+      <div className={'wr-members'}>
         {phase.members.map(member => (
           <MemberRow
             key={member.seq}
@@ -245,7 +243,7 @@ export function WorkflowRunPanel({ node, sessionId, useSessions, openSession, t 
     shallowEqual,
   )
   return (
-    <section className={css.root} data-workflow-run data-run-status={node.data.status}>
+    <section className={'wr-root'} data-workflow-run data-run-status={node.data.status}>
       <RunHeader
         count={totalMembers}
         name={node.data.name}
@@ -253,9 +251,9 @@ export function WorkflowRunPanel({ node, sessionId, useSessions, openSession, t 
         status={node.data.status}
         t={t}
       >
-        <div className={css.phaseList}>
+        <div className={'wr-phaseList'}>
           {node.data.phases.length === 0
-            ? <span className={css.empty}>{t('run.empty')}</span>
+            ? <span className={'wr-empty'}>{t('run.empty')}</span>
             : node.data.phases.map(phase => (
               <PhaseSection
                 key={phase.key}

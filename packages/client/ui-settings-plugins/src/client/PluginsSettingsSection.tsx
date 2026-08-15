@@ -4,8 +4,16 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime,
 } from '@deepseek-ai/dsh-client-ui-slots'
+import { ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PluginsSettingsLocaleKey } from './locales.ts'
-import css from './PluginsSettingsSection.module.css'
+
+const SECTION = 'flex flex-col gap-3 max-w-[760px] text-foreground'
+const HEADING = 'm-0 text-lg font-semibold'
+const INTRO = 'm-0 text-[13px] text-[var(--dsw-alias-label-tertiary)]'
+const TABS = 'mt-0.5 flex items-end gap-[22px] border-b border-border'
+const TAB = 'relative rounded-none border-0 bg-transparent px-px pt-[7px] pb-[9px] text-[13px] leading-5 font-normal text-[var(--dsw-alias-label-tertiary)] hover:text-foreground data-[active=true]:text-foreground focus-visible:rounded-[2px] focus-visible:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--dsw-alias-state-business-primary)] focus-visible:outline-offset-2 focus-visible:ring-0 dsh-settings-tab'
+const PANEL = 'min-w-0 pt-0.5'
+const EMPTY = 'm-0 text-[13px] text-[var(--dsw-alias-label-tertiary)]'
 
 /** One tab projected from a `settings.plugins.tab` contribution. */
 export interface PluginsSettingsTabEntry {
@@ -50,22 +58,22 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
   }, [active])
 
   return (
-    <div className={css.section}>
-      <h2 className={css.heading}>{t('title')}</h2>
-      <p className={css.intro}>{t('intro')}</p>
-      {rows.length === 0 ? <p className={css.empty}>{t('empty')}</p> : (
+    <div className={SECTION}>
+      <h2 className={HEADING}>{t('title')}</h2>
+      <p className={INTRO}>{t('intro')}</p>
+      {rows.length === 0 ? <p className={EMPTY}>{t('empty')}</p> : (
         <>
-          <div className={css.tabs} role="tablist" aria-label={t('tabs')}>
+          <div className={TABS} role="tablist" aria-label={t('tabs')}>
             {rows.map((row, index) => {
               const selected = row.id === active
               return (
-                <button
+                <ShadcnButton
                   key={row.id}
                   ref={(element) => { tabRefs.current[index] = element }}
                   id={`${tabsId}-tab-${row.id}`}
-                  type="button"
+                  variant="ghost"
                   role="tab"
-                  className={css.tab}
+                  className={TAB}
                   aria-selected={selected}
                   aria-controls={`${tabsId}-panel-${row.id}`}
                   data-active={selected ? 'true' : undefined}
@@ -88,7 +96,7 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
                   }}
                 >
                   {row.label}
-                </button>
+                </ShadcnButton>
               )
             })}
           </div>
@@ -100,7 +108,7 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
                 <div
                   key={row.id}
                   id={`${tabsId}-panel-${row.id}`}
-                  className={css.panel}
+                  className={PANEL}
                   role="tabpanel"
                   aria-labelledby={`${tabsId}-tab-${row.id}`}
                   hidden={!selected}

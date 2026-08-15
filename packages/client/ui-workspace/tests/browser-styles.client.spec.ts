@@ -1,5 +1,6 @@
 /**
- * WorkspaceBrowser spacing contract, asserted against the CSS text on disk:
+ * WorkspaceBrowser spacing contract, asserted against the migrated CSS text on
+ * disk (packages/client/web/src/primitives.css, `ws-`/`wsr-` prefixed classes):
  * row fills share the shell's trailing inset, the stable scrollbar counts
  * inside it, and flat, grouped, and search views keep their intended rhythm.
  */
@@ -7,8 +8,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const css = readFileSync(fileURLToPath(new URL('../src/client/WorkspaceBrowser.module.css', import.meta.url)), 'utf8')
-const rowsCss = readFileSync(fileURLToPath(new URL('../src/client/rows/Rows.module.css', import.meta.url)), 'utf8')
+const primitivesCss = readFileSync(fileURLToPath(new URL('../../web/src/primitives.css', import.meta.url)), 'utf8')
 
 /**
  * Declarations of one selector rule, keyed by property with whitespace collapsed.
@@ -30,13 +30,13 @@ function declarationsFrom(source: string, selector: string): Map<string, string>
   return found.size === 0 ? undefined : found
 }
 
-const declarations = (selector: string): Map<string, string> | undefined => declarationsFrom(css, selector)
-const rowDeclarations = (selector: string): Map<string, string> | undefined => declarationsFrom(rowsCss, selector)
+const declarations = (selector: string): Map<string, string> | undefined => declarationsFrom(primitivesCss, selector)
+const rowDeclarations = (selector: string): Map<string, string> | undefined => declarationsFrom(primitivesCss, selector)
 
-describe('WorkspaceBrowser.module.css list', () => {
-  const root = declarations('.root')
-  const listArea = declarations('.listArea')
-  const list = declarations('.list')
+describe('WorkspaceBrowser primitives.css list', () => {
+  const root = declarations('.ws-root')
+  const listArea = declarations('.ws-listArea')
+  const list = declarations('.ws-list')
 
   it('is the scrolling region', () => {
     expect(list).toBeDefined()
@@ -51,7 +51,7 @@ describe('WorkspaceBrowser.module.css list', () => {
     expect(listArea?.get('margin-left')).toBe('-4px')
     expect(listArea?.get('padding-left')).toBe('4px')
     expect(listArea?.get('margin-right')).toBe('calc(-1 * var(--dsh-session-list-edge-inset))')
-    expect(declarations('.fade')?.get('right')).toBe('var(--dsh-session-list-edge-inset)')
+    expect(declarations('.ws-fade')?.get('right')).toBe('var(--dsh-session-list-edge-inset)')
     expect(list?.get('margin-right')).toBe('var(--dsh-session-list-scrollbar-offset)')
     expect(list?.get('margin-left')).toBe('-4px')
     expect(list?.get('padding-left')).toBe('4px')
@@ -62,7 +62,7 @@ describe('WorkspaceBrowser.module.css list', () => {
       '- var(--dsh-session-list-scrollbar-offset)',
       ')',
     ].join(' '))
-    expect(declarations('.list::-webkit-scrollbar')).toBeUndefined()
+    expect(declarations('.ws-list::-webkit-scrollbar')).toBeUndefined()
   })
 
   it('reserves the scrollbar whether or not the list overflows', () => {
@@ -70,16 +70,16 @@ describe('WorkspaceBrowser.module.css list', () => {
   })
 
   it('keeps 2px between rows and 4px between workspace groups', () => {
-    expect(declarations('.flatList > * + *')?.get('margin-top')).toBe('2px')
-    expect(declarations(".searchTree > [role='treeitem'] + [role='treeitem']")?.get('margin-top')).toBe('2px')
-    expect(declarations('.groupSection > * + *')?.get('margin-top')).toBe('2px')
-    expect(declarations('.groupSection + .groupSection')?.get('margin-top')).toBe('4px')
+    expect(declarations('.ws-flatList > * + *')?.get('margin-top')).toBe('2px')
+    expect(declarations(".ws-searchTree > [role='treeitem'] + [role='treeitem']")?.get('margin-top')).toBe('2px')
+    expect(declarations('.ws-groupSection > * + *')?.get('margin-top')).toBe('2px')
+    expect(declarations('.ws-groupSection + .ws-groupSection')?.get('margin-top')).toBe('4px')
   })
 
   it('draws drag targets as a leading chevron joined to the insertion line', () => {
-    const listTopMarker = declarations('.listTopDropIndicator')
-    const workspaceMarker = declarations('.workspaceDropBefore::before')
-    const sessionMarker = rowDeclarations('.sessionRow.dropBefore::before')
+    const listTopMarker = declarations('.ws-listTopDropIndicator')
+    const workspaceMarker = declarations('.ws-workspaceDropBefore::before')
+    const sessionMarker = rowDeclarations('.wsr-sessionRow.wsr-dropBefore::before')
     expect(listTopMarker?.get('top')).toBe('-8px')
     expect(listTopMarker?.get('left')).toBe('0')
     expect(workspaceMarker?.get('left')).toBe('0')
@@ -97,20 +97,20 @@ describe('WorkspaceBrowser.module.css list', () => {
   })
 
   it('keeps the compact fade, overflow control, search field, and row heights', () => {
-    expect(declarations('.fade')?.get('height')).toBe('24px')
-    expect(declarations('.sessionOverflowButton')?.get('height')).toBe('28px')
-    expect(declarations('.searchExpanded')?.get('height')).toBe('30px')
-    expect(rowDeclarations('.projectRow')?.get('height')).toBe('34px')
-    expect(rowDeclarations('.sessionRow')?.get('height')).toBe('32px')
-    expect(rowDeclarations('.flatSessionRowWithoutStatus .title')?.get('margin-left')).toBe('0')
-    expect(rowDeclarations('.searchResultRow')?.get('min-height')).toBe('48px')
-    expect(rowDeclarations('.sessionRow.selected')?.get('background'))
+    expect(declarations('.ws-fade')?.get('height')).toBe('24px')
+    expect(declarations('.ws-sessionOverflowButton')?.get('height')).toBe('28px')
+    expect(declarations('.ws-searchExpanded')?.get('height')).toBe('30px')
+    expect(rowDeclarations('.wsr-projectRow')?.get('height')).toBe('34px')
+    expect(rowDeclarations('.wsr-sessionRow')?.get('height')).toBe('32px')
+    expect(rowDeclarations('.wsr-flatSessionRowWithoutStatus .wsr-title')?.get('margin-left')).toBe('0')
+    expect(rowDeclarations('.wsr-searchResultRow')?.get('min-height')).toBe('48px')
+    expect(rowDeclarations('.wsr-sessionRow.wsr-selected')?.get('background'))
       .toBe('var(--dsw-alias-interactive-bg-hover)')
   })
 
   it('pins both rail controls to the shared left anchor during the column slide', () => {
-    expect(declarations('.rail .sectionHeader')?.get('justify-content')).toBe('flex-start')
-    expect(declarations('.rail .iconButton')?.get('width')).toBe('36px')
-    expect(declarations('.rail .search')?.get('width')).toBe('36px')
+    expect(declarations('.ws-rail .ws-sectionHeader')?.get('justify-content')).toBe('flex-start')
+    expect(declarations('.ws-rail .ws-iconButton')?.get('width')).toBe('36px')
+    expect(declarations('.ws-rail .ws-search')?.get('width')).toBe('36px')
   })
 })

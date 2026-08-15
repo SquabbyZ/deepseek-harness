@@ -24,8 +24,6 @@ import { deriveFlat, deriveGroups, deriveSearchResults, UNGROUPED_KEY } from './
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
 import { WorkspacePickFlow } from './WorkspacePicker.tsx'
-import css from './WorkspaceBrowser.module.css'
-
 /**
  * Column slide length (--ds-transition-duration-slow): rail-search focus waits it out —
  * focus() forces a synchronous layout and would jank the slide.
@@ -180,7 +178,7 @@ function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
         <Tooltip label={t('viewOptions.label')} side="bottom" delayMs={500}>
           <button
             type="button"
-            className={clsx(css.iconButton, css.wide)}
+            className={clsx('ws-iconButton', 'ws-wide')}
             aria-label={t('viewOptions.label')}
             onClick={() => { setOpen(v => !v) }}
           >
@@ -381,15 +379,15 @@ function SessionTree({
     && workspaceDrag.over.half === 'before'
 
   return (
-    <div className={clsx(css.treeBody, css.wide)}>
-      {workspaceDropAtListStart && <span className={css.listTopDropIndicator} aria-hidden="true" />}
+    <div className={clsx('ws-treeBody', 'ws-wide')}>
+      {workspaceDropAtListStart && <span className={'ws-listTopDropIndicator'} aria-hidden="true" />}
       <div
-        className={clsx(css.list, workspaceDropAtListStart && css.listTopDropActive)}
+        className={clsx('ws-list', workspaceDropAtListStart && 'ws-listTopDropActive')}
         role="tree"
         aria-label={t('section.sessions')}
       >
         {groups.length === 0 && (
-          <div className={css.empty}>{t('empty.none')}</div>
+          <div className={'ws-empty'}>{t('empty.none')}</div>
         )}
         {groups.map((group) => {
           const workspaceId = group.workspaceId
@@ -426,13 +424,13 @@ function SessionTree({
           return (
           // Group section: header row + expanded top-level session rows. The
           // inter-group breathing room is the section's own margin
-          // (WorkspaceBrowser.module.css).
+          // (primitives.css .ws-groupSection).
             <div
               key={group.key}
               className={clsx(
-                css.groupSection,
-                workspaceMarker === 'before' && css.workspaceDropBefore,
-                workspaceMarker === 'after' && css.workspaceDropAfter,
+                'ws-groupSection',
+                workspaceMarker === 'before' && 'ws-workspaceDropBefore',
+                workspaceMarker === 'after' && 'ws-workspaceDropAfter',
               )}
               onDragOver={workspaceDrag === null || hoverWorkspace === undefined
                 ? undefined
@@ -524,7 +522,7 @@ function SessionTree({
               {group.sessions.length > COLLAPSED_SESSION_LIMIT && (
                 <button
                   type="button"
-                  className={css.sessionOverflowButton}
+                  className={'ws-sessionOverflowButton'}
                   aria-expanded={expandedSessionGroups.includes(group.key)}
                   onClick={() => { setExpandedSessionGroups(keys => toggled(keys, group.key)) }}
                 >
@@ -537,7 +535,7 @@ function SessionTree({
           )
         })}
       </div>
-      <span className={css.fade} />
+      <span className={'ws-fade'} />
     </div>
   )
 }
@@ -615,10 +613,10 @@ function FlatList({
   }
   const now = Date.now()
   return (
-    <div className={clsx(css.treeBody, css.wide)}>
-      <div className={clsx(css.list, css.flatList)} role="tree" aria-label={t('section.sessions')}>
+    <div className={clsx('ws-treeBody', 'ws-wide')}>
+      <div className={clsx('ws-list', 'ws-flatList')} role="tree" aria-label={t('section.sessions')}>
         {rows.length === 0 && (
-          <div className={css.empty}>{t('empty.none')}</div>
+          <div className={'ws-empty'}>{t('empty.none')}</div>
         )}
         {rows.map((node) => {
           const active = drag !== null
@@ -657,7 +655,7 @@ function FlatList({
           )
         })}
       </div>
-      <span className={css.fade} />
+      <span className={'ws-fade'} />
     </div>
   )
 }
@@ -698,9 +696,9 @@ function SearchResults({
   const failed = currentRemote.status === 'error'
 
   return (
-    <div className={clsx(css.treeBody, css.wide)}>
-      <div className={css.list}>
-        <div className={css.searchTree} role="tree" aria-label={t('search.results.aria')}>
+    <div className={clsx('ws-treeBody', 'ws-wide')}>
+      <div className={'ws-list'}>
+        <div className={'ws-searchTree'} role="tree" aria-label={t('search.results.aria')}>
           {results.items.map(result => (
             <SearchResultItem
               key={result.id}
@@ -712,23 +710,23 @@ function SearchResults({
           ))}
         </div>
         {pending && (
-          <div className={css.searchStatus} role="status">{t('search.pending')}</div>
+          <div className={'ws-searchStatus'} role="status">{t('search.pending')}</div>
         )}
         {failed && (
-          <div className={css.searchWarning} role="status">
+          <div className={'ws-searchWarning'} role="status">
             {t('search.unavailable')}
           </div>
         )}
         {!pending && results.items.length === 0 && (
-          <div className={css.empty}>{t('search.noMatches')}</div>
+          <div className={'ws-empty'}>{t('search.noMatches')}</div>
         )}
         {results.hasMore && (
-          <div className={css.searchStatus}>
+          <div className={'ws-searchStatus'}>
             {t('search.hasMore', { n: resultLimit })}
           </div>
         )}
       </div>
-      <span className={css.fade} />
+      <span className={'ws-fade'} />
     </div>
   )
 }
@@ -973,18 +971,18 @@ export function WorkspaceBrowser({
   }
 
   return (
-    <div className={clsx(css.root, !wide && css.rail)}>
-      <div className={css.sectionHeader}>
+    <div className={clsx('ws-root', !wide && 'ws-rail')}>
+      <div className={'ws-sectionHeader'}>
         {wide && (
-          <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
+          <span className={clsx('ws-sectionLabel', 'ws-wide', searchExpanded && 'ws-sectionLabelHidden')}>
             {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
           </span>
         )}
         {wide && (
-          <div className={clsx(css.searchSlot, searchExpanded && css.searchSlotExpanded)}>
+          <div className={clsx('ws-searchSlot', searchExpanded && 'ws-searchSlotExpanded')}>
             <div
               ref={searchRoot}
-              className={clsx(css.search, searchExpanded && css.searchExpanded)}
+              className={clsx('ws-search', searchExpanded && 'ws-searchExpanded')}
               onClick={() => {
                 setWsPickerOpen(false)
                 setSearchExpanded(true)
@@ -994,7 +992,7 @@ export function WorkspaceBrowser({
               <Tooltip label={t('search')} side="bottom" delayMs={500} disabled={searchExpanded}>
                 <button
                   type="button"
-                  className={css.searchButton}
+                  className={'ws-searchButton'}
                   aria-label={t('search.sessions.aria')}
                   aria-expanded={searchExpanded}
                   onClick={() => {
@@ -1007,7 +1005,7 @@ export function WorkspaceBrowser({
               </Tooltip>
               <input
                 ref={searchInput}
-                className={css.searchInput}
+                className={'ws-searchInput'}
                 type="text"
                 placeholder={t('search.placeholder')}
                 maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
@@ -1023,7 +1021,7 @@ export function WorkspaceBrowser({
               {searchExpanded && (
                 <button
                   type="button"
-                  className={css.clearButton}
+                  className={'ws-clearButton'}
                   aria-label={t('search.clear')}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -1037,7 +1035,7 @@ export function WorkspaceBrowser({
             </div>
           </div>
         )}
-        <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
+        <div className={clsx('ws-headerActions', wide && searchExpanded && 'ws-headerActionsHidden')}>
           {wide && (
             <ViewOptionsMenu
               groupBy={groupBy}
@@ -1055,7 +1053,7 @@ export function WorkspaceBrowser({
               <button
                 ref={wsPlusRef}
                 type="button"
-                className={css.iconButton}
+                className={'ws-iconButton'}
                 aria-label={t('workspace.add')}
                 onClick={() => {
                   setWsPickerOpen(v => !v)
@@ -1086,11 +1084,11 @@ export function WorkspaceBrowser({
       </div>
 
       {/* The collapsed rail keeps search as its own 36px control. */}
-      {!wide && <div className={css.search}>
+      {!wide && <div className={'ws-search'}>
         <Tooltip label={t('search')}>
           <button
             type="button"
-            className={css.searchButton}
+            className={'ws-searchButton'}
             aria-label={t('search.sessions.aria')}
             onClick={() => {
               setSearchExpanded(true)
@@ -1105,7 +1103,7 @@ export function WorkspaceBrowser({
 
       {/* Always-mounted seat keeps the region's flex slot while the list
           itself is wide-only. */}
-      <div className={css.listArea}>
+      <div className={'ws-listArea'}>
         {wide && (normalizedQuery !== ''
           ? (
             <SearchResults
@@ -1179,7 +1177,7 @@ export function WorkspaceBrowser({
         )}
       >
         <input
-          className={css.renameInput}
+          className={'ws-renameInput'}
           value={renameDraft}
           aria-label={t('field.workspaceName')}
           autoFocus
@@ -1196,9 +1194,9 @@ export function WorkspaceBrowser({
           }}
         />
         {renameDuplicate && (
-          <div className={css.renameError} role="alert">{t('conflict.named', { name: renameTrimmed })}</div>
+          <div className={'ws-renameError'} role="alert">{t('conflict.named', { name: renameTrimmed })}</div>
         )}
-        {renameError !== null && <div className={css.renameError} role="alert">{renameError}</div>}
+        {renameError !== null && <div className={'ws-renameError'} role="alert">{renameError}</div>}
       </Modal>
 
       <Modal
@@ -1214,7 +1212,7 @@ export function WorkspaceBrowser({
         )}
       >
         <input
-          className={css.renameInput}
+          className={'ws-renameInput'}
           value={sessionRenameDraft}
           aria-label={t('field.sessionName')}
           autoFocus
@@ -1230,7 +1228,7 @@ export function WorkspaceBrowser({
             }
           }}
         />
-        {sessionRenameError !== null && <div className={css.renameError} role="alert">{sessionRenameError}</div>}
+        {sessionRenameError !== null && <div className={'ws-renameError'} role="alert">{sessionRenameError}</div>}
       </Modal>
       <Modal
         open={deleteTarget !== null}
@@ -1245,7 +1243,7 @@ export function WorkspaceBrowser({
             <Button variant="outline" disabled={deleting} onClick={closeDelete}>{t('cancel')}</Button>
             <Button
               variant="outline"
-              className={css.deleteAction}
+              className={'ws-deleteAction'}
               disabled={deleting}
               onClick={confirmDelete}
             >
@@ -1254,8 +1252,8 @@ export function WorkspaceBrowser({
           </>
         )}
       >
-        {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
-        {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
+        {deleting && <div className={'ws-deleteStatus'} role="status">{t('delete.pending')}</div>}
+        {deleteError !== null && <div className={'ws-renameError'} role="alert">{deleteError}</div>}
       </Modal>
     </div>
   )

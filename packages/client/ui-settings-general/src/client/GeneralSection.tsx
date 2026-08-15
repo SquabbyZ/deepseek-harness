@@ -1,6 +1,5 @@
 /** The General section: one column rendering feature-owned item contributions. */
 import type { PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import css from './GeneralSection.module.css'
 
 /** Full component props: section owner share plus item render share. */
 export type GeneralSectionComponentProps =
@@ -13,7 +12,7 @@ export type GeneralSectionComponentProps =
  */
 export function GeneralSection({ renderSlot }: GeneralSectionComponentProps) {
   return (
-    <div className={css.section}>
+    <div className="flex w-full flex-col dsh-settings-section">
       {renderSlot('settings.general.item', {})}
     </div>
   )
