@@ -10,10 +10,14 @@ pub fn setup_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
 
-    TrayIconBuilder::with_id("main-tray")
-        .tooltip("DeepSeek Harness")
+    let mut tray = TrayIconBuilder::with_id("main-tray")
+        .tooltip(crate::config::product_name())
         .menu(&menu)
-        .show_menu_on_left_click(true)
+        .show_menu_on_left_click(true);
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {

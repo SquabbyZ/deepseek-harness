@@ -10,6 +10,7 @@
  */
 import { useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
+import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KernelSignal, LoaderStatus } from './loader-status.ts'
 import css from './AppRoot.module.css'
 
@@ -48,7 +49,7 @@ export function AppRoot(props: AppRootProps) {
   return (
     <div className={css.boot}>
       <div className={css.card}>
-        <div className={css.wordmark}>HARNESS</div>
+        <div className={css.wordmark}><FishLogo size={34} /></div>
         {!loud
           ? (
             <>
