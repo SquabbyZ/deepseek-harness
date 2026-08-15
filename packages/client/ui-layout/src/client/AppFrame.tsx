@@ -15,7 +15,6 @@ import type { ReactNode } from 'react'
 import type { PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from './columns.ts'
 import type { createLayoutStore } from './stores.ts'
-import css from './AppFrame.module.css'
 
 /** Full composed props: runtime share + child-slot render share + store share. */
 export type AppFrameProps =
@@ -25,12 +24,12 @@ export type AppFrameProps =
 
 /** Center column grid item (session-body building block). */
 function CenterColumn(props: { children?: ReactNode }) {
-  return <div className={css.centerCol}>{props.children}</div>
+  return <div className="flex min-w-0 flex-col overflow-hidden">{props.children}</div>
 }
 
 /** Details column grid item; width 0 keeps the subtree mounted (never unmount on close). */
 function DetailsColumn(props: { children?: ReactNode }) {
-  return <div className={css.detailsCol}>{props.children}</div>
+  return <div className="dsh-details-col min-w-0 overflow-hidden border-l border-border group-data-[details-collapsed]:border-l-0">{props.children}</div>
 }
 
 /**
@@ -72,7 +71,7 @@ function DragHandle(props: { side: 'sidebar' | 'details'; left: number; onStart:
 
   return (
     <div
-      className={css.handle}
+      className="dsh-app-frame-handle absolute top-0 bottom-0 w-2 -ml-1 cursor-col-resize z-[2] touch-none transition-[left] duration-[var(--ds-transition-duration-slow)] ease-[var(--ds-ease-in-out)] data-[dragging]:transition-none motion-reduce:transition-none"
       style={{ left: props.left }}
       data-side={props.side}
       data-dragging={dragging || undefined}
@@ -149,7 +148,7 @@ export function AppFrame({
   const sidebarBase = useRef(0)
   const detailsBase = useRef(0)
   // Track-level transitions pause for the whole gesture: eased tracks would
-  // detach the column edge from the pointer (AppFrame.module.css).
+  // detach the column edge from the pointer (the frame's grid-column transition).
   const [dragging, setDragging] = useState(false)
   const onDragEnd = useCallback(() => { setDragging(false) }, [])
   const onSidebarStart = useCallback(() => { sidebarBase.current = colsRef.current.sidebar; setDragging(true) }, [])
@@ -164,14 +163,14 @@ export function AppFrame({
   return (
     <div
       ref={frameRef}
-      className={css.frame}
+      className="app-frame group relative grid h-full grid-rows-[100%] overflow-hidden bg-background transition-[grid-template-columns] duration-[var(--ds-transition-duration-slow)] ease-[var(--ds-ease-in-out)] data-[dragging]:transition-none motion-reduce:transition-none"
       style={{ gridTemplateColumns: `${cols.sidebar}px minmax(0, 1fr) ${cols.details}px` }}
       data-surface="frame"
       data-sidebar-collapsed={sidebarCollapsed || undefined}
       data-details-collapsed={cols.details === 0 || undefined}
       data-dragging={dragging || undefined}
     >
-      <div className={css.sidebarCol} data-surface="sidebar">
+      <div className="min-w-0 overflow-hidden border-r border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-specific-sidebar-fill)]" data-surface="sidebar">
         {/* Render-site slot call with live concession output: a closed
             sidebar keeps the mounted slot at the compact-rail width, and the
             component sees its rendered state as owner params decided here
@@ -191,7 +190,7 @@ export function AppFrame({
         <CenterColumn>{renderSlot('conversation', {})}</CenterColumn>
         <DetailsColumn>{renderSlot('details', {})}</DetailsColumn>
       </>
-      <div className={css.overlayLayer} data-shell-overlay>
+      <div className="absolute inset-0 z-20 pointer-events-none [&>*]:pointer-events-auto" data-shell-overlay>
         {renderSlot('shell.overlay', {})}
       </div>
       {/* The collapsed rail is fixed-width: no resize handle while closed. */}

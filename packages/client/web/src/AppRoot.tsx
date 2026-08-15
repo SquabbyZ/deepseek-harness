@@ -12,7 +12,19 @@ import { useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KernelSignal, LoaderStatus } from './loader-status.ts'
-import css from './AppRoot.module.css'
+
+/**
+ * Boot page styles are self-contained: the theme base stylesheets are linked
+ * by the shell, but the loading page must render acceptably even before/without
+ * them. The keyframe below is inlined here (not in primitives.css) so the boot
+ * page never depends on the themed stylesheet.
+ */
+const BOOT_KEYFRAMES = `
+@keyframes boot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+`
 
 /** AppRoot props: settled signal, fiber-state projection feed, boot failure report, deferred real-UI factory. */
 export interface AppRootProps {
@@ -47,17 +59,22 @@ export function AppRoot(props: AppRootProps) {
   const loud = error !== undefined || failed.length > 0
 
   return (
-    <div className={css.boot}>
-      <div className={css.card}>
-        <div className={css.wordmark}><FishLogo size={48} className={css.blink} /></div>
-        {loud && (
-          <div className={css.failed}>
-            <div className={css.failedTitle}>Failed to load plugins</div>
-            {failed.map(([id]) => <div key={id} className={css.failedItem}>{id}</div>)}
-            {error !== undefined && <div className={css.failedItem}>{error}</div>}
+    <>
+      <style>{BOOT_KEYFRAMES}</style>
+      <div className="grid h-full place-items-center bg-[var(--dsw-alias-bg-base,#f9fafb)]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="text-[var(--dsw-alias-label-primary,#0f1115)]">
+            <FishLogo size={48} className="animate-[boot-blink_1.4s_ease-in-out_infinite]" />
           </div>
-        )}
+          {loud && (
+            <div className="flex max-w-[480px] flex-col gap-2">
+              <div className="text-sm font-semibold leading-[22px] text-[var(--dsw-alias-label-primary,#0f1115)]">Failed to load plugins</div>
+              {failed.map(([id]) => <div key={id} className="text-xs leading-[18px] text-[var(--dsw-alias-label-secondary,#61666b)] [font-family:var(--ds-font-family-code,ui-monospace,'SF_Mono',Menlo,Consolas,'Courier_New')]">{id}</div>)}
+              {error !== undefined && <div className="text-xs leading-[18px] text-[var(--dsw-alias-label-secondary,#61666b)] [font-family:var(--ds-font-family-code,ui-monospace,'SF_Mono',Menlo,Consolas,'Courier_New')]">{error}</div>}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

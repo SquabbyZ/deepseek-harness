@@ -19,11 +19,10 @@ import clsx from 'clsx'
 import type { ModelReasoningEffort, ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
 import {
   IconCheckOutline16, IconChevronDownOutline14, IconChevronRightOutline14,
-  IconWarningOutline16, Toast,
+  IconWarningOutline16, ShadcnButton, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelSelectInjected } from './slots.ts'
-import css from './ModelSelect.module.css'
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
 type Pane = 'root' | 'model' | 'effort'
@@ -35,6 +34,23 @@ interface EffortChoice {
   label: string
   description?: string
 }
+
+/** ToggleButton trigger (figma 313:14108): caption-tone chip, 28px tall. */
+const TRIGGER = 'flex h-7 min-w-0 max-w-[220px] cursor-pointer items-center gap-1 rounded-3xl border-none bg-transparent py-0 pl-2 pr-1 text-[13px] font-medium leading-5 text-[var(--dsw-alias-label-secondary)] outline-none hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-[var(--dsw-alias-label-secondary)] focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)] focus-visible:ring-0 disabled:pointer-events-auto disabled:cursor-default disabled:text-[var(--dsw-alias-label-dimmed)] disabled:opacity-100'
+/** MenuDropdown surface (figma 496:26454): r12, inverted hairline, lv3 shadow. */
+const MENU = 'absolute bottom-[calc(100%_+_8px)] right-0 z-20 flex max-h-[min(360px,calc(100vh_-_96px))] w-[min(240px,calc(100vw_-_32px))] flex-col overflow-hidden rounded-[12px] border border-[var(--dsw-alias-border-inverted)] bg-[var(--dsw-specific-menu)] p-1 text-foreground shadow-[var(--dsw-shadow-lv3)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]'
+/** Quiet status / empty line. */
+const STATUS = 'p-2.5 text-[13px] leading-5 text-[var(--dsw-alias-label-tertiary)]'
+/** Error / warning strip base geometry. */
+const STRIP = 'mb-1 flex items-start justify-between gap-2 rounded-[8px] px-2 py-[7px] text-xs leading-[18px]'
+const ERROR = `${STRIP} bg-[var(--dsw-alias-interactive-bg-hover-danger)] text-[var(--dsw-alias-state-error-primary)]`
+const WARNING = `${STRIP} bg-[var(--dsw-alias-bg-module-platform)] text-[var(--dsw-alias-state-warn-label)]`
+/** Inline retry verb. */
+const RETRY = 'h-auto flex-[0_0_auto] cursor-pointer rounded-none border-none bg-transparent p-0 text-xs font-semibold leading-[18px] text-inherit hover:bg-transparent hover:text-inherit'
+/** Drilled-in model / effort option row. */
+const OPTION = 'flex w-full min-h-[38px] cursor-pointer items-center gap-2 rounded-[10px] border-none bg-transparent px-2 py-1.5 text-left font-normal text-inherit outline-none hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-inherit focus-visible:bg-[var(--dsw-alias-interactive-bg-hover)] focus-visible:ring-0 disabled:pointer-events-auto disabled:cursor-default disabled:text-[var(--dsw-alias-label-dimmed)] disabled:opacity-100'
+/** Two-level root cell (figma .Menu_cell). */
+const CELL = 'flex h-10 w-full cursor-pointer items-center gap-2 rounded-[10px] border-none bg-transparent px-2.5 py-0 text-left text-sm font-normal leading-[22px] text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-foreground'
 
 /**
  * Render the composer model seat.
@@ -217,11 +233,11 @@ export function ModelSelect(
   }
 
   return (
-    <div ref={rootRef} className={css.root} onKeyDown={onRootKeyDown} onBlur={onBlur}>
-      <button
+    <div ref={rootRef} className="relative min-w-0" onKeyDown={onRootKeyDown} onBlur={onBlur}>
+      <ShadcnButton
         ref={triggerRef}
-        type="button"
-        className={css.trigger}
+        variant="ghost"
+        className={TRIGGER}
         aria-label={triggerAria}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -236,32 +252,32 @@ export function ModelSelect(
           }
         }}
       >
-        <span className={css.triggerLabel}>{modelLabel}</span>
-        {effortLabel !== undefined && <span className={css.triggerEffort}>{effortLabel}</span>}
-        <IconChevronDownOutline14 className={clsx(css.chevron, open && css.chevronOpen)} />
-      </button>
+        <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{modelLabel}</span>
+        {effortLabel !== undefined && <span className="flex-[0_0_auto] text-[var(--dsw-alias-label-caption)]">{effortLabel}</span>}
+        <IconChevronDownOutline14 className={clsx('flex-[0_0_auto] text-[var(--dsw-alias-label-caption)] transition-transform duration-[120ms]', open && 'rotate-180')} />
+      </ShadcnButton>
 
       {open && (
         <div
           id={`${id}-menu`}
-          className={css.menu}
+          className={MENU}
           role="menu"
           aria-label={t('menu.aria')}
           aria-busy={state.status === 'loading' || busy}
         >
           {pane === 'root' && (
             <>
-              <button ref={itemRef()} type="button" role="menuitem" className={css.cell} onClick={() => { setPane('model') }}>
-                <span className={css.cellLabel}>{t('menu.model')}</span>
-                <span className={css.cellValue}>{modelLabel}</span>
-                <IconChevronRightOutline14 className={css.cellChevron} />
-              </button>
+              <ShadcnButton ref={itemRef()} variant="ghost" role="menuitem" className={CELL} onClick={() => { setPane('model') }}>
+                <span className="min-w-0 flex-[1_1_auto] overflow-hidden text-ellipsis whitespace-nowrap">{t('menu.model')}</span>
+                <span className="min-w-0 flex-[0_1_auto] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--dsw-alias-label-tertiary)]">{modelLabel}</span>
+                <IconChevronRightOutline14 className="flex-[0_0_auto] text-[var(--dsw-alias-label-tertiary)]" />
+              </ShadcnButton>
               {reasoning !== undefined && (
-                <button ref={itemRef()} type="button" role="menuitem" className={css.cell} onClick={() => { setPane('effort') }}>
-                  <span className={css.cellLabel}>{t('menu.effort')}</span>
-                  <span className={css.cellValue}>{effortLabel}</span>
-                  <IconChevronRightOutline14 className={css.cellChevron} />
-                </button>
+                <ShadcnButton ref={itemRef()} variant="ghost" role="menuitem" className={CELL} onClick={() => { setPane('effort') }}>
+                  <span className="min-w-0 flex-[1_1_auto] overflow-hidden text-ellipsis whitespace-nowrap">{t('menu.effort')}</span>
+                  <span className="min-w-0 flex-[0_1_auto] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--dsw-alias-label-tertiary)]">{effortLabel}</span>
+                  <IconChevronRightOutline14 className="flex-[0_0_auto] text-[var(--dsw-alias-label-tertiary)]" />
+                </ShadcnButton>
               )}
             </>
           )}
@@ -269,50 +285,50 @@ export function ModelSelect(
           {pane === 'model' && (
             <>
               {state.status === 'loading' && (
-                <div className={css.status}>{t('status.loading')}</div>
+                <div className={STATUS}>{t('status.loading')}</div>
               )}
               {state.error !== null && lastActionRef.current === 'load' && (
-                <div className={css.error}>
+                <div className={ERROR}>
                   <span>{t('error.action', { message: state.error })}</span>
-                  <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
+                  <ShadcnButton variant="ghost" className={RETRY} onClick={reload}>{t('retry')}</ShadcnButton>
                 </div>
               )}
               {state.failures.map(failure => (
-                <div className={css.warning} key={failure.id}>
+                <div className={WARNING} key={failure.id}>
                   <span>{t('warning.groupLoad', { name: failure.name, message: failure.message })}</span>
-                  <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
+                  <ShadcnButton variant="ghost" className={RETRY} onClick={reload}>{t('retry')}</ShadcnButton>
                 </div>
               ))}
-              <div className={clsx(css.groups, 'scrollable')}>
+              <div className={clsx('min-h-0 space-y-1 overflow-y-auto', 'scrollable')}>
                 {state.groups.map((group) => {
                   const headingId = `${id}-${group.id}`
                   return (
-                    <section role="group" aria-labelledby={headingId} className={css.group} key={group.id}>
-                      <div className={css.groupTitle} id={headingId}>{group.name}</div>
+                    <section role="group" aria-labelledby={headingId} className="min-w-0" key={group.id}>
+                      <div className="sticky top-0 z-[1] bg-[var(--dsw-specific-menu)] px-2 pb-[3px] pt-[5px] text-xs font-medium leading-[18px] text-[var(--dsw-alias-label-tertiary)]" id={headingId}>{group.name}</div>
                       {group.models.map((model) => {
                         const selected = state.current?.provider === group.id && state.current.model === model.id
                         return (
-                          <button
+                          <ShadcnButton
                             ref={itemRef()}
-                            type="button"
+                            variant="ghost"
                             role="menuitemradio"
                             aria-checked={selected}
-                            className={clsx(css.option, selected && css.selected)}
+                            className={OPTION}
                             key={model.id}
                             title={model.name}
                             disabled={busy}
                             onClick={() => { choose({ provider: group.id, model: model.id }) }}
                           >
-                            <span className={css.optionCopy}>
-                              <span className={css.modelName}>{model.name}</span>
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium leading-5 text-inherit">{model.name}</span>
                               {model.description !== undefined && (
-                                <span className={css.description}>{model.description}</span>
+                                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]">{model.description}</span>
                               )}
                             </span>
-                            <span className={css.check}>
+                            <span className="grid flex-[0_0_18px] place-items-center text-foreground">
                               {selected ? <IconCheckOutline16 /> : null}
                             </span>
-                          </button>
+                          </ShadcnButton>
                         )
                       })}
                     </section>
@@ -320,7 +336,7 @@ export function ModelSelect(
                 })}
               </div>
               {state.status === 'ready' && choices.length === 0 && (
-                <div className={css.empty}>{t('empty.models')}</div>
+                <div className={STATUS}>{t('empty.models')}</div>
               )}
             </>
           )}
@@ -328,34 +344,34 @@ export function ModelSelect(
           {pane === 'effort' && (
             <>
               {state.error !== null && lastActionRef.current === 'load' && (
-                <div className={css.error}>
+                <div className={ERROR}>
                   <span>{t('error.action', { message: state.error })}</span>
-                  <button type="button" className={css.retry} onClick={reload}>{t('action.reload')}</button>
+                  <ShadcnButton variant="ghost" className={RETRY} onClick={reload}>{t('action.reload')}</ShadcnButton>
                 </div>
               )}
               {effortChoices.length === 0
-                ? <div className={css.empty}>{t('empty.efforts')}</div>
+                ? <div className={STATUS}>{t('empty.efforts')}</div>
                 : effortChoices.map(level => (
-                  <button
+                  <ShadcnButton
                     ref={itemRef()}
-                    type="button"
+                    variant="ghost"
                     role="menuitemradio"
                     aria-checked={effectiveEffort === level.effort}
-                    className={clsx(css.option, effectiveEffort === level.effort && css.selected)}
+                    className={OPTION}
                     key={level.key}
                     disabled={busy}
                     onClick={() => { chooseEffort(level.effort) }}
                   >
-                    <span className={css.optionCopy}>
-                      <span className={css.modelName}>{level.label}</span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium leading-5 text-inherit">{level.label}</span>
                       {level.description !== undefined && (
-                        <span className={css.description}>{level.description}</span>
+                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]">{level.description}</span>
                       )}
                     </span>
-                    <span className={css.check}>
+                    <span className="grid flex-[0_0_18px] place-items-center text-foreground">
                       {effectiveEffort === level.effort ? <IconCheckOutline16 /> : null}
                     </span>
-                  </button>
+                  </ShadcnButton>
                 ))}
             </>
           )}

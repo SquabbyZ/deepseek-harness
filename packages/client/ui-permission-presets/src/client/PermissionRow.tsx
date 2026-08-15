@@ -8,12 +8,14 @@ import { useEffect, useState } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  IconChevronDownOutline14, Menu, RiskConfirmation,
+  IconChevronDownOutline14, Menu, RiskConfirmation, ShadcnButton,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PermissionSettingsState } from './settings-store.ts'
 import type { PermissionSettingsKey } from './locales.ts'
 import { FULL_ACCESS_PRESET } from './presentation.ts'
-import css from './PermissionRow.module.css'
+
+/** Preset selector pill (figma capsule on the module-platform fill). */
+const SELECTOR = 'inline-flex h-9 cursor-pointer items-center gap-3 rounded-[18px] border-none bg-[var(--dsw-alias-bg-module-platform)] px-[14px] py-0 text-sm font-normal leading-[22px] text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-foreground disabled:pointer-events-auto disabled:cursor-default disabled:opacity-100'
 
 /** Registration-side business face for the host-backed preference. */
 export interface PermissionRowInjected {
@@ -64,10 +66,10 @@ export function PermissionRow({ load, select, usePermission, t }: PermissionRowP
 
   return (
     <>
-      <div className={css.row}>
-        <div className={css.rowText}>
-          <div className={css.title}>{t('title')}</div>
-          <div className={css.desc} role={state.error === null ? undefined : 'alert'}>{description}</div>
+      <div className="flex items-center gap-2 border-b border-border py-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 pr-12">
+          <div className="text-sm font-normal leading-[22px] text-foreground">{t('title')}</div>
+          <div className="text-xs font-normal leading-[18px] text-[var(--dsw-alias-label-tertiary)]" role={state.error === null ? undefined : 'alert'}>{description}</div>
         </div>
         <Menu
           open={open}
@@ -87,17 +89,17 @@ export function PermissionRow({ load, select, usePermission, t }: PermissionRowP
           align="end"
           portal
           anchor={(
-            <button
-              type="button"
-              className={css.selector}
+            <ShadcnButton
+              variant="ghost"
+              className={SELECTOR}
               aria-haspopup="menu"
               aria-expanded={open}
               disabled={busy || !state.writable || state.options.length === 0}
               onClick={() => { setOpen(value => !value) }}
             >
               {label}
-              <IconChevronDownOutline14 className={css.chevron} />
-            </button>
+              <IconChevronDownOutline14 className="flex-none" />
+            </ShadcnButton>
           )}
         />
       </div>

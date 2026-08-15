@@ -6,20 +6,20 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
   style="display: contents;"
 >
   <div
-    class="root collapsed railIn quietBars"
+    class="flex h-full flex-col box-border bg-[var(--dsw-specific-sidebar-fill)] text-sm text-foreground [--dsh-sidebar-inline-padding:12px] quietBars [--dsh-scrollbar-thumb:transparent] [--dsh-scrollbar-thumb-hover:transparent] px-2.5 pt-[18px] pb-1.5 dsh-sidebar-rail-in"
     style=""
   >
     <div
-      class="logoRow"
+      class="flex shrink-0 items-center gap-2 box-border overflow-hidden h-9 justify-start p-0 mb-3"
     >
       <button
         aria-label="Open sidebar"
-        class="iconButton toggle"
+        class="dsh-sidebar-icon-button inline-flex shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)] h-9 w-9 text-foreground group"
         type="button"
       >
         <svg
           aria-hidden="true"
-          class="railFish"
+          class="group-hover:hidden"
           data-content="965fe321"
           fill="none"
           height="17.6580310880829"
@@ -27,7 +27,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
           width="24"
         />
         <svg
-          class="panelIcon"
+          class="hidden group-hover:inline"
           data-content="35f95b0c"
           fill="none"
           height="18"
@@ -39,7 +39,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
     </div>
     <button
       aria-label="New session"
-      class="newSession"
+      class="dsh-sidebar-new-session flex shrink-0 items-center justify-center overflow-hidden cursor-pointer text-sm font-medium leading-[22px] text-foreground h-9 w-9 self-start gap-0 p-0 mb-3 border border-transparent bg-transparent hover:bg-[var(--dsw-alias-interactive-bg-hover)]"
       type="button"
     >
       <svg
@@ -52,7 +52,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
       />
     </button>
     <div
-      class="regionArea"
+      class="dsh-sidebar-region-area flex min-h-0 flex-1 flex-col overflow-hidden ml-0 mr-0 pl-0"
     >
       <div
         data-slot="sidebar.workspaces"
@@ -60,10 +60,10 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
       />
     </div>
     <div
-      class="footArea"
+      class="dsh-sidebar-foot-area flex shrink-0 items-center gap-1 flex-col justify-start"
     >
       <div
-        class="footerActions"
+        class="flex min-w-0 flex-initial justify-center w-auto"
       >
         <div
           data-slot="sidebar.footer.action"
@@ -71,7 +71,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
         />
       </div>
       <div
-        class="settingsArea"
+        class="shrink-0 min-w-0 flex justify-center w-auto"
       >
         <div
           data-slot="sidebar.settings"
@@ -89,20 +89,20 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
   style="display: contents;"
 >
   <div
-    class="root quietBars"
+    class="flex h-full flex-col box-border bg-[var(--dsw-specific-sidebar-fill)] text-sm text-foreground [--dsh-sidebar-inline-padding:12px] quietBars [--dsh-scrollbar-thumb:transparent] [--dsh-scrollbar-thumb-hover:transparent] px-[var(--dsh-sidebar-inline-padding)] py-1.5"
     style="width: 300px;"
   >
     <div
-      class="logoRow"
+      class="flex shrink-0 items-center gap-2 box-border overflow-hidden h-[60px] justify-end py-2 pl-1 mb-2"
     >
       <button
         aria-label="New session"
-        class="brand wide"
+        class="dsh-sidebar-wide inline-flex min-w-0 flex-1 items-center overflow-hidden border-0 bg-transparent p-0 text-inherit cursor-pointer"
         type="button"
       >
         <svg
           aria-hidden="true"
-          class="brandFish"
+          class="shrink-0"
           data-content="965fe321"
           fill="none"
           height="17.6580310880829"
@@ -110,18 +110,18 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
           width="24"
         />
         <span
-          class="brandName"
+          class="min-w-0 h-6 leading-6 ml-1.5 text-sm font-medium text-current truncate"
         >
           DeepSeek Harness
         </span>
       </button>
       <button
         aria-label="Collapse sidebar"
-        class="iconButton toggle"
+        class="dsh-sidebar-icon-button inline-flex shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[var(--dsw-alias-label-secondary)] cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)] h-7 w-7"
         type="button"
       >
         <svg
-          class="panelIcon"
+          class=""
           data-content="35f95b0c"
           fill="none"
           height="16"
@@ -133,7 +133,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
     </div>
     <button
       aria-label="New session"
-      class="newSession"
+      class="dsh-sidebar-new-session flex shrink-0 items-center justify-center overflow-hidden cursor-pointer text-sm font-medium leading-[22px] text-foreground h-[38px] gap-1.5 px-4 py-2 mx-0.5 mb-2 box-border border border-border rounded-xl bg-[var(--dsw-alias-button-elevated-fill)] hover:bg-[var(--dsw-alias-button-floating-hover)]"
       type="button"
     >
       <svg
@@ -145,13 +145,13 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
         xmlns="http://www.w3.org/2000/svg"
       />
       <span
-        class="newSessionLabel wide"
+        class="dsh-sidebar-wide max-w-[200px] overflow-hidden whitespace-nowrap"
       >
         New Session
       </span>
     </button>
     <div
-      class="regionArea"
+      class="dsh-sidebar-region-area flex min-h-0 flex-1 flex-col overflow-hidden -ml-1 pl-1 mr-[calc(-1*var(--dsh-sidebar-inline-padding))]"
     >
       <div
         data-slot="sidebar.workspaces"
@@ -159,10 +159,10 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
       />
     </div>
     <div
-      class="footArea"
+      class="dsh-sidebar-foot-area flex shrink-0 items-center gap-1 flex-row justify-between"
     >
       <div
-        class="footerActions"
+        class="flex min-w-0 flex-initial"
       >
         <div
           data-slot="sidebar.footer.action"
@@ -170,7 +170,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
         />
       </div>
       <div
-        class="settingsArea"
+        class="shrink-0 min-w-0"
       >
         <div
           data-slot="sidebar.settings"
@@ -188,20 +188,20 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
   style="display: contents;"
 >
   <div
-    class="root quietBars"
+    class="flex h-full flex-col box-border bg-[var(--dsw-specific-sidebar-fill)] text-sm text-foreground [--dsh-sidebar-inline-padding:12px] quietBars [--dsh-scrollbar-thumb:transparent] [--dsh-scrollbar-thumb-hover:transparent] px-[var(--dsh-sidebar-inline-padding)] py-1.5"
     style="width: 300px;"
   >
     <div
-      class="logoRow"
+      class="flex shrink-0 items-center gap-2 box-border overflow-hidden h-[60px] justify-end py-2 pl-1 mb-2"
     >
       <button
         aria-label="新建会话"
-        class="brand wide"
+        class="dsh-sidebar-wide inline-flex min-w-0 flex-1 items-center overflow-hidden border-0 bg-transparent p-0 text-inherit cursor-pointer"
         type="button"
       >
         <svg
           aria-hidden="true"
-          class="brandFish"
+          class="shrink-0"
           data-content="965fe321"
           fill="none"
           height="17.6580310880829"
@@ -209,18 +209,18 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
           width="24"
         />
         <span
-          class="brandName"
+          class="min-w-0 h-6 leading-6 ml-1.5 text-sm font-medium text-current truncate"
         >
           DeepSeek Harness
         </span>
       </button>
       <button
         aria-label="收起侧边栏"
-        class="iconButton toggle"
+        class="dsh-sidebar-icon-button inline-flex shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[var(--dsw-alias-label-secondary)] cursor-pointer hover:bg-[var(--dsw-alias-interactive-bg-hover)] h-7 w-7"
         type="button"
       >
         <svg
-          class="panelIcon"
+          class=""
           data-content="35f95b0c"
           fill="none"
           height="16"
@@ -232,7 +232,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
     </div>
     <button
       aria-label="新建会话"
-      class="newSession"
+      class="dsh-sidebar-new-session flex shrink-0 items-center justify-center overflow-hidden cursor-pointer text-sm font-medium leading-[22px] text-foreground h-[38px] gap-1.5 px-4 py-2 mx-0.5 mb-2 box-border border border-border rounded-xl bg-[var(--dsw-alias-button-elevated-fill)] hover:bg-[var(--dsw-alias-button-floating-hover)]"
       type="button"
     >
       <svg
@@ -244,13 +244,13 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
         xmlns="http://www.w3.org/2000/svg"
       />
       <span
-        class="newSessionLabel wide"
+        class="dsh-sidebar-wide max-w-[200px] overflow-hidden whitespace-nowrap"
       >
         新会话
       </span>
     </button>
     <div
-      class="regionArea"
+      class="dsh-sidebar-region-area flex min-h-0 flex-1 flex-col overflow-hidden -ml-1 pl-1 mr-[calc(-1*var(--dsh-sidebar-inline-padding))]"
     >
       <div
         data-slot="sidebar.workspaces"
@@ -258,10 +258,10 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
       />
     </div>
     <div
-      class="footArea"
+      class="dsh-sidebar-foot-area flex shrink-0 items-center gap-1 flex-row justify-between"
     >
       <div
-        class="footerActions"
+        class="flex min-w-0 flex-initial"
       >
         <div
           data-slot="sidebar.footer.action"
@@ -269,7 +269,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
         />
       </div>
       <div
-        class="settingsArea"
+        class="shrink-0 min-w-0"
       >
         <div
           data-slot="sidebar.settings"

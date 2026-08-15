@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconCloseFill14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseFill14, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the input.plan seat and
 // its {locked} owner share).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { PlanChipInjected } from './index.ts'
-import css from './PlanModeControl.module.css'
+
+/** Active plan warn-state pill (figma). */
+const CHIP = 'inline-flex min-w-[34px] cursor-pointer items-center gap-1 rounded-full border-none bg-[var(--dsw-alias-state-warn-tertiary)] px-2 py-0.5 text-[13px] font-medium leading-5 text-[var(--dsw-alias-state-warn-label)] hover:enabled:bg-[var(--dsw-alias-state-warn-tertiary)] hover:enabled:text-[var(--dsw-alias-state-warn-primary)] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[var(--dsw-alias-state-warn-label)] focus-visible:outline-offset-2 focus-visible:ring-0 disabled:pointer-events-auto disabled:cursor-default disabled:opacity-60'
 
 /** Full plan-seat component props: runtime share (standard kit + locked owner prop) & injected share & the locale seat. */
 export type PlanChipProps =
@@ -49,10 +51,10 @@ export function PlanChip({ useProjection, locked, exitPlanMode, t }: PlanChipPro
   }
 
   return (
-    <span className={css.wrap}>
-      <button
-        type="button"
-        className={css.chip}
+    <span className="inline-flex items-center gap-1.5">
+      <ShadcnButton
+        variant="ghost"
+        className={CHIP}
         aria-label={t('chip.on.aria')}
         title={t('chip.on.title')}
         disabled={locked || leaving}
@@ -60,12 +62,12 @@ export function PlanChip({ useProjection, locked, exitPlanMode, t }: PlanChipPro
       >
         {/* Design literal, not copy: the chip wordmark stays 'Plan' in every locale. */}
         Plan
-        <span className={css.close} aria-hidden>
+        <span className="inline-flex items-center text-current" aria-hidden>
           <IconCloseFill14 size={12} />
         </span>
-      </button>
+      </ShadcnButton>
       {/* Failure copy stays English (error-surface policy: not localized). */}
-      {error !== null && <span className={css.error} role="status" title={error}>failed to exit plan mode</span>}
+      {error !== null && <span className="text-xs leading-[18px] text-[var(--dsw-alias-state-error-primary)]" role="status" title={error}>failed to exit plan mode</span>}
     </span>
   )
 }

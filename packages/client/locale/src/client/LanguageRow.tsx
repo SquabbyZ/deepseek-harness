@@ -6,10 +6,9 @@
  */
 import { useState } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, Menu, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { createLanguageRowStore } from './settings-store.ts'
-import css from './LanguageRow.module.css'
 
 /** Injected business face: the preference write (t rides the standard locale seat). */
 export interface LanguageRowInjected {
@@ -34,9 +33,9 @@ export function LanguageRow({ t, setLocale, useStore }: LanguageRowComponentProp
   const activeLabel = options.find(o => o.id === active)?.label ?? active
 
   return (
-    <div className={css.row}>
-      <div className={css.rowText}>
-        <div className={css.title}>{t('language.title')}</div>
+    <div className="flex items-center gap-2 border-b border-border py-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-1 pr-12">
+        <div className="text-sm font-normal leading-[22px] text-foreground">{t('language.title')}</div>
       </div>
       <Menu
         open={open}
@@ -50,16 +49,16 @@ export function LanguageRow({ t, setLocale, useStore }: LanguageRowComponentProp
         align="end"
         portal
         anchor={(
-          <button
-            type="button"
-            className={css.selector}
+          <ShadcnButton
+            variant="ghost"
+            className="h-9 gap-3 rounded-[18px] bg-[var(--dsw-alias-bg-module-platform)] px-[14px] text-sm leading-[22px] text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)]"
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => { setOpen(v => !v) }}
           >
             {activeLabel}
-            <IconChevronDownOutline14 className={css.chevron} />
-          </button>
+            <IconChevronDownOutline14 className="shrink-0" />
+          </ShadcnButton>
         )}
       />
     </div>

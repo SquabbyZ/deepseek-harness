@@ -41,6 +41,8 @@
 @source "../../ui-workflow-run/src";
 @source "../../ui-workspace/src";
 @source "../../web-react/src";
+@source "../../locale/src";
+@source "../../web/src";
 
 /* Attribute-based dark variant: the app toggles dark via body[data-ds-dark-theme]
  * (which the --dsw-* aliases already respect), so the shadcn `dark:` variant

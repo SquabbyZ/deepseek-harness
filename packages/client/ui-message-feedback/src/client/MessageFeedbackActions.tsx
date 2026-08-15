@@ -7,11 +7,19 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  IconDislikeOutline16, IconLikeOutline16, Tooltip,
+  IconDislikeOutline16, IconLikeOutline16, ShadcnButton, Textarea, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type { MessageFeedbackActionProps } from './slots.ts'
-import css from './MessageFeedbackActions.module.css'
+
+/** Rating glyph button mirroring the shared IconActions chrome. */
+const ACTION = 'inline-flex size-7 cursor-pointer items-center justify-center rounded-[28px] border-none bg-transparent p-1.5 text-[var(--dsw-alias-label-tertiary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-secondary)] data-[active]:text-foreground disabled:pointer-events-auto disabled:cursor-default disabled:opacity-40'
+/** Inline "open note" text button. */
+const NOTE_OPEN = 'h-auto max-w-[220px] cursor-pointer overflow-hidden rounded-[14px] border-none bg-transparent px-2 py-0 text-[13px] font-normal leading-7 text-[var(--dsw-alias-label-tertiary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-secondary)] whitespace-nowrap text-ellipsis'
+/** Filled note-save button. */
+const NOTE_SAVE = 'h-7 cursor-pointer rounded-[14px] border-none bg-[var(--dsw-alias-interactive-bg-primary)] px-2.5 py-0 text-[13px] font-normal text-[var(--dsw-alias-label-inverse)] hover:bg-[var(--dsw-alias-interactive-bg-primary)] hover:text-[var(--dsw-alias-label-inverse)] disabled:pointer-events-auto disabled:cursor-default disabled:opacity-40'
+/** Quiet note-cancel button. */
+const NOTE_CANCEL = 'h-7 cursor-pointer rounded-[14px] border-none bg-transparent px-2.5 py-0 text-[13px] font-normal text-[var(--dsw-alias-label-tertiary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-secondary)]'
 
 /**
  * One message's feedback controls.
@@ -87,9 +95,9 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
   return (
     <>
       <Tooltip label={likeLabel} side="bottom">
-        <button
-          type="button"
-          className={css.action}
+        <ShadcnButton
+          variant="ghost"
+          className={ACTION}
           aria-label={likeLabel}
           aria-pressed={rating === 'positive'}
           data-active={rating === 'positive' || undefined}
@@ -99,12 +107,12 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
           onClick={() => { onRate('positive') }}
         >
           <IconLikeOutline16 />
-        </button>
+        </ShadcnButton>
       </Tooltip>
       <Tooltip label={dislikeLabel} side="bottom">
-        <button
-          type="button"
-          className={css.action}
+        <ShadcnButton
+          variant="ghost"
+          className={ACTION}
           aria-label={dislikeLabel}
           aria-pressed={rating === 'negative'}
           data-active={rating === 'negative' || undefined}
@@ -114,40 +122,40 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, clearN
           onClick={() => { onRate('negative') }}
         >
           <IconDislikeOutline16 />
-        </button>
+        </ShadcnButton>
       </Tooltip>
       {rating !== undefined && !noteOpen && (
-        <button type="button" className={css.noteOpen} onClick={openNote}>
+        <ShadcnButton variant="ghost" className={NOTE_OPEN} onClick={openNote}>
           {item?.note === undefined ? t('note.open') : item.note}
-        </button>
+        </ShadcnButton>
       )}
       {rating !== undefined && noteOpen && (
-        <span className={css.noteEditor}>
-          <textarea
-            className={css.noteInput}
+        <span className="inline-flex items-start gap-1.5">
+          <Textarea
+            className="min-h-0 w-[260px] rounded-[8px] border border-[var(--dsw-alias-border-secondary)] bg-[var(--dsw-alias-bg-primary)] px-2 py-1.5 text-[13px] text-foreground shadow-none outline-none [font:inherit] focus-visible:ring-0 resize-y"
             aria-label={t('note.aria')}
             placeholder={t('note.placeholder')}
             value={draft}
             rows={2}
             onChange={(event) => { setDraft(event.target.value) }}
           />
-          <button
-            type="button"
-            className={css.noteSave}
+          <ShadcnButton
+            variant="ghost"
+            className={NOTE_SAVE}
             disabled={pending}
             onClick={() => { onSaveNote(rating) }}
           >
             {t('note.save')}
-          </button>
-          <button type="button" className={css.noteCancel} onClick={() => { setNoteOpen(false) }}>
+          </ShadcnButton>
+          <ShadcnButton variant="ghost" className={NOTE_CANCEL} onClick={() => { setNoteOpen(false) }}>
             {t('note.cancel')}
-          </button>
+          </ShadcnButton>
         </span>
       )}
       {failure === null && loadFailed && (
-        <span className={css.failure} role="status">{t('error.load')}</span>
+        <span className="pl-1 text-[13px] leading-7 text-[var(--dsw-alias-label-tertiary)]" role="status">{t('error.load')}</span>
       )}
-      {failure !== null && <span className={css.failure} role="status">{failure}</span>}
+      {failure !== null && <span className="pl-1 text-[13px] leading-7 text-[var(--dsw-alias-label-tertiary)]" role="status">{failure}</span>}
     </>
   )
 }

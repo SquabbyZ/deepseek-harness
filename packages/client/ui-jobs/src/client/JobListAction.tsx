@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { JobView } from '@deepseek-ai/dsh-client-runtime/client'
-import { IconChevronDownOutline14, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, ShadcnButton, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { NS } from './locales.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import css from './JobListAction.module.css'
 
 /** Full props for the session-header background-job action. */
 export type JobListActionProps =
@@ -12,6 +11,14 @@ export type JobListActionProps =
 
 /** Stable empty list so a session with no jobs keeps one array identity. */
 const NO_TASKS: readonly JobView[] = []
+
+/** Session-header trigger chip (figma caption tone). */
+const TRIGGER = 'inline-flex h-auto min-h-7 cursor-pointer items-center gap-[3px] rounded-[6px] border-0 bg-transparent px-0.5 py-[3px] text-xs font-normal leading-[18px] text-[var(--dsw-alias-label-tertiary)] hover:bg-transparent hover:text-[var(--dsw-alias-label-secondary)] focus-visible:text-[var(--dsw-alias-label-secondary)]'
+/** The popover job list (elevated menu surface). */
+const MENU = 'absolute left-0 top-[calc(100%_+_5px)] z-[100] box-border flex max-h-[min(420px,calc(100vh_-_140px))] w-[336px] max-w-[min(400px,calc(100vw_-_32px))] list-none flex-col gap-[1px] overflow-auto rounded-[12px] border border-border bg-[var(--dsw-specific-menu)] p-1 m-0 shadow-[var(--dsw-shadow-lv3)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]'
+/** One job row; settled rows take the caption tone via ROW_SETTLED. */
+const ROW = 'box-border flex w-full min-h-8 items-center gap-2 rounded-[8px] px-2 py-1.5 text-[13px] leading-[18px] text-foreground'
+const ROW_SETTLED = 'text-[var(--dsw-alias-label-tertiary)]'
 
 /** A job the registry still holds open, and whose duration therefore ticks. */
 function isLive(job: JobView): boolean {
@@ -141,11 +148,11 @@ export function JobListAction({ sessionId, useSessions, t }: JobListActionProps)
   }
 
   return (
-    <div ref={rootRef} className={css.root} onKeyDown={onKeyDown}>
-      <button
+    <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
+      <ShadcnButton
         ref={triggerRef}
-        type="button"
-        className={css.trigger}
+        variant="ghost"
+        className={TRIGGER}
         aria-expanded={open}
         aria-label={countLabel}
         onClick={() => {
@@ -157,26 +164,26 @@ export function JobListAction({ sessionId, useSessions, t }: JobListActionProps)
           setOpen(current => !current)
         }}
       >
-        {liveCount > 0 ? <StateDot state="ongoing" className={css.triggerDot} /> : null}
-        <span className={css.count}>{countLabel}</span>
-        <IconChevronDownOutline14 className={open ? css.triggerOpen : undefined} />
-      </button>
+        {liveCount > 0 ? <StateDot state="ongoing" className="flex-none" /> : null}
+        <span className="mx-[5px]">{countLabel}</span>
+        <IconChevronDownOutline14 className={open ? 'transition-transform duration-[120ms] rotate-180' : 'transition-transform duration-[120ms]'} />
+      </ShadcnButton>
       {open
         ? (
-          <ul className={css.menu} aria-label={t('list.aria')}>
+          <ul className={MENU} aria-label={t('list.aria')}>
             {rows.map((job) => {
               const live = isLive(job)
               const elapsed = live ? now - job.startedAt : (job.finishedAt ?? job.startedAt) - job.startedAt
               const duration = formatDuration(elapsed, t)
               const status = statusLabel(job.status, t)
               return (
-                <li key={job.id} className={live ? css.row : `${css.row} ${css.rowSettled}`}>
-                  <StateDot state={dotState(job.status)} className={css.rowDot} />
-                  <span className={css.kind}>{job.kind}</span>
-                  <span className={css.label} title={job.label}>{job.label}</span>
-                  <span className={css.status} title={job.detail ?? status}>{job.detail ?? status}</span>
+                <li key={job.id} className={live ? ROW : `${ROW} ${ROW_SETTLED}`}>
+                  <StateDot state={dotState(job.status)} className="flex-none" />
+                  <span className="flex-none rounded-[5px] bg-[var(--dsw-alias-fill-l2)] px-1.5 text-[11px] leading-[18px] text-[var(--dsw-alias-label-secondary)]">{job.kind}</span>
+                  <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap [font-family:var(--dsw-font-mono)]" title={job.label}>{job.label}</span>
+                  <span className="flex-none max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] leading-[18px] text-[var(--dsw-alias-label-tertiary)]" title={job.detail ?? status}>{job.detail ?? status}</span>
                   <span
-                    className={css.duration}
+                    className="flex-none text-[11px] leading-[18px] text-[var(--dsw-alias-label-tertiary)] [font-variant-numeric:tabular-nums]"
                     title={t(live ? 'duration.title.live' : 'duration.title.done', { duration })}
                   >
                     {duration}

@@ -4537,3 +4537,122 @@
     cursor: pointer;
   }
 }
+
+@layer components {
+  /* --- AppFrame drag handle pill --- */
+
+  /* The details handle's visible 12x32 pill (::after), revealed on hover /
+     drag; the sidebar handle keeps only the invisible hit strip. */
+  .dsh-app-frame-handle[data-side='details']::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 32px;
+    border-radius: 10px;
+    box-sizing: border-box;
+    background: var(--dsw-alias-button-floating-fill);
+    border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+    opacity: 0;
+    transition:
+      opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+      background var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+  }
+
+  .dsh-details-col:hover ~ .dsh-app-frame-handle[data-side='details']::after,
+  .dsh-app-frame-handle[data-side='details']:hover::after,
+  .dsh-app-frame-handle[data-side='details'][data-dragging='true']::after {
+    opacity: 1;
+  }
+
+  .dsh-app-frame-handle[data-side='details']:hover::after,
+  .dsh-app-frame-handle[data-side='details'][data-dragging='true']::after {
+    background: var(--dsw-alias-button-floating-hover);
+    border-color: var(--dsw-alias-border-l3);
+  }
+
+  /* --- SidebarRoot collapse crossfade --- */
+
+  /* Phase 1: the whole frozen-width content fades out in place over 150ms;
+     at settle the children unmount/snap to the rail layout. */
+  .dsh-sidebar-fading > * {
+    opacity: 0;
+    transition: opacity 150ms var(--ds-ease-in-out);
+  }
+
+  /* Wide-only content fades back in on expand remount. */
+  .dsh-sidebar-wide {
+    animation: dsh-sidebar-wide-in 200ms var(--ds-ease-in-out);
+  }
+
+  /* At the 150ms rail settle, the four upper controls enter from the former
+     rail right edge over the remaining 150ms of the AppFrame track transition.
+     The bottom-pinned settings seat shares their opacity timeline but stays
+     horizontally fixed. Only a live collapse gets rail-in; a cold collapsed
+     render stays static. */
+  .dsh-sidebar-rail-in .dsh-sidebar-icon-button,
+  .dsh-sidebar-rail-in .dsh-sidebar-new-session,
+  .dsh-sidebar-rail-in .dsh-sidebar-region-area {
+    animation: dsh-sidebar-rail-in 150ms var(--ds-ease-in-out) backwards;
+  }
+
+  .dsh-sidebar-rail-in .dsh-sidebar-foot-area {
+    animation: dsh-sidebar-rail-fade-in 150ms var(--ds-ease-in-out) backwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dsh-sidebar-wide,
+    .dsh-sidebar-fading > *,
+    .dsh-sidebar-rail-in .dsh-sidebar-icon-button,
+    .dsh-sidebar-rail-in .dsh-sidebar-new-session,
+    .dsh-sidebar-rail-in .dsh-sidebar-foot-area,
+    .dsh-sidebar-rail-in .dsh-sidebar-region-area {
+      transition: none;
+      animation: none;
+    }
+  }
+}
+
+@keyframes dsh-sidebar-wide-in {
+  from { opacity: 0; }
+}
+
+@keyframes dsh-sidebar-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(49px);
+  }
+}
+
+@keyframes dsh-sidebar-rail-fade-in {
+  from { opacity: 0; }
+}
+
+@layer components {
+  /* --- Question composer option checkbox indicator --- */
+
+  /* Multi-select indicator: a radius-4 14×14 box drawn by the ::before layer
+     so the check icon stacks over it in the same grid cell; the checked fill
+     flips with the theme via the label-primary / label-primary-foreground
+     pair (keyed on data-checked so the Tailwind-checked state drives it). */
+  .question-checkbox::before {
+    content: '';
+    grid-area: 1 / 1;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--dsw-alias-border-l4);
+    border-radius: 4px;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+
+  .question-checkbox > svg {
+    grid-area: 1 / 1;
+  }
+
+  .question-checkbox[data-checked]::before {
+    border-color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-label-primary);
+  }
+}

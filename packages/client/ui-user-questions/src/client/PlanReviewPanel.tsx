@@ -16,7 +16,14 @@
 import { useState } from 'react'
 import { Button, IconEditOutline16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PendingQuestion, PlanReview, QuestionComposerProps } from './contract/slots.ts'
-import css from './PlanReviewPanel.module.css'
+
+/** Composer-takeover frame: centered on the shared content width. */
+const FRAME = 'flex flex-col items-center px-[calc(var(--dsh-composer-side-clearance)_+_16px)] pt-1.5 pb-2.5'
+/** Waiting-approval capsule (amber strip on the floating card). */
+const CARD = 'flex w-full max-w-[var(--dsh-chat-content-width)] max-h-[min(60vh,520px)] flex-col overflow-hidden rounded-[20px] border border-[var(--dsw-alias-state-warn-secondary)] bg-[var(--dsw-specific-input-major)] shadow-[var(--dsw-shadow-lv2)] text-foreground [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)] max-[720px]:rounded-2xl'
+const STRIP = 'flex flex-shrink-0 items-center gap-2 bg-[var(--dsw-alias-state-warn-tertiary)] px-4 py-2.5 text-[13px] leading-[18px] text-[var(--dsw-alias-state-warn-primary)]'
+const BODY = 'min-h-0 flex-[1_1_auto] overflow-y-auto px-4 pb-1 pt-3 text-sm leading-[22px] [overscroll-behavior:contain] max-[720px]:px-3 max-[720px]:pt-2.5 max-[720px]:pb-1'
+const FOOTER = 'flex flex-shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-2 max-[720px]:items-end max-[720px]:px-3 max-[720px]:pb-2.5'
 
 /** The panel's own props: the question domain face, the narrowed review, and the locale seat. */
 export type PlanReviewPanelProps =
@@ -60,20 +67,20 @@ export function PlanReviewPanel({ pending, review, t }: PlanReviewPanelProps) {
   const decline = review.decline
 
   return (
-    <div className={css.frame} data-plan-review-key={pending.key}>
-      <section className={css.card} aria-label={review.question}>
-        <div className={css.strip}>
-          <span className={css.dot} />
+    <div className={FRAME} data-plan-review-key={pending.key}>
+      <section className={CARD} aria-label={review.question}>
+        <div className={STRIP}>
+          <span className="size-2 rounded-full bg-[var(--dsw-alias-state-warn-primary)]" />
           {t('plan.header')}
         </div>
-        <div className={css.body} data-plan-review-scroll>
+        <div className={BODY} data-plan-review-scroll>
           <MarkdownText text={review.plan} />
         </div>
-        <div className={css.footer}>
-          <div className={css.feedback} role="status">{error}</div>
-          <div className={css.actions}>
+        <div className={FOOTER}>
+          <div className="min-h-4 text-[11px] leading-4 text-[var(--dsw-alias-state-error-primary)]" role="status">{error}</div>
+          <div className="flex flex-shrink-0 items-center gap-2">
             <Button
-              variant="ghost" className={css.discuss} icon={<IconEditOutline16 size={14} />}
+              variant="ghost" className="gap-1.5 text-[var(--dsw-alias-label-secondary)] hover:enabled:text-foreground" icon={<IconEditOutline16 size={14} />}
               disabled={busy} onClick={() => { settle(() => pending.cancel()) }}
             >
               {t('plan.discuss')}

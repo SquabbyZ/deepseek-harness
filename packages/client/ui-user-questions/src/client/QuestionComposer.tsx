@@ -2,14 +2,36 @@ import { useMemo, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import clsx from 'clsx'
 import {
   Button, IconCheckOutline14, IconChevronLeftOutline14, IconChevronRightOutline14,
-  IconCloseOutline16, IconEditOutline16, MarkdownText,
+  IconCloseOutline16, IconEditOutline16, MarkdownText, ShadcnButton, ShadcnInput, Textarea,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   PendingQuestion, planReviewOf,
   type QuestionAnswer, type QuestionComposerProps,
 } from './contract/slots.ts'
 import { PlanReviewPanel } from './PlanReviewPanel.tsx'
-import css from './QuestionComposer.module.css'
+
+/** Composer-takeover frame: centered on the shared content width. */
+const FRAME = 'flex flex-col items-center px-[calc(var(--dsh-composer-side-clearance)_+_16px)] pt-1.5 pb-2.5'
+/** Question card (figma Input 973:36348): no banner strip, sections own insets. */
+const CARD = 'flex w-full max-w-[var(--dsh-chat-content-width)] max-h-[min(60vh,520px)] flex-col overflow-hidden rounded-[20px] border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-specific-input-major)] pb-2.5 shadow-[var(--dsw-shadow-lv2)] text-foreground [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)] max-[720px]:rounded-2xl'
+/** Card header (figma 1019:36938, user-tuned): heading left, close right. */
+const HEADER = 'flex flex-shrink-0 items-start justify-between gap-4 pt-5 pr-4 pb-0 pl-6 max-[720px]:pt-2.5 max-[720px]:pr-3 max-[720px]:pb-0 max-[720px]:pl-[18px]'
+/** Round icon button (close / prev / next). */
+const ICON_BTN = 'grid size-6 cursor-pointer place-items-center rounded-full border-none bg-transparent p-0 text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-foreground disabled:pointer-events-auto disabled:cursor-default disabled:text-[var(--dsw-alias-label-dimmed)] disabled:opacity-100'
+/** Selectable option row (single-select number, multi-select checkbox). */
+const OPTION = 'flex w-full min-h-10 flex-shrink-0 cursor-pointer items-start gap-2 rounded-[12px] border border-transparent bg-transparent py-2 pl-2 pr-3 text-left font-normal text-inherit transition-colors duration-[120ms] motion-reduce:transition-none hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-inherit disabled:pointer-events-auto disabled:cursor-default disabled:opacity-100 max-[720px]:px-1.5'
+const OPTION_SELECTED = 'border-border bg-[var(--dsw-alias-interactive-bg-hover)]'
+/** Leading indicator seat (figma 20×20, radius 6). */
+const NUMBER = 'grid size-5 flex-[0_0_20px] place-items-center mt-0.5 rounded-[6px] bg-[var(--dsw-alias-bg-overlay)] text-xs font-medium leading-[18px] text-[var(--dsw-alias-label-secondary)]'
+/** Multi-select box: the 14×14 box is drawn by .question-checkbox::before. */
+const CHECKBOX = 'question-checkbox size-5 flex-[0_0_20px] mt-0.5'
+const CHECKBOX_CHECKED = 'text-[var(--dsw-alias-label-primary-foreground)]'
+/** Custom answer row: option-shaped row whose copy is an inline input. */
+const CUSTOM_ROW = 'flex w-full min-h-10 flex-shrink-0 items-start gap-2 rounded-[12px] border border-transparent py-2 pl-2 pr-3 transition-colors duration-[120ms] motion-reduce:transition-none hover:bg-[var(--dsw-alias-interactive-bg-hover)] focus-within:border-border focus-within:bg-[var(--dsw-alias-interactive-bg-hover)] max-[720px]:px-1.5'
+const CUSTOM_ROW_ACTIVE = 'border-border bg-[var(--dsw-alias-interactive-bg-hover)]'
+const CUSTOM_INPUT = 'h-auto min-w-0 flex-1 border-none bg-transparent p-0 text-sm leading-6 text-foreground outline-none shadow-none caret-[var(--dsw-alias-state-business-primary)] focus-visible:ring-0 placeholder:text-[var(--dsw-alias-label-caption)]'
+const CUSTOM_TEXTAREA = 'mx-3 block min-h-16 max-h-[140px] w-auto flex-shrink-0 rounded-[10px] border border-border bg-[var(--dsw-alias-bg-module-platform)] px-3 py-2 text-sm leading-6 text-foreground shadow-none outline-none caret-[var(--dsw-alias-state-business-primary)] resize-none focus:border-[var(--dsw-alias-state-business-primary)] focus-visible:ring-0 placeholder:text-[var(--dsw-alias-label-caption)]'
+const FOOTER = 'flex flex-shrink-0 items-center justify-between gap-3 mt-3 pl-[18px] pr-2.5 max-[720px]:items-end max-[720px]:px-2.5'
 
 interface DraftAnswer {
   selected: string[]
@@ -190,36 +212,36 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
   }
 
   return (
-    <div className={css.frame} data-question-key={pending.key}>
-      <section className={css.card} aria-labelledby={`question-${pending.key}-${String(index)}`}>
-        <header className={css.header}>
-          <div className={css.headingBlock}>
-            {question.header !== undefined && <div className={css.eyebrow}>{question.header}</div>}
-            <h2 className={css.title} id={`question-${pending.key}-${String(index)}`}>
+    <div className={FRAME} data-question-key={pending.key}>
+      <section className={CARD} aria-labelledby={`question-${pending.key}-${String(index)}`}>
+        <header className={HEADER}>
+          <div className="min-w-0">
+            {question.header !== undefined && <div className="mb-[5px] text-[11px] leading-4 text-[var(--dsw-alias-label-tertiary)]">{question.header}</div>}
+            <h2 className="m-0 text-base font-medium leading-[22px] max-[720px]:text-[15px] max-[720px]:leading-[21px]" id={`question-${pending.key}-${String(index)}`}>
               {question.question}
             </h2>
           </div>
-          <button
-            type="button" className={css.iconButton} aria-label={t('nav.cancel')}
+          <ShadcnButton
+            variant="ghost" className={ICON_BTN} aria-label={t('nav.cancel')}
             title={t('nav.cancel')}
             disabled={busy !== null} onClick={cancelFlow}
           >
             <IconCloseOutline16 />
-          </button>
+          </ShadcnButton>
         </header>
 
-        <div className={css.body} data-question-scroll>
+        <div className="flex min-h-0 flex-[1_1_auto] flex-col overflow-y-auto [overscroll-behavior:contain]" data-question-scroll>
           {question.detail !== undefined && (
-            <div className={css.detail}><MarkdownText text={question.detail} /></div>
+            <div className="mx-0.5 mb-2 mt-0"><MarkdownText text={question.detail} /></div>
           )}
-          <div className={css.options} role={question.multiSelect === true ? 'group' : 'radiogroup'}>
+          <div className="flex flex-col gap-[1px] mt-2 px-3 py-1 max-[720px]:px-2" role={question.multiSelect === true ? 'group' : 'radiogroup'}>
             {(question.options ?? []).map((option, optionIndex) => {
               const selected = draft.selected.includes(option.label)
               const display = parseRecommendedLabel(option.label)
               return (
-                <button
-                  type="button" key={`${option.label}-${String(optionIndex)}`}
-                  className={clsx(css.option, selected && question.multiSelect !== true && css.optionSelected)}
+                <ShadcnButton
+                  variant="ghost" key={`${option.label}-${String(optionIndex)}`}
+                  className={clsx(OPTION, selected && question.multiSelect !== true && OPTION_SELECTED)}
                   role={question.multiSelect === true ? 'checkbox' : 'radio'}
                   aria-checked={selected}
                   aria-label={display.label}
@@ -233,46 +255,47 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
                 >
                   {question.multiSelect === true
                     ? (
-                      <span className={clsx(css.checkbox, selected && css.checkboxChecked)} aria-hidden="true">
+                      <span className={clsx(CHECKBOX, selected && CHECKBOX_CHECKED)} data-checked={selected || undefined} aria-hidden="true">
                         {selected && <IconCheckOutline14 size={12} />}
                       </span>
                     )
-                    : <span className={css.number}>{optionIndex + 1}</span>}
-                  <span className={css.optionCopy}>
-                    <span className={css.optionLine}>
-                      <span className={css.optionLabel}>{display.label}</span>
+                    : <span className={NUMBER}>{optionIndex + 1}</span>}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                      <span className="text-sm font-medium leading-6">{display.label}</span>
                       {display.recommended && (
-                        <span className={css.badge}>{t('option.recommended')}</span>
+                        <span className="rounded-[6px] bg-[var(--dsw-specific-sidebar-nav-item-active-accent)] px-1 text-[11px] font-semibold leading-[18px] text-[var(--dsw-alias-button-info-fill)]">{t('option.recommended')}</span>
                       )}
                       {option.description !== undefined && (
-                        <span className={css.description}>{option.description}</span>
+                        <span className="text-sm font-normal leading-6 text-[var(--dsw-alias-label-tertiary)]">{option.description}</span>
                       )}
                     </span>
                   </span>
-                </button>
+                </ShadcnButton>
               )
             })}
 
             {hasOptions
               ? (
-                <div className={clsx(css.customRow, draft.custom !== '' && css.customRowActive)}>
+                <div className={clsx(CUSTOM_ROW, draft.custom !== '' && CUSTOM_ROW_ACTIVE)}>
                   {question.multiSelect === true
                     ? (
                       <span
-                        className={clsx(css.checkbox, draft.custom !== '' && css.checkboxChecked)}
+                        className={clsx(CHECKBOX, draft.custom !== '' && CHECKBOX_CHECKED)}
+                        data-checked={draft.custom !== '' || undefined}
                         aria-hidden="true"
                       >
                         {draft.custom !== '' && <IconCheckOutline14 size={12} />}
                       </span>
                     )
                     : (
-                      <span className={css.number} aria-hidden="true">
+                      <span className={NUMBER} aria-hidden="true">
                         <IconEditOutline16 size={12} />
                       </span>
                     )}
-                  <input
+                  <ShadcnInput
                     type="text"
-                    className={css.customInput}
+                    className={CUSTOM_INPUT}
                     value={draft.custom}
                     disabled={busy !== null}
                     placeholder={t('custom.placeholder')}
@@ -282,9 +305,9 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
                 </div>
               )
               : (
-                <textarea
+                <Textarea
                   autoFocus
-                  className={css.customTextarea}
+                  className={CUSTOM_TEXTAREA}
                   value={draft.custom}
                   disabled={busy !== null}
                   rows={2}
@@ -296,28 +319,28 @@ function QuestionFlow({ pending, t }: { pending: PendingQuestion } & Pick<Questi
           </div>
         </div>
 
-        <footer className={css.footer}>
-          <div className={css.pager}>
-            <button
-              type="button" className={css.iconButton} aria-label={t('nav.prev')}
+        <footer className={FOOTER}>
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            <ShadcnButton
+              variant="ghost" className={ICON_BTN} aria-label={t('nav.prev')}
               disabled={index === 0 || busy !== null}
               onClick={() => { setIndex(index - 1); setError(null) }}
             >
               <IconChevronLeftOutline14 />
-            </button>
-            <span className={css.progress}>{index + 1} / {questions.length}</span>
-            <button
-              type="button" className={css.iconButton} aria-label={t('nav.next')}
+            </ShadcnButton>
+            <span className="px-1 text-sm font-medium leading-6 whitespace-nowrap text-[var(--dsw-alias-label-secondary)] [word-spacing:-2px]">{index + 1} / {questions.length}</span>
+            <ShadcnButton
+              variant="ghost" className={ICON_BTN} aria-label={t('nav.next')}
               disabled={index === questions.length - 1 || busy !== null}
               onClick={() => { setIndex(index + 1); setError(null) }}
             >
               <IconChevronRightOutline14 />
-            </button>
+            </ShadcnButton>
           </div>
-          <div className={css.feedback} role="status">
+          <div className="min-h-4 flex-1 text-right text-[11px] leading-4 text-[var(--dsw-alias-state-error-primary)]" role="status">
             {error === null ? null : 'key' in error ? t(error.key) : error.text}
           </div>
-          <div className={css.footerActions}>
+          <div className="flex flex-shrink-0 items-center gap-3">
             <Button variant="outline" disabled={busy !== null} onClick={skipQuestion}>
               {t('action.skip')}
             </Button>

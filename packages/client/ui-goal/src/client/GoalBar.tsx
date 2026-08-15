@@ -12,12 +12,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GoalSnapshot } from '@deepseek-ai/dsh-goal/client'
 import {
   IconCheckOutline16, IconCloseOutline16, IconEditOutline16, IconGoalOutline16,
-  IconPauseOutline16, IconPlayOutline16, IconTrashOutline16, Tooltip,
+  IconPauseOutline16, IconPlayOutline16, IconTrashOutline16, ShadcnButton, ShadcnInput, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GoalActionResult, GoalBarActions } from './slots.ts'
 import type { GoalKey } from './locales.ts'
-import css from './GoalBar.module.css'
+
+/** Dock column (card cap minus the four dock insets; matches Todo / Queue). */
+const DOCK = 'box-border mx-auto w-[calc(100%_-_2*var(--dsh-composer-side-clearance)_-_4*var(--dsh-composer-dock-inset))]'
+/** The goal strip card (figma 1236:32276): hairline tip surface, 36px tall. */
+const BAR = 'box-border mx-auto flex h-9 w-full max-w-[calc(var(--dsh-composer-card-max-width)_-_4*var(--dsh-composer-dock-inset))] items-center gap-2.5 rounded-[12px] border border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-specific-tip)] py-1 pl-3 pr-[5px]'
+/** Round icon action in the strip's trailing cluster. */
+const ICON_BTN = 'size-7 flex-none rounded-full border-none bg-transparent p-0 text-[var(--dsw-alias-label-tertiary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-secondary)] disabled:pointer-events-auto disabled:cursor-default disabled:opacity-40'
 
 export interface GoalBarProps extends GoalBarActions {
   /** Current goal snapshot; undefined = capability absent or loading, null = no goal set. */
@@ -79,10 +85,10 @@ export function GoalBar({ goal, onEdit, onPause, onResume, onClear, t }: GoalBar
 
   if (editing) {
     return (
-      <div className={css.dock} data-goal-bar>
-        <div className={css.bar}>
-          <input
-            className={css.objectiveInput}
+      <div className={DOCK} data-goal-bar>
+        <div className={BAR}>
+          <ShadcnInput
+            className="h-[26px] min-w-0 flex-1 rounded-[6px] border-border bg-background px-2 py-0 text-[13px] leading-5 text-foreground outline-none shadow-none placeholder:text-[var(--dsw-alias-label-caption)] focus:border-[var(--dsw-alias-state-business-primary)] focus-visible:ring-0"
             type="text"
             aria-label={t('objective.aria')}
             value={draft}
@@ -93,29 +99,29 @@ export function GoalBar({ goal, onEdit, onPause, onResume, onClear, t }: GoalBar
             }}
             autoFocus
           />
-          {actionError !== null && <span className={css.error} role="alert">{actionError}</span>}
-          <div className={css.actions}>
+          {actionError !== null && <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-5 text-[var(--dsw-alias-state-error-primary)]" role="alert">{actionError}</span>}
+          <div className="flex flex-none items-center gap-2.5">
             <Tooltip label={t('action.save')} side="bottom" delayMs={500}>
-              <button
-                type="button"
-                className={css.iconBtn}
+              <ShadcnButton
+                variant="ghost"
+                className={ICON_BTN}
                 onClick={() => { void handleEdit() }}
                 disabled={pending || draft.trim() === ''}
                 aria-label={t('action.save')}
               >
                 <IconCheckOutline16 size={14} />
-              </button>
+              </ShadcnButton>
             </Tooltip>
             <Tooltip label={t('action.cancel')} side="bottom" delayMs={500}>
-              <button
-                type="button"
-                className={css.iconBtn}
+              <ShadcnButton
+                variant="ghost"
+                className={ICON_BTN}
                 onClick={() => { setEditing(false) }}
                 disabled={pending}
                 aria-label={t('action.cancel')}
               >
                 <IconCloseOutline16 size={14} />
-              </button>
+              </ShadcnButton>
             </Tooltip>
           </div>
         </div>
@@ -125,42 +131,42 @@ export function GoalBar({ goal, onEdit, onPause, onResume, onClear, t }: GoalBar
 
   const title = goal.phase === 'blocked' ? goal.blockedReason?.message : undefined
   return (
-    <div className={css.dock} data-goal-bar>
-      <div className={css.bar} title={title}>
-        <span className={css.goalGlyph}><IconGoalOutline16 size={14} /></span>
-        <span className={css.label}>{t(PHASE_LABELS[goal.phase])}</span>
-        <span className={css.objective}>{goal.objective}</span>
-        {actionError !== null && <span className={css.error} role="alert">{actionError}</span>}
-        <div className={css.actions}>
+    <div className={DOCK} data-goal-bar>
+      <div className={BAR} title={title}>
+        <span className="inline-flex flex-none text-[var(--dsw-alias-label-tertiary)]"><IconGoalOutline16 size={14} /></span>
+        <span className="flex-none text-[13px] leading-6 font-medium text-foreground">{t(PHASE_LABELS[goal.phase])}</span>
+        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] leading-5 text-[var(--dsw-alias-label-primary-dimmed)]">{goal.objective}</span>
+        {actionError !== null && <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-5 text-[var(--dsw-alias-state-error-primary)]" role="alert">{actionError}</span>}
+        <div className="flex flex-none items-center gap-2.5">
           {goal.phase === 'active' && (
             <Tooltip label={t('action.pause')} side="bottom" delayMs={500}>
-              <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onPause) }} aria-label={t('action.pause')}>
+              <ShadcnButton variant="ghost" className={ICON_BTN} disabled={pending} onClick={() => { void runAction(onPause) }} aria-label={t('action.pause')}>
                 <IconPauseOutline16 size={14} />
-              </button>
+              </ShadcnButton>
             </Tooltip>
           )}
           {goal.phase === 'paused' && (
             <Tooltip label={t('action.resume')} side="bottom" delayMs={500}>
-              <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
+              <ShadcnButton variant="ghost" className={ICON_BTN} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
                 <IconPlayOutline16 size={14} />
-              </button>
+              </ShadcnButton>
             </Tooltip>
           )}
           <Tooltip label={t('action.edit')} side="bottom" delayMs={500}>
-            <button
-              type="button"
-              className={css.iconBtn}
+            <ShadcnButton
+              variant="ghost"
+              className={ICON_BTN}
               disabled={pending}
               onClick={() => { setDraft(goal.objective); setEditing(true) }}
               aria-label={t('action.edit')}
             >
               <IconEditOutline16 size={14} />
-            </button>
+            </ShadcnButton>
           </Tooltip>
           <Tooltip label={t('action.clear')} side="bottom" delayMs={500}>
-            <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void handleClear(goal.id) }} aria-label={t('action.clear')}>
+            <ShadcnButton variant="ghost" className={ICON_BTN} disabled={pending} onClick={() => { void handleClear(goal.id) }} aria-label={t('action.clear')}>
               <IconTrashOutline16 size={14} />
-            </button>
+            </ShadcnButton>
           </Tooltip>
         </div>
       </div>
