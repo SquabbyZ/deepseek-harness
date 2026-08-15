@@ -100,18 +100,20 @@
   --app-watermark: none;
 }
 
-/* Full-viewport tiled background layer, mounted as the first child of the app
- * shell so it sits behind the AppFrame. #root creates no stacking context, so
- * z-index: -1 keeps the layer in the root stacking context — behind all
- * content, above the canvas background. It never intercepts pointer events. */
-.app-background-layer {
+/* Full-viewport watermark layer: a large, faint, centered image floated ABOVE
+ * the app content so it stays visible on every skin (opaque surfaces no longer
+ * hide it). pointer-events: none keeps it non-interactive; the low opacity
+ * keeps text readable. Sits below modal surfaces (menu z 100+, toast z 1100). */
+.app-watermark-layer {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: 30;
   pointer-events: none;
+  opacity: 0.12;
   background-image: var(--app-background-image);
-  background-repeat: repeat;
-  background-size: auto;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 /* Reserved bottom-right anchor for a future Live2D avatar. Empty for now; sits

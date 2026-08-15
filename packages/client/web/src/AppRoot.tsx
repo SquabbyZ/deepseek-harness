@@ -34,10 +34,10 @@ export function AppRoot(props: AppRootProps) {
 
   if (settled) return (
     <>
-      {/* Global background layer + reserved Live2D anchor, mounted before the
+      {/* Global watermark layer + reserved Live2D anchor, mounted before the
           real UI (renderApp → the 'root' slot / AppFrame). Both are
           non-focusable and never intercept pointer events. */}
-      <div className="app-background-layer" aria-hidden="true" />
+      <div className="app-watermark-layer" aria-hidden="true" />
       <div className="app-live2d-anchor" data-live2d-mount />
       {props.renderApp()}
     </>
