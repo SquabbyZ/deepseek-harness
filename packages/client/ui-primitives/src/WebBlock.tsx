@@ -19,9 +19,29 @@
 // replacing an oversized result's text while leaving its presentationMeta whole —
 // can still narrow what the model reads below this list.
 
-import clsx from 'clsx'
 import { MarkdownText } from './markdown/MarkdownText.tsx'
-import css from './WebBlock.module.css'
+import { cn } from './components/ui/cn.ts'
+
+/** Card geometry mirrors CodeBlock/TerminalBlock (12px radius, code-block surface). */
+const BLOCK =
+  'my-4 px-[14px] py-3 text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-alias-markdown-code-block)] rounded-[12px]'
+const ANSWER = 'web-answer mb-2'
+const SOURCES = 'm-0 pl-[2.5em] flex flex-col gap-2.5 max-h-[320px] overflow-y-auto'
+const SOURCE = 'min-w-0'
+const SOURCE_LINK =
+  'text-[color:var(--dsw-alias-state-business-primary)] text-sm leading-[20px] [word-break:break-word] hover:underline'
+const SNIPPET =
+  'mt-0.5 text-[color:var(--dsw-alias-label-secondary)] text-[13px] leading-[19px] [word-break:break-word]'
+const PUBLISHED = 'mt-0.5 text-[color:var(--dsw-alias-label-tertiary)] text-[13px] leading-[20px]'
+const TRUNCATED = 'mt-2 text-[color:var(--dsw-alias-label-tertiary)] text-[13px] leading-[20px]'
+/** The fetch card's truncation note sits inline beside the status, dropping the top margin. */
+const TRUNCATED_INLINE = 'text-[color:var(--dsw-alias-label-tertiary)] text-[13px] leading-[20px]'
+const EMPTY = 'text-[color:var(--dsw-alias-label-secondary)] text-[13px] leading-[20px]'
+const FETCH = 'flex flex-col gap-1.5'
+const FETCH_URL =
+  'text-[color:var(--dsw-alias-state-business-primary)] [font-family:var(--ds-font-family-code)] text-[13px] leading-[19px] break-all hover:underline'
+const FETCH_META = 'flex items-baseline gap-3'
+const STATUS = 'text-[color:var(--dsw-alias-label-secondary)] text-[13px] leading-[20px]'
 
 /**
  * One citeable source drawn in a search card: the projection of the contract's
@@ -135,13 +155,13 @@ function SafeLink({ url, label, className }: { url: string; label: string; class
  */
 function SourceItem({ source, ordinal }: { source: WebSourceView; ordinal: number }) {
   return (
-    <li className={css.source} value={ordinal}>
-      <SafeLink url={source.url} label={linkLabel(source.url, source.title)} className={css.sourceLink} />
+    <li className={SOURCE} value={ordinal}>
+      <SafeLink url={source.url} label={linkLabel(source.url, source.title)} className={SOURCE_LINK} />
       {source.snippet !== undefined && source.snippet !== '' && (
-        <div className={css.snippet}>{source.snippet}</div>
+        <div className={SNIPPET}>{source.snippet}</div>
       )}
       {source.publishedAt !== undefined && source.publishedAt !== '' && (
-        <div className={css.published}>{source.publishedAt}</div>
+        <div className={PUBLISHED}>{source.publishedAt}</div>
       )}
     </li>
   )
@@ -159,18 +179,18 @@ function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBloc
   // empty card. Mirror the backend's `No results found.` render text.
   const empty = (answer === undefined || answer === '') && sources.length === 0
   return (
-    <div className={clsx(css.block, className)} data-web="search">
+    <div className={cn(BLOCK, className)} data-web="search">
       {answer !== undefined && answer !== '' && (
-        <div className={css.answer}><MarkdownText text={answer} /></div>
+        <div className={ANSWER}><MarkdownText text={answer} /></div>
       )}
       {empty ? (
-        <div className={css.empty}>未找到结果</div>
+        <div className={EMPTY}>未找到结果</div>
       ) : (
-        <ol className={css.sources}>
+        <ol className={SOURCES}>
           {sources.map((source, index) => <SourceItem key={index} source={source} ordinal={index + 1} />)}
         </ol>
       )}
-      {truncated && <div className={css.truncated}>来源列表已截断</div>}
+      {truncated && <div className={TRUNCATED}>来源列表已截断</div>}
     </div>
   )
 }
@@ -182,11 +202,11 @@ function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBloc
  */
 function WebFetchBlock({ url, statusCode, truncated, className }: WebFetchBlockProps) {
   return (
-    <div className={clsx(css.block, css.fetch, className)} data-web="fetch">
-      <SafeLink url={url} label={url} className={css.fetchUrl} />
-      <div className={css.fetchMeta}>
-        <span className={css.status}>HTTP {statusCode}</span>
-        {truncated && <span className={css.truncated}>内容已截断</span>}
+    <div className={cn(BLOCK, FETCH, className)} data-web="fetch">
+      <SafeLink url={url} label={url} className={FETCH_URL} />
+      <div className={FETCH_META}>
+        <span className={STATUS}>HTTP {statusCode}</span>
+        {truncated && <span className={TRUNCATED_INLINE}>内容已截断</span>}
       </div>
     </div>
   )

@@ -10,7 +10,7 @@
 
 import { cloneElement, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FocusEventHandler, MouseEventHandler, MutableRefObject, ReactElement, Ref } from 'react'
-import css from './Tooltip.module.css'
+import { cn } from './components/ui/cn.ts'
 
 /** Bubble placement relative to the anchor. */
 export type TooltipSide = 'right' | 'bottom' | 'top'
@@ -25,6 +25,16 @@ interface AnchorProps {
 }
 
 type TooltipLabel = string | (() => string)
+
+/** Fixed-position bubble: dark plate, white text; slide-in on show. */
+const BUBBLE =
+  'tooltip-bubble fixed z-[100] w-max max-w-[50vw] px-[7px] py-[3px] rounded-[8px] bg-[var(--dsw-alias-tooltip-bg)] text-[color:var(--dsw-static-neutral-bluish-00)] text-[13px] leading-[20px] whitespace-pre-line break-words pointer-events-none'
+/** Per-side centering transform; data-side is set on the bubble itself. */
+const SIDE_TRANSFORM: Record<TooltipSide, string> = {
+  right: 'data-[side=right]:-translate-y-1/2',
+  bottom: 'data-[side=bottom]:-translate-x-1/2',
+  top: 'data-[side=top]:-translate-x-1/2 data-[side=top]:-translate-y-full',
+}
 
 /**
  * Attach a hover/focus tooltip to an anchor element.
@@ -155,7 +165,7 @@ export function Tooltip({ label, side = 'right', delayMs = 0, disabled = false, 
       {pos !== null && (
         <span
           ref={bubble}
-          className={css.bubble}
+          className={cn(BUBBLE, SIDE_TRANSFORM[placement])}
           data-side={placement}
           style={{ left: pos.x, top: y, ...maxWidth === undefined ? {} : { maxWidth } }}
           role="tooltip"

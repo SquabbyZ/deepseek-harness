@@ -10,7 +10,6 @@
 // --shiki-*/--dsw-* tokens.
 
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
-import clsx from 'clsx'
 import { writeClipboard } from './clipboard.ts'
 import {
   grammarLoadCount,
@@ -18,7 +17,7 @@ import {
   subscribeGrammarLoaded,
   type HighlightSpan,
 } from './markdown/highlight.ts'
-import css from './ReadBlock.module.css'
+import { cn } from './components/ui/cn.ts'
 
 /**
  * Content lines shown before the height cap collapses the middle. Matches
@@ -26,6 +25,28 @@ import css from './ReadBlock.module.css'
  * same place in the same flow.
  */
 export const DEFAULT_READ_MAX_LINES = 16
+
+/** Card geometry mirrors CodeBlock (12px radius, code-block surface + banner). */
+const BLOCK =
+  'relative my-4 text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-alias-markdown-code-block)] rounded-[12px]'
+const BANNER =
+  'flex justify-between items-center gap-3 px-[14px] py-[9px] bg-[var(--dsw-alias-markdown-code-block-banner)] rounded-t-[12px]'
+const LABEL =
+  'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[color:var(--dsw-alias-label-primary)] [font-family:var(--ds-font-family-code)] text-xs leading-[18px]'
+const ACTION = 'flex items-center shrink-0 gap-3'
+const COUNT = 'text-[color:var(--dsw-alias-label-tertiary)] text-[13px] leading-[20px]'
+const LANG =
+  'text-[color:var(--dsw-alias-label-tertiary)] [font-family:var(--ds-font-family-code)] text-xs leading-[18px]'
+const COPY_BUTTON =
+  'bg-transparent border-none p-0 m-0 text-[color:var(--dsw-alias-label-secondary)] text-[13px] leading-[20px] cursor-pointer'
+const BODY =
+  'py-3 text-[13px] leading-[22px] [font-family:var(--ds-font-family-code)] overflow-x-auto overflow-y-hidden'
+const LINE = 'flex min-h-[22px] leading-[22px] whitespace-pre'
+const GUTTER =
+  'flex-none w-[48px] pr-[14px] text-right text-[var(--dsw-alias-label-tertiary)] select-none'
+const CONTENT = 'text-[var(--dsw-alias-label-primary)]'
+const EXPAND =
+  'block w-full pl-[48px] border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] cursor-pointer text-left hover:text-[var(--dsw-alias-label-secondary)]'
 
 /** One line of the read window: its file line number and its text (no trailing newline). */
 export interface ReadBlockLine {
@@ -121,9 +142,9 @@ export function ReadBlock({
    */
   const rows = (slice: readonly (readonly [ReadBlockLine, readonly HighlightSpan[] | undefined])[]) =>
     slice.map(([line, spans]) => (
-      <div key={line.number} className={css.line}>
-        <span className={css.gutter} aria-hidden>{line.number}</span>
-        <span className={css.content}>{spans === undefined ? line.text : renderSpans(spans)}</span>
+      <div key={line.number} className={LINE}>
+        <span className={GUTTER} aria-hidden>{line.number}</span>
+        <span className={CONTENT}>{spans === undefined ? line.text : renderSpans(spans)}</span>
       </div>
     ))
 
@@ -133,31 +154,31 @@ export function ReadBlock({
     [line, highlighted?.[index]])
 
   return (
-    <div className={clsx(css.block, className)} data-read="">
-      <div className={css.banner}>
-        <div className={css.label}>{label ?? ''}</div>
-        <div className={css.action}>
+    <div className={cn(BLOCK, className)} data-read="">
+      <div className={BANNER}>
+        <div className={LABEL}>{label ?? ''}</div>
+        <div className={ACTION}>
           {windowed && (
-            <span className={css.count}>{`显示 ${lines.length} / ${totalLines} 行`}</span>
+            <span className={COUNT}>{`显示 ${lines.length} / ${totalLines} 行`}</span>
           )}
-          <span className={css.lang}>{lang ?? ''}</span>
+          <span className={LANG}>{lang ?? ''}</span>
           {/* Hide copy on an empty window, matching TerminalBlock's empty-output
               guard: a successful read of an empty file returns lines: [] with
               card:'read', so this branch is reachable, and copying then would
               wipe the clipboard with an empty string. */}
           {lines.length > 0 && (
-            <button type="button" className={css.copyButton} onClick={onCopy}>
+            <button type="button" className={COPY_BUTTON} onClick={onCopy}>
               {copied ? '复制成功' : '复制'}
             </button>
           )}
         </div>
       </div>
-      <div className={css.body}>
+      <div className={BODY}>
         {rows(capped ? paired.slice(0, headLines) : paired)}
         {hidden > 0 && (
           <button
             type="button"
-            className={css.expand}
+            className={EXPAND}
             aria-expanded={expanded}
             aria-label={expanded ? '收起内容' : `展开其余 ${hidden} 行`}
             onClick={onToggle}

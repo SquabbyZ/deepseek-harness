@@ -1,13 +1,19 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import css from './Toast.module.css'
 
 /** Full-opacity hold before the fade starts. Must agree with the stylesheet's
- * toast-fade delay (Toast.module.css) or the banner unmounts mid-fade. */
+ * toast-fade delay (primitives.css) or the banner unmounts mid-fade. */
 const HOLD_MS = 3000
 /** Fade duration. Must agree with the stylesheet's toast-fade duration. */
 const FADE_MS = 1000
+
+/** Banner frame: fixed top-center, contrast fill; slide-in + hold-and-fade
+ * animation and the centering transform live in primitives.css `.toast-root`. */
+const TOAST =
+  'toast-root fixed top-[120px] left-1/2 z-[1100] pointer-events-none flex items-center gap-2.5 max-w-[min(560px,calc(100vw_-_48px))] px-4 py-3 rounded-[14px] bg-[var(--dsw-alias-button-contrast-fill)] text-[color:var(--dsw-alias-label-primary-inverted)] text-sm leading-[22px] shadow-[var(--dsw-shadow-lv3)]'
+const ICON = 'grid place-items-center flex-none text-[var(--dsw-alias-state-warn-label)]'
+const TEXT = 'min-w-0'
 
 /**
  * Transient top-center banner: slides in, holds at full opacity, fades out,
@@ -50,9 +56,9 @@ export function Toast({ text, icon, anchor, onDone }: {
     return () => { window.removeEventListener('resize', measure) }
   }, [anchor])
   return createPortal(
-    <div className={css.toast} role="alert" style={left === null ? undefined : { left }}>
-      {icon !== undefined && <span className={css.icon} aria-hidden>{icon}</span>}
-      <span className={css.text}>{text}</span>
+    <div className={TOAST} role="alert" style={left === null ? undefined : { left }}>
+      {icon !== undefined && <span className={ICON} aria-hidden>{icon}</span>}
+      <span className={TEXT}>{text}</span>
     </div>,
     document.body,
   )

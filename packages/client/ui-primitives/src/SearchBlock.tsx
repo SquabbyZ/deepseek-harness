@@ -9,10 +9,31 @@
 // TerminalBlock so a search card reads as one family with them.
 
 import { useCallback, useState, type ReactNode } from 'react'
-import clsx from 'clsx'
 import { headTailCap } from './head-tail-cap.ts'
 import { useCopyFeedback } from './use-copy-feedback.ts'
-import css from './SearchBlock.module.css'
+import { cn } from './components/ui/cn.ts'
+
+/** Card geometry mirrors CodeBlock/TerminalBlock (12px radius, code-block surface + banner). */
+const BLOCK =
+  'relative my-4 text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-alias-markdown-code-block)] rounded-[12px]'
+const HEADER =
+  'flex items-center gap-3 px-[14px] py-[9px] bg-[var(--dsw-alias-markdown-code-block-banner)] rounded-t-[12px]'
+const SUMMARY =
+  'flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[color:var(--dsw-alias-label-secondary)] text-[13px] leading-[20px]'
+const COPY_BUTTON =
+  'flex-none bg-transparent border-none p-0 m-0 text-[color:var(--dsw-alias-label-secondary)] text-[13px] leading-[20px] cursor-pointer'
+const BODY =
+  'pt-2 pr-[14px] pb-3 text-[13px] leading-[22px] [font-family:var(--ds-font-family-code)] overflow-x-auto overflow-y-hidden'
+const LINE = 'min-h-[22px] pl-[14px] whitespace-pre'
+const LINE_NUMBER = 'text-[var(--dsw-alias-label-tertiary)]'
+const FILE_HEADER =
+  'flex items-baseline gap-2 w-full min-h-[22px] px-[14px] border-none bg-transparent cursor-pointer text-left'
+const FILE_PATH = 'min-w-0 font-semibold text-[var(--dsw-alias-label-primary)] whitespace-pre'
+const FILE_COUNT = 'flex-none text-[var(--dsw-alias-label-tertiary)]'
+const EXPAND =
+  'block w-full px-[14px] border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] cursor-pointer text-left hover:text-[var(--dsw-alias-label-secondary)]'
+const EMPTY =
+  'px-[14px] py-3 text-[color:var(--dsw-alias-label-tertiary)] text-[13px] leading-[22px] [font-family:var(--ds-font-family-code)]'
 
 /**
  * Result rows shown before the height cap collapses the middle. Matches
@@ -214,11 +235,11 @@ export function SearchBlock(props: SearchBlockProps) {
   const tail = tailHeader === undefined ? naturalTail : naturalTail.slice(1)
 
   const renderRow = (row: SearchRow): ReactNode => {
-    if (row.type === 'path') return <div className={css.line}>{row.path}</div>
+    if (row.type === 'path') return <div className={LINE}>{row.path}</div>
     if (row.type === 'match') {
       return (
-        <div className={css.line}>
-          <span className={css.lineNumber}>{row.lineNumber}: </span>
+        <div className={LINE}>
+          <span className={LINE_NUMBER}>{row.lineNumber}: </span>
           {row.line}
         </div>
       )
@@ -226,37 +247,37 @@ export function SearchBlock(props: SearchBlockProps) {
     return (
       <button
         type="button"
-        className={css.fileHeader}
+        className={FILE_HEADER}
         aria-expanded={!row.collapsed}
         onClick={() => { toggleFile(row.index) }}
       >
-        <span className={css.filePath}>{row.path}</span>
-        <span className={css.fileCount}>{row.count}</span>
+        <span className={FILE_PATH}>{row.path}</span>
+        <span className={FILE_COUNT}>{row.count}</span>
       </button>
     )
   }
 
   return (
-    <div className={clsx(css.block, className)} data-search={props.kind}>
-      <div className={css.header}>
-        <span className={css.summary}>{summaryText(props, shown, truncated, total)}</span>
+    <div className={cn(BLOCK, className)} data-search={props.kind}>
+      <div className={HEADER}>
+        <span className={SUMMARY}>{summaryText(props, shown, truncated, total)}</span>
         {!empty && (
-          <button type="button" className={css.copyButton} onClick={onCopy}>
+          <button type="button" className={COPY_BUTTON} onClick={onCopy}>
             {copied ? '复制成功' : '复制'}
           </button>
         )}
       </div>
       {empty
-        ? <div className={css.empty}>无结果</div>
+        ? <div className={EMPTY}>无结果</div>
         : (
-          <div className={css.body}>
+          <div className={BODY}>
             {head.map(row => (
               <div key={rowKey(row)}>{renderRow(row)}</div>
             ))}
             {hidden > 0 && (
               <button
                 type="button"
-                className={css.expand}
+                className={EXPAND}
                 aria-expanded={expanded}
                 aria-label={expanded ? '收起结果' : `展开其余 ${hidden} 行结果`}
                 onClick={onToggle}

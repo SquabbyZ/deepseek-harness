@@ -3,8 +3,7 @@
 // core. ongoing: a pixel-art chase — the 8 outer cells of a 3x3 matrix light
 // up clockwise with a stepped trail. Colors resolve through --dsw-* tokens only.
 
-import clsx from 'clsx'
-import css from './StateDot.module.css'
+import { cn } from './components/ui/cn.ts'
 
 /** Four-color state semantic (green done / amber user-attention / blue running ring / red error). */
 export type StateDotState = 'done' | 'warning' | 'ongoing' | 'error'
@@ -13,6 +12,18 @@ export type StateDotState = 'done' | 'warning' | 'ongoing' | 'error'
 const MATRIX_CELLS: readonly (readonly [number, number])[] = [
   [0, 0], [4, 0], [8, 0], [8, 4], [8, 8], [4, 8], [0, 8], [0, 4],
 ]
+
+/** Solid-state dot: inline-block host for the ::before/::after halo + core. */
+const DOT = 'state-dot relative inline-block flex-none'
+/** Ongoing blue has no alias token (state-business-primary is the 500 step, not
+ * this 450) — pinned to the static scale instead. */
+const MATRIX = 'flex-none text-[var(--dsw-static-deepseek-450)]'
+/** Per-state color for the solid dot; the halo/core ride currentColor. */
+const DOT_STATE: Record<Exclude<StateDotState, 'ongoing'>, string> = {
+  done: 'data-[state=done]:text-[var(--dsw-alias-state-success-primary)]',
+  warning: 'data-[state=warning]:text-[var(--dsw-alias-state-warn-primary)]',
+  error: 'data-[state=error]:text-[var(--dsw-alias-state-error-primary)]',
+}
 
 /**
  * Render a state dot.
@@ -29,7 +40,7 @@ export function StateDot({ state, size = 10, className }: {
   if (state === 'ongoing') {
     return (
       <svg
-        className={clsx(css.matrix, className)}
+        className={cn(MATRIX, className)}
         data-state="ongoing"
         width={size}
         height={size}
@@ -40,7 +51,7 @@ export function StateDot({ state, size = 10, className }: {
         {MATRIX_CELLS.map(([x, y], index) => (
           <rect
             key={`${x}-${y}`}
-            className={css.cell}
+            className="state-dot-cell"
             x={x}
             y={y}
             width="2"
@@ -54,7 +65,7 @@ export function StateDot({ state, size = 10, className }: {
   }
   return (
     <span
-      className={clsx(css.dot, className)}
+      className={cn(DOT, DOT_STATE[state], className)}
       data-state={state}
       style={{ width: size, height: size }}
       aria-hidden="true"

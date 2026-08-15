@@ -9,9 +9,8 @@
 // tokens; geometry mirrors CodeBlock.
 
 import { useCallback, useMemo, useState } from 'react'
-import clsx from 'clsx'
 import { writeClipboard } from './clipboard.ts'
-import css from './DiffBlock.module.css'
+import { cn } from './components/ui/cn.ts'
 
 /**
  * Output lines shown before the height cap collapses the middle. Matches
@@ -55,12 +54,36 @@ function assertNever(value: never): never {
   throw new Error(`unreachable diff row kind: ${String(value)}`)
 }
 
+/** Card geometry mirrors CodeBlock/TerminalBlock (12px radius, code-block surface). */
+const BLOCK =
+  'relative my-4 text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-alias-markdown-code-block)] rounded-[12px]'
+
+/** Copy control floats top-right over the body, so the card has no empty banner row. */
+const COPY_BUTTON =
+  'absolute top-2 right-3 z-[1] border-none bg-transparent p-0 m-0 text-[color:var(--dsw-alias-label-secondary)] text-[13px] leading-[20px] cursor-pointer'
+
+/** Body keeps its own code font and scrolls horizontally (a source line folds
+ * would destroy the indentation a diff is read by). */
+const BODY =
+  'px-[14px] py-3 text-[13px] leading-[22px] [font-family:var(--ds-font-family-code)] overflow-x-auto overflow-y-hidden'
+
+/** One body line, minimum the code line height, no wrapping. */
+const LINE = 'min-h-[22px] whitespace-pre'
+
+/** Collapse toggle. */
+const EXPAND =
+  'block w-full p-0 border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] cursor-pointer text-left hover:text-[var(--dsw-alias-label-secondary)]'
+
+/** The change summary, dim under the body. */
+const FOOTER =
+  'px-[14px] pb-3 text-[color:var(--dsw-alias-label-tertiary)] text-[13px] leading-[22px] [font-family:var(--ds-font-family-code)]'
+
 /** The dim class per row kind (path/gap chrome vs the diff's own +/- colors). */
 const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
-  path: css.path,
-  del: css.del,
-  add: css.add,
-  gap: css.gap,
+  path: 'font-semibold pr-[56px] text-[var(--dsw-alias-label-primary)]',
+  del: 'diff-del',
+  add: 'diff-add',
+  gap: 'text-[var(--dsw-alias-label-tertiary)]',
 }
 
 /**
@@ -166,18 +189,18 @@ export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className 
   const tail = capped ? rows.slice(rows.length - tailLines) : []
 
   return (
-    <div className={clsx(css.block, className)} data-diff="">
-      <button type="button" className={css.copyButton} onClick={onCopy}>
+    <div className={cn(BLOCK, className)} data-diff="">
+      <button type="button" className={COPY_BUTTON} onClick={onCopy}>
         {copied ? '复制成功' : '复制'}
       </button>
-      <div className={css.body}>
+      <div className={BODY}>
         {head.map((row, index) => (
-          <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>{row.text}</div>
+          <div key={index} className={cn(LINE, ROW_CLASS[row.kind])}>{row.text}</div>
         ))}
         {hidden > 0 && (
           <button
             type="button"
-            className={css.expand}
+            className={EXPAND}
             aria-expanded={expanded}
             aria-label={expanded ? '收起差异' : `展开其余 ${hidden} 行差异`}
             onClick={onToggle}
@@ -186,10 +209,10 @@ export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className 
           </button>
         )}
         {tail.map((row, index) => (
-          <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>{row.text}</div>
+          <div key={index} className={cn(LINE, ROW_CLASS[row.kind])}>{row.text}</div>
         ))}
       </div>
-      <div className={css.footer}>└ +{added} -{removed} · {files} file{files === 1 ? '' : 's'}</div>
+      <div className={FOOTER}>└ +{added} -{removed} · {files} file{files === 1 ? '' : 's'}</div>
     </div>
   )
 }

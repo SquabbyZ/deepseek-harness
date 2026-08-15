@@ -1,0 +1,170 @@
+/* Shared custom CSS for ui-primitives atoms whose rules cannot be expressed as
+ * Tailwind utilities: @keyframes, ::before/::after geometry, `animation`
+ * declarations, descendant combinators, :global-scoped selectors, and the
+ * --dsl-terminal-* rebindable-variable contract TerminalBlock exposes to
+ * consumers. Imported once from globals.css; every class here is prefixed per
+ * the migration spec (state-dot-, toast-, tooltip-, diff-, term-, web-). */
+
+@layer components {
+  /* --- StateDot --- */
+
+  /* Solid states: a 0.10-opacity halo (::before) behind a 6/10-scale solid core
+   * (::after), both riding currentColor set per data-state. */
+  .state-dot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.1;
+  }
+
+  .state-dot::after {
+    content: '';
+    position: absolute;
+    inset: 20%;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Pixel chase cell: flat keyframe holds (no tweening), phase via inline
+   * animation-delay. */
+  .state-dot-cell {
+    fill: currentColor;
+    opacity: 0.15;
+    animation: dsh-state-dot-chase 1s infinite;
+  }
+
+  /* --- Toast --- */
+
+  /* The base transform stays here (not -translate-x-1/2): the slide-in keyframe
+   * animates `transform`, and a native `translate` utility would compose with it
+   * instead of being overridden. */
+  .toast-root {
+    transform: translateX(-50%);
+    animation:
+      dsh-toast-in 160ms ease-out,
+      dsh-toast-fade 1000ms ease 3000ms forwards;
+  }
+
+  /* Reduced motion drops the slide-in; the delayed fade (an opacity change,
+   * not movement) still ends the banner before the timed unmount. */
+  @media (prefers-reduced-motion: reduce) {
+    .toast-root {
+      animation: dsh-toast-fade 1000ms ease 3000ms forwards;
+    }
+  }
+
+  /* --- Tooltip --- */
+
+  .tooltip-bubble {
+    animation: tooltip-in 150ms var(--ds-ease-in-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tooltip-bubble {
+      animation: none;
+    }
+  }
+
+  /* --- DiffBlock --- */
+
+  /* The +/- marker glyph is drawn by the pseudo-element so a copied line and
+   * the shown line agree, and the sign reads without relying on color alone. */
+  .diff-del {
+    color: var(--dsw-alias-state-error-primary);
+  }
+
+  .diff-del::before {
+    content: '- ';
+    color: var(--dsw-alias-state-error-primary);
+  }
+
+  .diff-add {
+    color: var(--dsw-alias-state-success-primary);
+  }
+
+  .diff-add::before {
+    content: '+ ';
+    color: var(--dsw-alias-state-success-primary);
+  }
+
+  /* --- TerminalBlock --- */
+
+  /* Component-local defaults for the rebindable --dsl-terminal-* contract
+   * (consumers override font/line-height/output-max-height on their own
+   * container; the defaults here match CodeBlock's geometry). */
+  .term-block {
+    --dsl-terminal-radius: 12px;
+    --dsl-terminal-line-height: 22px;
+    --dsl-terminal-font: var(--dsw-font-markdown-code-block);
+    --dsl-terminal-gutter: 30px;
+  }
+
+  /* Full-width l2 hairline between the command banner and the body; a running
+   * card is banner-only, so it draws none. */
+  .term-block:not([data-running]) .term-header {
+    border-bottom: 1px solid var(--dsw-alias-border-l2);
+  }
+
+  .term-header::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 6px;
+  }
+
+  .term-header::-webkit-scrollbar-track {
+    margin: 6px;
+  }
+
+  .term-output::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 6px;
+  }
+
+  .term-output::-webkit-scrollbar-track {
+    margin: 6px;
+  }
+
+  /* --- WebBlock --- */
+
+  /* Trim the provider answer's own MarkdownText margins so the source list sits
+   * tight under it. */
+  .web-answer > div > :first-child {
+    margin-top: 0;
+  }
+
+  .web-answer > div > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+@keyframes dsh-state-dot-chase {
+  0%, 12.4% { opacity: 1; }
+  12.5%, 24.9% { opacity: 0.6; }
+  25%, 37.4% { opacity: 0.35; }
+  37.5%, 100% { opacity: 0.15; }
+}
+
+@keyframes dsh-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes dsh-toast-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; }
+}

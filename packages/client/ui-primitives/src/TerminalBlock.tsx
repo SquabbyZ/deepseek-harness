@@ -6,13 +6,35 @@
 // tokens; ANSI parsing lives in ansi.ts.
 
 import { useCallback, useMemo, useState } from 'react'
-import clsx from 'clsx'
 import { parseAnsiLines, type AnsiLine } from './ansi.ts'
 import { headTailCap } from './head-tail-cap.ts'
 import { useCopyFeedback } from './use-copy-feedback.ts'
 import { Pill } from './Pill.tsx'
 import { StateDot, type StateDotState } from './StateDot.tsx'
-import css from './TerminalBlock.module.css'
+import { cn } from './components/ui/cn.ts'
+
+/** Card root. The --dsl-terminal-* defaults live in primitives.css `.term-block`
+ * so consumers can rebind font/line-height/output-max-height on their container. */
+const BLOCK =
+  'term-block relative my-4 pl-[var(--dsl-terminal-gutter)] text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-alias-markdown-code-block)] rounded-[var(--dsl-terminal-radius)] overflow-hidden'
+const HEADER =
+  'term-header flex items-start gap-3 ml-[calc(-1_*_var(--dsl-terminal-gutter))] py-[9px] pr-[14px] pl-[var(--dsl-terminal-gutter)] rounded-t-[var(--dsl-terminal-radius)] max-h-[150px] overflow-y-auto'
+const PROMPT = 'flex flex-col min-w-0 flex-1 [font:var(--dsl-terminal-font)]'
+const PROMPT_LINE = 'relative flex items-baseline gap-2 min-w-0 leading-[var(--dsl-terminal-line-height)]'
+const RUN_STATE =
+  'absolute left-[calc(-1_*_var(--dsl-terminal-gutter)_+_8px)] top-1/2 -translate-y-1/2'
+const RUN_STATE_LABEL = 'absolute w-px h-px overflow-hidden whitespace-nowrap [clip-path:inset(50%)]'
+const CWD = 'flex-none text-[var(--dsw-alias-label-tertiary)]'
+const COMMAND = 'min-w-0 text-[var(--dsw-alias-label-primary)] overflow-hidden text-ellipsis whitespace-pre'
+const STATUS = 'flex-none sticky top-0 h-[var(--dsl-terminal-line-height)] text-[var(--dsw-alias-state-error-primary)]'
+const COPY_BUTTON =
+  'flex-none sticky top-0 bg-[var(--dsw-alias-markdown-code-block)] border-none p-0 m-0 text-[color:var(--dsw-alias-label-secondary)] [font-family:var(--dsw-font-family)] text-[13px] leading-[var(--dsl-terminal-line-height)] cursor-pointer'
+const OUTPUT =
+  'term-output max-h-[var(--dsl-terminal-output-max-height,none)] py-3 pr-[14px] [font:var(--dsl-terminal-font)] overflow-auto'
+const LINE = 'min-h-[var(--dsl-terminal-line-height)] whitespace-pre'
+const EXPAND =
+  'block w-full p-0 border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] cursor-pointer text-left hover:text-[var(--dsw-alias-label-secondary)]'
+const EMPTY = 'py-3 pr-[14px] [font:var(--dsl-terminal-font)] text-[var(--dsw-alias-label-tertiary)]'
 
 /**
  * Output lines shown before the height cap collapses the middle. Matches the
@@ -227,48 +249,48 @@ export function TerminalBlock({
   const { hidden, capped, headLines, tailLines } = headTailCap(lines.length, maxLines, expanded)
 
   return (
-    <div className={clsx(css.block, className)} data-terminal="" data-running={running ? '' : undefined}>
-      <div className={css.header}>
-        <div className={css.prompt}>
-          <span className={css.runStateLabel}>{state.label}</span>
+    <div className={cn(BLOCK, className)} data-terminal="" data-running={running ? '' : undefined}>
+      <div className={HEADER}>
+        <div className={PROMPT}>
+          <span className={RUN_STATE_LABEL}>{state.label}</span>
           {commandLines.map((line, index) => (
-            <div key={index} className={css.promptLine}>
+            <div key={index} className={PROMPT_LINE}>
               {/* One dot for the card, on the first row: the exit status the
                   view carries is the whole call's, and bash reports no
                   per-command status, so a dot per row would assert a
                   per-line outcome nothing here knows. */}
-              {index === 0 && <StateDot state={state.state} className={css.runState} />}
+              {index === 0 && <StateDot state={state.state} className={RUN_STATE} />}
               {/* The cwd labels the CALL, so only its first row carries it. The
                   view knows one working directory — where the call started —
                   and a later line may well run somewhere else (a `cd` in the
                   command is enough), so repeating the label down the rows would
                   assert a directory per line that nothing here knows. Later
                   rows keep a bare `$` to stay aligned as prompts. */}
-              <span className={css.cwd}>
+              <span className={CWD}>
                 {index > 0 || cwd === undefined ? '$' : promptLabel(cwd, home)}
               </span>
-              <span className={css.command}>{line}</span>
+              <span className={COMMAND}>{line}</span>
             </div>
           ))}
         </div>
-        {status !== undefined && <Pill className={css.status}>{status}</Pill>}
+        {status !== undefined && <Pill className={STATUS}>{status}</Pill>}
         {!running && !empty && (
-          <button type="button" className={css.copyButton} onClick={onCopy}>
+          <button type="button" className={COPY_BUTTON} onClick={onCopy}>
             {copied ? copy.copied : copy.copy}
           </button>
         )}
       </div>
       {!running && (empty
-        ? <div className={css.empty}>{copy.noOutput}</div>
+        ? <div className={EMPTY}>{copy.noOutput}</div>
         : (
-          <div className={css.output}>
+          <div className={OUTPUT}>
             {(capped ? lines.slice(0, headLines) : lines).map((line, index) => (
-              <div key={index} className={css.line}>{renderLine(line)}</div>
+              <div key={index} className={LINE}>{renderLine(line)}</div>
             ))}
             {hidden > 0 && (
               <button
                 type="button"
-                className={css.expand}
+                className={EXPAND}
                 aria-expanded={expanded}
                 aria-label={expanded ? copy.collapseAria : copy.expandAria(hidden)}
                 onClick={onToggle}
@@ -277,7 +299,7 @@ export function TerminalBlock({
               </button>
             )}
             {capped && lines.slice(lines.length - tailLines).map((line, index) => (
-              <div key={index} className={css.line}>{renderLine(line)}</div>
+              <div key={index} className={LINE}>{renderLine(line)}</div>
             ))}
           </div>
         ))}

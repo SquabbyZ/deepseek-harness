@@ -4,6 +4,7 @@
  * without a second theme mechanism; the .dark block below is the canonical
  * shadcn surface and mirrors :root for the same reason. */
 @import 'tailwindcss';
+@import './primitives.css';
 
 /* Required: ui-primitives source lives OUTSIDE apps/web (the Vite root), so
  * Tailwind's automatic source detection does not reach it. Explicitly register
