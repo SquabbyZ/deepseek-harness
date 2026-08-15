@@ -6,7 +6,7 @@ import type { ButtonHTMLAttributes } from 'react'
 import { cn } from './cn.ts'
 
 export type ShadcnButtonVariant = 'default' | 'secondary' | 'ghost' | 'outline' | 'destructive'
-export type ShadcnButtonSize = 'default' | 'sm' | 'lg' | 'icon'
+export type ShadcnButtonSize = 'default' | 'sm' | 'lg' | 'icon' | 'icon-sm' | 'icon-xs'
 
 export interface ShadcnButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ShadcnButtonVariant
@@ -29,6 +29,8 @@ const sizes: Record<ShadcnButtonSize, string> = {
   sm: 'h-8 rounded-md px-3 text-xs',
   lg: 'h-10 rounded-md px-6',
   icon: 'h-9 w-9',
+  'icon-sm': 'h-8 w-8',
+  'icon-xs': 'h-6 w-6',
 }
 
 export function ShadcnButton({

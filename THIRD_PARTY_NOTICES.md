@@ -54,6 +54,7 @@ External packages that a workspace package resolves at runtime. The tier covers 
 | [`@radix-ui/react-collapsible`](https://github.com/radix-ui/primitives) | MIT |
 | [`@radix-ui/react-context-menu`](https://github.com/radix-ui/primitives) | MIT |
 | [`@radix-ui/react-dialog`](https://github.com/radix-ui/primitives) | MIT |
+| [`@radix-ui/react-direction`](https://github.com/radix-ui/primitives) | MIT |
 | [`@radix-ui/react-dropdown-menu`](https://github.com/radix-ui/primitives) | MIT |
 | [`@radix-ui/react-hover-card`](https://github.com/radix-ui/primitives) | MIT |
 | [`@radix-ui/react-label`](https://github.com/radix-ui/primitives) | MIT |
@@ -73,6 +74,7 @@ External packages that a workspace package resolves at runtime. The tier covers 
 | [`@radix-ui/react-toggle`](https://github.com/radix-ui/primitives) | MIT |
 | [`@radix-ui/react-toggle-group`](https://github.com/radix-ui/primitives) | MIT |
 | [`@radix-ui/react-tooltip`](https://github.com/radix-ui/primitives) | MIT |
+| [`@shadcn/react`](https://github.com/shadcn-ui/ui) | MIT |
 | [`@shikijs/langs`](https://github.com/shikijs/shiki) | MIT |
 | [`@standard-schema/spec`](https://github.com/standard-schema/standard-schema) | MIT |
 | [`@tanstack/react-virtual`](https://github.com/TanStack/virtual) | MIT |

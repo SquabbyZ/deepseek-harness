@@ -114,3 +114,13 @@ export * from './components/ui/spinner.tsx'
 export * from './components/ui/table.tsx'
 export * from './components/ui/tabs.tsx'
 export { Input as ShadcnInput } from './components/ui/input.tsx'
+
+// Shadcn chat primitives (newer registry; Field/Item/Message are collision-free).
+export * from './components/ui/field.tsx'
+export * from './components/ui/item.tsx'
+export * from './components/ui/direction.tsx'
+export * from './components/ui/attachment.tsx'
+export * from './components/ui/bubble.tsx'
+export * from './components/ui/marker.tsx'
+export * from './components/ui/message.tsx'
+export * from './components/ui/message-scroller.tsx'
