@@ -126,3 +126,65 @@
   z-index: 50;
   pointer-events: none;
 }
+
+/* --- Skin effects: frosted glass + neon cyber (keyed on body[data-skin]) ---
+ *
+ * The skins are token-only in ui-theme; the effects that make them read as
+ * genuine glassmorphism / neon live here as additive CSS keyed on
+ * body[data-skin="glass"|"cyber"]. The surface containers carry a stable
+ * `data-surface` hook (set in AppFrame.tsx) because their CSS-module class
+ * names are hashed and unreachable from this global sheet. The default skin is
+ * untouched: none of these rules match a body with `data-skin="default"` (or
+ * no data-skin at all, e.g. before the presenter mounts). */
+
+/* --- glass: frosted surfaces --- */
+
+/* Surface containers (frame + sidebar): frosted via backdrop blur + saturation.
+ * The translucency they blur through comes from the glass SKIN_PRESETS values
+ * (rgba tints of --dsw-static-neutral-*), so background content shows through
+ * as soft, desaturated glass rather than a flat tint. */
+[data-skin='glass'] [data-surface] {
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+}
+
+/* Glass edge: the raised sidebar keeps its light hairline (the glass border-l1
+ * tint) and gains a soft inner highlight along the lit left edge. */
+[data-skin='glass'] [data-surface='sidebar'] {
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Paint the user's chosen background image BEHIND the app so the panels have
+ * real content to blur. The default skin renders the image as an above-content
+ * watermark (`.app-watermark-layer`), which backdrop-filter cannot reach; glass
+ * instead drops the watermark and shows the image through the frosted surfaces.
+ * With no image set, --app-background-image is `none` and this is a no-op. */
+body[data-skin='glass'] {
+  background-image: var(--app-background-image);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+}
+
+body[data-skin='glass'] .app-watermark-layer {
+  display: none;
+}
+
+/* --- cyber: neon surfaces --- */
+
+/* The near-black base comes from the cyber SKIN_PRESETS tokens; the frame adds
+ * a faint blue radial tint so the canvas reads "lit" rather than flat navy. */
+[data-skin='cyber'] [data-surface='frame'] {
+  background-image:
+    radial-gradient(120% 100% at 15% 0%, rgba(96, 165, 250, 0.14), transparent 55%),
+    radial-gradient(90% 90% at 100% 100%, rgba(103, 158, 254, 0.1), transparent 50%);
+}
+
+/* Neon edges: a bright-blue hairline plus a soft outer glow on the raised
+ * sidebar so the edge reads as lit rather than painted. */
+[data-skin='cyber'] [data-surface='sidebar'] {
+  border-right-color: var(--dsw-static-blue-400);
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.35),
+    0 0 16px rgba(96, 165, 250, 0.25);
+}
