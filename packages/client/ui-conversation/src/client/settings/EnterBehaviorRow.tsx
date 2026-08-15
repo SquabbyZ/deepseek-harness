@@ -2,10 +2,9 @@
 import { useState } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, Menu, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { BusyEnterBehavior } from '../contract/composer-submission.ts'
 import type { ConversationKey } from '../locales.ts'
-import css from './EnterBehaviorRow.module.css'
 
 /** Registration-side preference face. */
 export interface EnterBehaviorRowInjected {
@@ -42,10 +41,10 @@ export function EnterBehaviorRow({ useBusyEnter, setBusyEnter, t }: EnterBehavio
   const selectedLabel = behavior === 'queue' ? 'settings.enter.queue' : 'settings.enter.steer'
 
   return (
-    <div className={css.row}>
-      <div className={css.rowText}>
-        <div className={css.title}>{t('settings.enter.title')}</div>
-        <div className={css.desc}>{t('settings.enter.description')}</div>
+    <div className="flex items-center gap-2 border-b border-[var(--dsw-alias-border-l2)] py-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-1 pr-12">
+        <div className="text-sm leading-[22px] text-foreground">{t('settings.enter.title')}</div>
+        <div className="text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]">{t('settings.enter.description')}</div>
       </div>
       <Menu
         open={open}
@@ -59,16 +58,16 @@ export function EnterBehaviorRow({ useBusyEnter, setBusyEnter, t }: EnterBehavio
         align="end"
         portal
         anchor={(
-          <button
-            type="button"
-            className={css.selector}
+          <ShadcnButton
+            variant="ghost"
+            className="h-9 gap-3 rounded-[18px] bg-[var(--dsw-alias-bg-module-platform)] px-[14px] text-sm leading-[22px] text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)]"
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => { setOpen(value => !value) }}
           >
             {t(selectedLabel)}
-            <IconChevronDownOutline14 className={css.chevron} />
-          </button>
+            <IconChevronDownOutline14 className="shrink-0" />
+          </ShadcnButton>
         )}
       />
     </div>

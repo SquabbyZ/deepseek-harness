@@ -10,6 +10,7 @@
  * Tailwind's automatic source detection does not reach it. Explicitly register
  * the package source tree (resolved relative to this CSS file). */
 @source "../../ui-primitives/src";
+@source "../../ui-conversation/src";
 
 /* Attribute-based dark variant: the app toggles dark via body[data-ds-dark-theme]
  * (which the --dsw-* aliases already respect), so the shadcn `dark:` variant
