@@ -86,6 +86,15 @@ const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
   gap: 'text-[var(--dsw-alias-label-tertiary)]',
 }
 
+/** Stable `data-*` hook per row kind, so tests pin a row's role without the
+ * CSS-module class names the Tailwind migration replaced. */
+const ROW_DATA: Record<DiffRow['kind'], Record<string, string>> = {
+  path: { 'data-diff-path': '' },
+  del: { 'data-diff-del': '' },
+  add: { 'data-diff-add': '' },
+  gap: { 'data-diff-gap': '' },
+}
+
 /**
  * Flatten the hunks into the body's rows plus the footer counts. A path header
  * opens each new file; a same-file second hunk (a scattered edit) opens with a
@@ -195,7 +204,7 @@ export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className 
       </button>
       <div className={BODY}>
         {head.map((row, index) => (
-          <div key={index} className={cn(LINE, ROW_CLASS[row.kind])}>{row.text}</div>
+          <div key={index} className={cn(LINE, ROW_CLASS[row.kind])} data-diff-line="" {...ROW_DATA[row.kind]}>{row.text}</div>
         ))}
         {hidden > 0 && (
           <button
@@ -209,7 +218,7 @@ export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className 
           </button>
         )}
         {tail.map((row, index) => (
-          <div key={index} className={cn(LINE, ROW_CLASS[row.kind])}>{row.text}</div>
+          <div key={index} className={cn(LINE, ROW_CLASS[row.kind])} data-diff-line="" {...ROW_DATA[row.kind]}>{row.text}</div>
         ))}
       </div>
       <div className={FOOTER}>└ +{added} -{removed} · {files} file{files === 1 ? '' : 's'}</div>

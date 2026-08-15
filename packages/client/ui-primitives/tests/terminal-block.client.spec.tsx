@@ -20,23 +20,23 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
-/** The rendered output rows, one string per visible line (CSS-module class prefix). */
+/** The rendered output rows, one string per visible line (stable data hook). */
 function outputLines(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
+  return [...container.querySelectorAll('[data-term-line]')].map(row => row.textContent ?? '')
 }
 
 /** The prompt line's run-state dot: its StateDot state plus the hidden text label beside it. */
 function runStateOf(container: HTMLElement): { state: string | null; label: string | undefined } {
-  const dot = container.querySelector('[class*="_runState_"][data-state]')
+  const dot = container.querySelector('[data-term-run-state] [data-state]')
   return {
     state: dot?.getAttribute('data-state') ?? null,
-    label: container.querySelector('[class^="_runStateLabel_"]')?.textContent ?? undefined,
+    label: container.querySelector('[data-term-run-state-label]')?.textContent ?? undefined,
   }
 }
 
 /** The prompt rows as `<label><command>`, one per command line (the visual gap is CSS). */
 function promptRows(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class^="_promptLine_"]')].map(row => (row.textContent ?? '').trim())
+  return [...container.querySelectorAll('[data-term-prompt-line]')].map(row => (row.textContent ?? '').trim())
 }
 
 /** `count` numbered output lines, without the terminating newline. */
@@ -163,7 +163,7 @@ describe('TerminalBlock states', () => {
   it('renders ANSI runs as styled spans and plain text bare', () => {
     const view = render(<TerminalBlock command="ls" output={`${ESC}[31mbad${ESC}[39m ok`} />)
     // Scoped to a line: the prompt line's run-state dot is a styled span too.
-    const span = view.container.querySelector('[class^="_line_"] span[style]')
+    const span = view.container.querySelector('[data-term-line] span[style]')
     expect(span?.textContent).toBe('bad')
     expect(span?.getAttribute('style')).toContain('--dsw-alias-state-error-primary')
     expect(outputLines(view.container)).toEqual(['bad ok'])
@@ -171,7 +171,7 @@ describe('TerminalBlock states', () => {
 
   it('renders uncolored output with no span wrappers at all', () => {
     const view = render(<TerminalBlock command="ls" output={'plain one\nplain two\n'} />)
-    expect(view.container.querySelectorAll('[class^="_line_"] span')).toHaveLength(0)
+    expect(view.container.querySelectorAll('[data-term-line] span')).toHaveLength(0)
   })
 })
 
@@ -228,7 +228,7 @@ describe('TerminalBlock run-state dot', () => {
   // state OF this command rather than of the card's chrome.
   it('places the dot ahead of the prompt label and the command', () => {
     const view = render(<TerminalBlock command="ls" cwd="/srv/app" output="a" />)
-    const row = view.container.querySelector('[class^="_promptLine_"]')
+    const row = view.container.querySelector('[data-term-prompt-line]')
     expect([...row!.children].map(node => node.textContent)).toEqual(['', 'app', 'ls'])
   })
 
@@ -263,10 +263,10 @@ describe('TerminalBlock run-state dot', () => {
   // succeeded inside a failing call, that the line itself failed.
   it('marks the call once, on the first row, never per line', () => {
     const view = render(<TerminalBlock command={'true\nfalse\ntrue'} output="x" exitCode={1} />)
-    expect(view.container.querySelectorAll('[class*="_runState_"][data-state]')).toHaveLength(1)
-    expect(view.container.querySelectorAll('[class^="_runStateLabel_"]')).toHaveLength(1)
+    expect(view.container.querySelectorAll('[data-term-run-state] [data-state]')).toHaveLength(1)
+    expect(view.container.querySelectorAll('[data-term-run-state-label]')).toHaveLength(1)
     expect(runStateOf(view.container)).toEqual({ state: 'error', label: '失败' })
-    const rows = view.container.querySelectorAll('[class^="_promptLine_"]')
+    const rows = view.container.querySelectorAll('[data-term-prompt-line]')
     expect(rows[0]!.querySelector('[data-state]')).not.toBeNull()
     expect(rows[1]!.querySelector('[data-state]')).toBeNull()
     expect(rows[2]!.querySelector('[data-state]')).toBeNull()

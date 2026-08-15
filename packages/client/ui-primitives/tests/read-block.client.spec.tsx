@@ -23,14 +23,14 @@ function lines(count: number, first = 1): ReadBlockLine[] {
   return Array.from({ length: count }, (_value, index) => ({ number: first + index, text: `line ${first + index}` }))
 }
 
-/** The rendered rows as `<gutter><content>` strings (CSS-module class prefix). */
+/** The rendered rows as `<gutter><content>` strings (stable data hook). */
 function rowTexts(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
+  return [...container.querySelectorAll('[data-read-line]')].map(row => row.textContent ?? '')
 }
 
 /** The gutter numbers of the rendered rows, in order. */
 function gutters(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class^="_gutter_"]')].map(cell => cell.textContent ?? '')
+  return [...container.querySelectorAll('[data-read-gutter]')].map(cell => cell.textContent ?? '')
 }
 
 describe('highlightLines', () => {
@@ -103,7 +103,7 @@ describe('ReadBlock rows', () => {
     const view = render(
       <ReadBlock label="a.ts" lang="ts" lines={[{ number: 1, text: 'const a = 1' }]} totalLines={1} />,
     )
-    const content = view.container.querySelector('[class^="_content_"]')
+    const content = view.container.querySelector('[data-read-content]')
     expect(content?.querySelectorAll('span[style]').length).toBeGreaterThan(1)
     expect(content?.textContent).toBe('const a = 1')
   })
@@ -112,14 +112,14 @@ describe('ReadBlock rows', () => {
     const view = render(
       <ReadBlock label="a.cob" lang="cobol" lines={[{ number: 1, text: 'IDENT DIVISION.' }]} totalLines={1} />,
     )
-    const content = view.container.querySelector('[class^="_content_"]')
+    const content = view.container.querySelector('[data-read-content]')
     expect(content?.querySelectorAll('span').length).toBe(0)
     expect(content?.textContent).toBe('IDENT DIVISION.')
   })
 
   it('renders bare text when no language is given', () => {
     const view = render(<ReadBlock label="x" lines={[{ number: 1, text: 'plain' }]} totalLines={1} />)
-    const content = view.container.querySelector('[class^="_content_"]')
+    const content = view.container.querySelector('[data-read-content]')
     expect(content?.querySelectorAll('span').length).toBe(0)
     expect(view.getByText('plain')).toBeTruthy()
   })
@@ -140,8 +140,8 @@ describe('ReadBlock banner', () => {
 
   it('draws an empty label and empty language when neither is given', () => {
     const view = render(<ReadBlock lines={lines(1)} totalLines={1} />)
-    expect(view.container.querySelector('[class^="_label_"]')?.textContent).toBe('')
-    expect(view.container.querySelector('[class^="_lang_"]')?.textContent).toBe('')
+    expect(view.container.querySelector('[data-read-label]')?.textContent).toBe('')
+    expect(view.container.querySelector('[data-read-lang]')?.textContent).toBe('')
   })
 })
 

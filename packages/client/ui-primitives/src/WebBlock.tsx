@@ -155,13 +155,13 @@ function SafeLink({ url, label, className }: { url: string; label: string; class
  */
 function SourceItem({ source, ordinal }: { source: WebSourceView; ordinal: number }) {
   return (
-    <li className={SOURCE} value={ordinal}>
+    <li className={SOURCE} value={ordinal} data-web-source="">
       <SafeLink url={source.url} label={linkLabel(source.url, source.title)} className={SOURCE_LINK} />
       {source.snippet !== undefined && source.snippet !== '' && (
-        <div className={SNIPPET}>{source.snippet}</div>
+        <div className={SNIPPET} data-web-snippet="">{source.snippet}</div>
       )}
       {source.publishedAt !== undefined && source.publishedAt !== '' && (
-        <div className={PUBLISHED}>{source.publishedAt}</div>
+        <div className={PUBLISHED} data-web-published="">{source.publishedAt}</div>
       )}
     </li>
   )
@@ -181,7 +181,7 @@ function WebSearchBlock({ answer, sources, truncated, className }: WebSearchBloc
   return (
     <div className={cn(BLOCK, className)} data-web="search">
       {answer !== undefined && answer !== '' && (
-        <div className={ANSWER}><MarkdownText text={answer} /></div>
+        <div className={ANSWER} data-web-answer=""><MarkdownText text={answer} /></div>
       )}
       {empty ? (
         <div className={EMPTY}>未找到结果</div>

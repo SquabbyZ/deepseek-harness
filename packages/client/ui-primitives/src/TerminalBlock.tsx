@@ -252,14 +252,18 @@ export function TerminalBlock({
     <div className={cn(BLOCK, className)} data-terminal="" data-running={running ? '' : undefined}>
       <div className={HEADER}>
         <div className={PROMPT}>
-          <span className={RUN_STATE_LABEL}>{state.label}</span>
+          <span className={RUN_STATE_LABEL} data-term-run-state-label="">{state.label}</span>
           {commandLines.map((line, index) => (
-            <div key={index} className={PROMPT_LINE}>
+            <div key={index} className={PROMPT_LINE} data-term-prompt-line="">
               {/* One dot for the card, on the first row: the exit status the
                   view carries is the whole call's, and bash reports no
                   per-command status, so a dot per row would assert a
                   per-line outcome nothing here knows. */}
-              {index === 0 && <StateDot state={state.state} className={RUN_STATE} />}
+              {index === 0 && (
+                <span className="contents" data-term-run-state="">
+                  <StateDot state={state.state} className={RUN_STATE} />
+                </span>
+              )}
               {/* The cwd labels the CALL, so only its first row carries it. The
                   view knows one working directory — where the call started —
                   and a later line may well run somewhere else (a `cd` in the
@@ -285,7 +289,7 @@ export function TerminalBlock({
         : (
           <div className={OUTPUT}>
             {(capped ? lines.slice(0, headLines) : lines).map((line, index) => (
-              <div key={index} className={LINE}>{renderLine(line)}</div>
+              <div key={index} className={LINE} data-term-line="">{renderLine(line)}</div>
             ))}
             {hidden > 0 && (
               <button
@@ -299,7 +303,7 @@ export function TerminalBlock({
               </button>
             )}
             {capped && lines.slice(lines.length - tailLines).map((line, index) => (
-              <div key={index} className={LINE}>{renderLine(line)}</div>
+              <div key={index} className={LINE} data-term-line="">{renderLine(line)}</div>
             ))}
           </div>
         ))}

@@ -16,14 +16,14 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
-/** The rendered result rows, one string per visible row (CSS-module class prefix). */
+/** The rendered result rows, one string per visible row (stable data hook). */
 function lines(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class^="_line_"]')].map(row => row.textContent ?? '')
+  return [...container.querySelectorAll('[data-search-line]')].map(row => row.textContent ?? '')
 }
 
 /** The file-group header rows, one string per header (path + count concatenated). */
 function fileHeaders(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class^="_fileHeader_"]')].map(row => row.textContent ?? '')
+  return [...container.querySelectorAll('[data-search-file-header]')].map(row => row.textContent ?? '')
 }
 
 /** `count` numbered match lines under one file, without a terminating newline. */
@@ -52,7 +52,7 @@ describe('SearchBlock matches kind', () => {
       { path: 'a.ts', matches: [{ lineNumber: 1, line: 'x' }] },
       { path: 'b.ts', matches: [{ lineNumber: 2, line: 'y' }] },
     ]} />)
-    const [headerA] = view.container.querySelectorAll('[class^="_fileHeader_"]')
+    const [headerA] = view.container.querySelectorAll('[data-search-file-header]')
     expect(headerA!.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(headerA!)
     // a.ts collapsed: its match row is gone, b.ts's stays.
@@ -174,7 +174,7 @@ describe('SearchBlock copy', () => {
       { path: 'b.ts', matches: [{ lineNumber: 3, line: 'z' }] },
     ]} />)
     // Collapse a group and leave the cap in place: the clipboard still gets it all.
-    fireEvent.click(view.container.querySelector('[class^="_fileHeader_"]')!)
+    fireEvent.click(view.container.querySelector('[data-search-file-header]')!)
     fireEvent.click(screen.getByRole('button', { name: '复制' }))
     expect(writeText).toHaveBeenCalledWith('a.ts\n1: x\n2: y\n\nb.ts\n3: z')
     await act(async () => { await Promise.resolve() })

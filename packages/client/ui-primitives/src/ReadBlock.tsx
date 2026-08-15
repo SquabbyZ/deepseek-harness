@@ -142,9 +142,9 @@ export function ReadBlock({
    */
   const rows = (slice: readonly (readonly [ReadBlockLine, readonly HighlightSpan[] | undefined])[]) =>
     slice.map(([line, spans]) => (
-      <div key={line.number} className={LINE}>
-        <span className={GUTTER} aria-hidden>{line.number}</span>
-        <span className={CONTENT}>{spans === undefined ? line.text : renderSpans(spans)}</span>
+      <div key={line.number} className={LINE} data-read-line="">
+        <span className={GUTTER} aria-hidden data-read-gutter="">{line.number}</span>
+        <span className={CONTENT} data-read-content="">{spans === undefined ? line.text : renderSpans(spans)}</span>
       </div>
     ))
 
@@ -156,12 +156,12 @@ export function ReadBlock({
   return (
     <div className={cn(BLOCK, className)} data-read="">
       <div className={BANNER}>
-        <div className={LABEL}>{label ?? ''}</div>
+        <div className={LABEL} data-read-label="">{label ?? ''}</div>
         <div className={ACTION}>
           {windowed && (
             <span className={COUNT}>{`显示 ${lines.length} / ${totalLines} 行`}</span>
           )}
-          <span className={LANG}>{lang ?? ''}</span>
+          <span className={LANG} data-read-lang="">{lang ?? ''}</span>
           {/* Hide copy on an empty window, matching TerminalBlock's empty-output
               guard: a successful read of an empty file returns lines: [] with
               card:'read', so this branch is reachable, and copying then would

@@ -25,9 +25,9 @@ export function OnboardingSurface({ children }: { children: ReactNode }) {
   }, [])
 
   return createPortal((
-    <div className={OVERLAY} role="presentation">
-      <div className={MASK} aria-hidden="true" />
-      <div className={STAGE}>{children}</div>
+    <div className={OVERLAY} role="presentation" data-onboarding-overlay="">
+      <div className={MASK} aria-hidden="true" data-onboarding-mask="" />
+      <div className={STAGE} data-onboarding-stage="">{children}</div>
     </div>
   ), document.body)
 }

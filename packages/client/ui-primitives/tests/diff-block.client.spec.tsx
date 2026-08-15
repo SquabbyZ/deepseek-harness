@@ -17,14 +17,14 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
-/** The rendered body rows, one string per visible line (CSS-module class prefix). */
+/** The rendered body rows, one string per visible line (stable data hook). */
 function bodyRows(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class*="_line_"]')].map(row => row.textContent ?? '')
+  return [...container.querySelectorAll('[data-diff-line]')].map(row => row.textContent ?? '')
 }
 
 /** Only the changed rows (add/del), excluding the path header and gap chrome. */
 function changeRows(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[class*="_del_"], [class*="_add_"]')].map(row => row.textContent ?? '')
+  return [...container.querySelectorAll('[data-diff-del], [data-diff-add]')].map(row => row.textContent ?? '')
 }
 
 /** `count` numbered added lines as one hunk's newText. */
@@ -39,15 +39,15 @@ describe('DiffBlock structure', () => {
     expect(screen.getByText('notes/new.txt')).toBeTruthy()
     // No removed rows: both change lines are added.
     expect(changeRows(container)).toEqual(['hello', 'world'])
-    expect(container.querySelectorAll('[class*="_del_"]').length).toBe(0)
-    expect(container.querySelectorAll('[class*="_add_"]').length).toBe(2)
+    expect(container.querySelectorAll('[data-diff-del]').length).toBe(0)
+    expect(container.querySelectorAll('[data-diff-add]').length).toBe(2)
   })
 
   it('renders an edit as a removed block above an added block', () => {
     const diffs: DiffHunk[] = [{ path: 'a.ts', oldText: 'old', newText: 'new' }]
     const { container } = render(<DiffBlock diffs={diffs} />)
-    expect(container.querySelectorAll('[class*="_del_"]').length).toBe(1)
-    expect(container.querySelectorAll('[class*="_add_"]').length).toBe(1)
+    expect(container.querySelectorAll('[data-diff-del]').length).toBe(1)
+    expect(container.querySelectorAll('[data-diff-add]').length).toBe(1)
     expect(changeRows(container)).toEqual(['old', 'new'])
   })
 
@@ -58,8 +58,8 @@ describe('DiffBlock structure', () => {
     ]
     const { container } = render(<DiffBlock diffs={diffs} />)
     // One path header, one gap row.
-    expect(container.querySelectorAll('[class*="_path_"]').length).toBe(1)
-    expect(container.querySelectorAll('[class*="_gap_"]').length).toBe(1)
+    expect(container.querySelectorAll('[data-diff-path]').length).toBe(1)
+    expect(container.querySelectorAll('[data-diff-gap]').length).toBe(1)
   })
 
   it('opens a new file with its own path header', () => {
@@ -68,8 +68,8 @@ describe('DiffBlock structure', () => {
       { path: 'b.ts', oldText: 'p', newText: 'q' },
     ]
     const { container } = render(<DiffBlock diffs={diffs} />)
-    expect(container.querySelectorAll('[class*="_path_"]').length).toBe(2)
-    expect(container.querySelectorAll('[class*="_gap_"]').length).toBe(0)
+    expect(container.querySelectorAll('[data-diff-path]').length).toBe(2)
+    expect(container.querySelectorAll('[data-diff-gap]').length).toBe(0)
   })
 
   it('renders nothing for empty diffs', () => {
@@ -88,13 +88,13 @@ describe('DiffBlock structure', () => {
   it('renders a full deletion as removed-only with no phantom added line', () => {
     // newText '' is zero added lines: an empty string must contribute nothing.
     const { container } = render(<DiffBlock diffs={[{ path: 'gone.ts', oldText: 'a\nb', newText: '' }]} />)
-    expect(container.querySelectorAll('[class*="_add_"]').length).toBe(0)
+    expect(container.querySelectorAll('[data-diff-add]').length).toBe(0)
     expect(screen.getByText('└ +0 -2 · 1 file')).toBeTruthy()
   })
 
   it('keeps a genuine interior blank line', () => {
     const { container } = render(<DiffBlock diffs={[{ path: 'a.ts', oldText: null, newText: 'x\n\ny' }]} />)
-    expect(container.querySelectorAll('[class*="_add_"]').length).toBe(3)
+    expect(container.querySelectorAll('[data-diff-add]').length).toBe(3)
   })
 })
 

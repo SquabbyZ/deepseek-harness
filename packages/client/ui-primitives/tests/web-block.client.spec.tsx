@@ -31,9 +31,9 @@ describe('WebBlock search card', () => {
 
   it('omits the answer block when there is no answer', () => {
     const view = render(<WebBlock kind="search" sources={sources(1)} truncated={false} />)
-    expect(view.container.querySelector('[class^="_answer_"]')).toBeNull()
+    expect(view.container.querySelector('[data-web-answer]')).toBeNull()
     const empty = render(<WebBlock kind="search" answer="" sources={sources(1)} truncated={false} />)
-    expect(empty.container.querySelector('[class^="_answer_"]')).toBeNull()
+    expect(empty.container.querySelector('[data-web-answer]')).toBeNull()
   })
 
   it('shows the empty-state note when a search returns no answer and no sources', () => {
@@ -111,8 +111,8 @@ describe('WebBlock search card', () => {
     expect(view.getByText('excerpt')).toBeTruthy()
     expect(view.getByText('2026-07-01')).toBeTruthy()
     // The empty-string and absent arms both draw nothing beyond the link.
-    expect(view.container.querySelectorAll('[class^="_snippet_"]')).toHaveLength(1)
-    expect(view.container.querySelectorAll('[class^="_published_"]')).toHaveLength(1)
+    expect(view.container.querySelectorAll('[data-web-snippet]')).toHaveLength(1)
+    expect(view.container.querySelectorAll('[data-web-published]')).toHaveLength(1)
   })
 
   it('shows the truncated indicator only when the list was capped by the tool', () => {
@@ -130,7 +130,7 @@ describe('WebBlock search card', () => {
     // pinned by the assembled browser case in apps/web/tests/web-search-round.e2e.ts,
     // not here.
     const view = render(<WebBlock kind="search" sources={sources(30)} truncated={false} />)
-    expect(view.container.querySelectorAll('li[class^="_source_"]')).toHaveLength(30)
+    expect(view.container.querySelectorAll('li[data-web-source]')).toHaveLength(30)
     expect(view.container.querySelector('[aria-expanded]')).toBeNull()
     expect(view.container.querySelector('button')).toBeNull()
     // Every direct child of the <ol> is a source <li> (no marker-less expander).
@@ -140,7 +140,7 @@ describe('WebBlock search card', () => {
 
   it('numbers every source by its 1-based citation index via <li value>', () => {
     const view = render(<WebBlock kind="search" sources={sources(4)} truncated={false} />)
-    const items = [...view.container.querySelectorAll('li[class^="_source_"]')]
+    const items = [...view.container.querySelectorAll('li[data-web-source]')]
     expect(items.map(li => li.getAttribute('value'))).toEqual(['1', '2', '3', '4'])
   })
 })

@@ -235,10 +235,10 @@ export function SearchBlock(props: SearchBlockProps) {
   const tail = tailHeader === undefined ? naturalTail : naturalTail.slice(1)
 
   const renderRow = (row: SearchRow): ReactNode => {
-    if (row.type === 'path') return <div className={LINE}>{row.path}</div>
+    if (row.type === 'path') return <div className={LINE} data-search-line="">{row.path}</div>
     if (row.type === 'match') {
       return (
-        <div className={LINE}>
+        <div className={LINE} data-search-line="">
           <span className={LINE_NUMBER}>{row.lineNumber}: </span>
           {row.line}
         </div>
@@ -248,6 +248,7 @@ export function SearchBlock(props: SearchBlockProps) {
       <button
         type="button"
         className={FILE_HEADER}
+        data-search-file-header=""
         aria-expanded={!row.collapsed}
         onClick={() => { toggleFile(row.index) }}
       >

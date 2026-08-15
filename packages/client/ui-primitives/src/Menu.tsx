@@ -267,6 +267,8 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
       className={cn(LIST, dense && DENSE_LIST, compact && COMPACT_LIST, scrollable && SCROLLABLE, portal && PORTAL, side === 'top' && !portal && SIDE_TOP, align === 'end' && !portal && ALIGN_END)}
       style={portal ? fixedPos ?? MEASURE_STYLE : undefined}
       role="menu"
+      data-menu-side={side}
+      data-menu-align={align}
       // React portals bubble synthetic events through the REACT tree: without
       // this stop, an item click re-fires the anchor row's own onClick
       // (open/toggle) after onSelect.
@@ -276,7 +278,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
         {items.map(renderEntry)}
       </div>
       {footer !== undefined && footer.length > 0 && (
-        <div className={FOOTER} role="presentation">
+        <div className={FOOTER} role="presentation" data-menu-footer="">
           {footer.map(renderEntry)}
         </div>
       )}
