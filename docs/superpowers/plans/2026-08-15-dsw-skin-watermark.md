@@ -60,7 +60,7 @@
   - `ThemePresenter.apply` 写 `body[data-skin]`；`dispose` 移除。
 
 - [ ] **Step 1: skin 模型**（`theme-settings.ts`）：定义 `SkinId`、`SKIN_IDS`、`DEFAULT_SKIN`、`isSkinId`；`ThemeSettings` 增 `skin`；schema 增 `z.union([...SKIN_IDS]).default('default')`；导出。
-- [ ] **Step 2: SKIN_PRESETS**（`skins.ts`）：glass/cyber 两套 `ThemeTokenOverrides`（`{ light, dark }` 对），覆盖 `--dsw-alias-bg-base/layer-1/layer-2/border-l1/border-l2/brand-primary` 等；值从 `--dsw-static-*` 现有色取（如 glass 用半透明白/黑 + 淡边框，cyber 用深底 + 亮品牌色）。default 空对象。每个值都是 `{ light, dark }` 成对。
+- [ ] **Step 2: SKIN_PRESETS**（`skins.ts`）：glass/cyber 两套 `ThemeTokenOverrides`（`{ light, dark }` 对），覆盖**表面 token**：`--dsw-alias-bg-base/layer-1/layer-2/overlay`、`--dsw-alias-border-l1/l2`、`--dsw-specific-sidebar-fill`（**只改表面，不改 `--dsw-alias-brand-*`/label/state**）；值从 `--dsw-static-*` 现有色取（glass 用半透明白/黑 rgba tint，cyber 用深底 + 蓝色边框）。default 空对象。每个值都是 `{ light, dark }` 成对。
 - [ ] **Step 3: theme service 皮肤层**（`client/index.ts`）：`ThemeRuntime` 增 `private skin: SkinId = DEFAULT_SKIN`；构造时 `overrideTokens('ui-theme:skin', SKIN_PRESETS[this.skin])`；`setSkin(id)` 校验 + 更新 `skin` + 重新 `overrideTokens('ui-theme:skin', SKIN_PRESETS[id])` + `publish()`；`buildSnapshot()` 增 `skin: this.skin`；`adopt()` 同时读取 `section.skin`。
 - [ ] **Step 4: presenter data-skin**（`theme-presenter.ts`）：`apply` 里 `body.setAttribute('data-skin', snapshot.skin)`；`dispose` 里 `body.removeAttribute('data-skin')`。
 - [ ] **Step 5: 单测**：皮肤切换后 snapshot.skin 变化、tokens 按 `active.colorScheme` 折叠、`data-skin` 属性写入/移除。`vitest run packages/client/ui-theme/tests packages/client/ui-layout/tests`。
