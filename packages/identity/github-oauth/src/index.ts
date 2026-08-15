@@ -120,10 +120,10 @@ export class IdentityService {
 function openInSystemBrowser(url: string): void {
   const platform = process.platform
   if (platform === 'win32') {
-    // `cmd /c start` is the reliable Windows opener, but cmd performs `%var%`
-    // expansion, which would mangle the percent-encoded authorize URL. Escape
-    // `%` as `%%` (cmd collapses `%%`→`%`) and quote the URL so `&` is not split.
-    spawn('cmd', ['/c', 'start', '', `"${url.replace(/%/g, '%%')}"`], { detached: true, stdio: 'ignore' }).unref()
+    // `explorer` opens the URL in the default browser via ShellExecute, with no
+    // cmd.exe `%`/`&` parsing and no manual quoting (which otherwise corrupts the
+    // percent-encoded authorize URL or splits it at `&`).
+    spawn('explorer', [url], { detached: true, stdio: 'ignore' }).unref()
     return
   }
   const command = platform === 'darwin' ? 'open' : 'xdg-open'
