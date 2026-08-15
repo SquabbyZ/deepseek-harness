@@ -53,17 +53,17 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host section without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'default', background: '' }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
-    host.publish({ value: { preference: 'dark' }, revision: 2 })
+    host.publish({ value: { preference: 'dark', skin: 'default', background: '' }, revision: 2 })
     expect(events).toHaveLength(1)
   })
 
   it('adopts a section already standing at construction', () => {
     const host = stubSettingsScope<ThemeSettings>()
-    host.publish({ status: 'ready', value: { preference: 'dark' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'default', background: '' }, revision: 1, writable: true })
     const { theme } = make(host)
     expect(theme.getTheme().preference).toBe('dark')
   })
@@ -237,7 +237,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a persisted skin alongside the preference without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'cyber' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'cyber', background: '' }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
     expect(theme.getTheme().skin).toBe('cyber')
     expect(host.set).not.toHaveBeenCalled()
@@ -270,7 +270,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a persisted background without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', background: 'https://example.com/bg.png' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', skin: 'default', background: 'https://example.com/bg.png' }, revision: 1, writable: true })
     expect(theme.getTheme().background).toBe('https://example.com/bg.png')
     expect(host.set).not.toHaveBeenCalled()
     expect(events).toHaveLength(1)
@@ -278,7 +278,7 @@ describe('ThemeRuntime', () => {
 
   it('treats a non-string persisted background as empty', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', background: 42 as unknown as string }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', skin: 'default', background: 42 as unknown as string }, revision: 1, writable: true })
     expect(theme.getTheme().background).toBe('')
     expect(events).toHaveLength(0)
   })
