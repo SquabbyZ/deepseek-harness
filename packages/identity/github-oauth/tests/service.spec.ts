@@ -197,7 +197,7 @@ describe('IdentityService', () => {
 })
 
 describe('openInSystemBrowser', () => {
-  it('passes a percent-encoded url intact to rundll32 on Windows (no cmd %-expansion)', async () => {
+  it('opens the url via cmd start with %-escaped and quoted url on Windows', async () => {
     const url = 'https://github.com/login/oauth/authorize?client_id=c&redirect_uri=http%3A%2F%2F127.0.0.1%3A3846%2Fcallback&scope=read%3Auser%20user%3Aemail&state=s'
     const service = new IdentityService(
       { redirectUri: 'http://127.0.0.1:3846/callback', clientId: 'c' },
@@ -222,12 +222,10 @@ describe('openInSystemBrowser', () => {
       spawnMock.mockClear()
       await service.login()
       expect(spawnMock).toHaveBeenCalledWith(
-        'rundll32',
-        ['url.dll,FileProtocolHandler', url],
+        'cmd',
+        ['/c', 'start', '', `"${url.replace(/%/g, '%%')}"`],
         { detached: true, stdio: 'ignore' },
       )
-      // cmd.exe must not be involved: its `%var%` expansion would mangle the URL.
-      expect(spawnMock).not.toHaveBeenCalledWith('cmd', expect.anything(), expect.anything())
     })
   })
 

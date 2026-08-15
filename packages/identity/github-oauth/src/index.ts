@@ -120,11 +120,10 @@ export class IdentityService {
 function openInSystemBrowser(url: string): void {
   const platform = process.platform
   if (platform === 'win32') {
-    // Spawn rundll32 directly (no cmd.exe): cmd's `%var%` expansion mangles every
-    // percent-encoded pair in the authorize URL (`redirect_uri=http%3A%2F%2F...`),
-    // so GitHub rejects the mutated redirect_uri. `FileProtocolHandler` opens the
-    // URL in the default browser with the string passed through intact.
-    spawn('rundll32', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' }).unref()
+    // `cmd /c start` is the reliable Windows opener, but cmd performs `%var%`
+    // expansion, which would mangle the percent-encoded authorize URL. Escape
+    // `%` as `%%` (cmd collapses `%%`→`%`) and quote the URL so `&` is not split.
+    spawn('cmd', ['/c', 'start', '', `"${url.replace(/%/g, '%%')}"`], { detached: true, stdio: 'ignore' }).unref()
     return
   }
   const command = platform === 'darwin' ? 'open' : 'xdg-open'
