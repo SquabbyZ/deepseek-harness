@@ -944,7 +944,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           </div>
         </div>
         <div className="flex flex-col flex-[1_1_0] min-h-0 relative pt-4 pr-4 pb-4 pl-6">
-          <div className="flex items-stretch flex-[1_1_0] min-h-0 gap-3 overflow-x-auto dsh-scrollbar-hidden" ref={millerRowRef}>
+          <div className="millerRow flex items-stretch flex-[1_1_0] min-h-0 gap-3 overflow-x-auto dsh-scrollbar-hidden" ref={millerRowRef}>
             {parent !== null && (
               <LevelColumn
                 entries={parent.entries}

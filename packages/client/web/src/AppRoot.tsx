@@ -63,7 +63,7 @@ export function AppRoot(props: AppRootProps) {
       <style>{BOOT_KEYFRAMES}</style>
       <div className="grid h-full place-items-center bg-[var(--dsw-alias-bg-base,#f9fafb)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="text-[var(--dsw-alias-label-primary,#0f1115)]">
+          <div className="text-[var(--dsw-alias-label-primary,#0f1115)]" role="img" aria-label="DeepSeek Harness">
             <FishLogo size={48} className="animate-[boot-blink_1.4s_ease-in-out_infinite]" />
           </div>
           {loud && (

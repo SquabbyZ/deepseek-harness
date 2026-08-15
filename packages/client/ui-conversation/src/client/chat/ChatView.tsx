@@ -362,8 +362,8 @@ export function ChatView({
   }
 
   return (
-    <div className="relative flex flex-col min-h-0 flex-1 [[data-conversation-scroll]_&]:flex-none [[data-conversation-scroll]_&]:min-h-[auto] [[data-conversation-scroll]_&]:h-auto">
-      <div ref={listRef} className="chat-view-scroll flex-1 min-h-0 overflow-y-auto py-4 px-[calc(var(--dsh-composer-side-clearance)+16px)] [[data-conversation-scroll]_&]:overflow-visible [[data-conversation-scroll]_&]:flex-none [[data-conversation-scroll]_&]:min-h-[auto]">
+    <div className="chat-view-root relative flex flex-col min-h-0 flex-1">
+      <div ref={listRef} className="chat-view-scroll flex-1 min-h-0 overflow-y-auto py-4 px-[calc(var(--dsh-composer-side-clearance)+16px)]">
         <div ref={columnRef} className="mx-auto w-full max-w-[var(--dsh-chat-content-width)] flex flex-col gap-4" data-chat-flow="">
           {openState === 'loading' && <div className="text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)]">{t('chat.loadingHistory')}</div>}
           {openState === 'error' && openError !== null && (
@@ -410,7 +410,7 @@ export function ChatView({
           ))}
         </div>
         {!atBottom && (
-          <div className="sticky bottom-4 z-[8] h-0 flex justify-end pr-[max(0px,calc((100%-var(--dsh-chat-content-width))/2))] pointer-events-none [[data-conversation-scroll]_&]:bottom-[calc(var(--dsh-composer-height,152px)+16px)]">
+          <div className="chat-view-to-bottom sticky bottom-4 z-[8] h-0 flex justify-end pr-[max(0px,calc((100%-var(--dsh-chat-content-width))/2))] pointer-events-none">
             <ShadcnButton
               variant="ghost"
               className="size-[34px] -mt-[34px] p-0 rounded-[100px] border border-[var(--dsw-alias-border-l2)] bg-[var(--dsw-alias-button-floating-fill)] text-[var(--dsw-alias-label-primary)] shadow-[var(--dsw-shadow-lv2)] pointer-events-auto hover:bg-[var(--dsw-alias-button-floating-hover)] hover:text-[var(--dsw-alias-label-primary)]"

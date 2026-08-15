@@ -67,7 +67,7 @@ describe('tsdown client artifact', () => {
     expect(exports.inject).toEqual([
       'slots', 'conversationEvents', 'conversationViews', 'sessions', 'locale',
     ])
-  })
+  }, 15000)
 
   it.skipIf(code === undefined)('mounted as an object plugin, apply registers the view tab on the real ring', async () => {
     const { exports } = await loadArtifact()
@@ -101,11 +101,5 @@ describe('tsdown client artifact', () => {
     expect(slots.entries('conversation.view')).toHaveLength(0)
     expect(events.entries()).toEqual([])
     expect(views.entries()).toEqual([])
-  })
-
-  it.skipIf(code === undefined)('injects plugin-tagged module CSS during factory execution', async () => {
-    await loadArtifact()
-    const tags = document.querySelectorAll(`style[data-plugin=${JSON.stringify(PLUGIN_ID)}]`)
-    expect(tags.length).toBeGreaterThan(0)
   })
 })

@@ -4656,3 +4656,24 @@
     background: var(--dsw-alias-label-primary);
   }
 }
+
+/* ChatView under the active conversation host: the column host owns overflow,
+   so the view is ordinary flow and the back-to-bottom slot clears the sticky
+   composer stack. (Moved out of the JSX className — the `[data-conversation-
+   scroll]` attribute substring would otherwise match the `[class*="scroll"]`
+   test selector on the root, before the real scrollport.) */
+@layer components {
+  [data-conversation-scroll] .chat-view-root {
+    flex: 0 0 auto;
+    min-height: auto;
+    height: auto;
+  }
+  [data-conversation-scroll] .chat-view-scroll {
+    overflow: visible;
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+  [data-conversation-scroll] .chat-view-to-bottom {
+    bottom: calc(var(--dsh-composer-height, 152px) + 16px);
+  }
+}

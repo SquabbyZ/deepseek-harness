@@ -645,7 +645,7 @@ export function InputBar({
   }
 
   return (
-    <div className={`flex flex-col items-center px-[var(--dsh-composer-side-clearance)] ${variant === 'hero' ? 'pb-0' : 'pb-2'}`}>
+    <div className={`flex flex-col items-center px-[var(--dsh-composer-side-clearance)] ${variant === 'hero' ? 'hero pb-0' : 'pb-2'}`}>
       {dragActive && (
         <DropOverlay
           disabled={!canAcceptDrop}

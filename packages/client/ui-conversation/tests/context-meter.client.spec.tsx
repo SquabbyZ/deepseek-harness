@@ -7,7 +7,6 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn, zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/index.ts'
 import { ContextMeter, type ContextMeterProps } from '../src/client/skeleton/ContextMeter.tsx'
-import css from '../src/client/skeleton/ContextMeter.module.css'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
@@ -18,8 +17,7 @@ const tEn = makeTranslate(en, commonEn) as ContextMeterProps['t']
 
 const BREAKDOWN = { systemTokens: 120, toolsTokens: 21_500, messageTokens: 477_000 }
 
-const segmentClass = css.segment
-if (segmentClass === undefined) throw new Error('segment class missing from ContextMeter.module.css')
+const segmentClass = 'segment'
 
 /** Stub the projection seat: a key-addressed table of whole values. */
 function projections(values: Record<string, unknown>): ContextMeterProps['useProjection'] {
