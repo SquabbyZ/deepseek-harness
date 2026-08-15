@@ -37,6 +37,19 @@
   --input: var(--dsw-alias-border-l3);
   --ring: var(--dsw-static-deepseek-500);
   --radius: 0.625rem;
+  --chart-1: var(--dsw-static-deepseek-500);
+  --chart-2: var(--dsw-static-green-500);
+  --chart-3: var(--dsw-static-amber-500);
+  --chart-4: var(--dsw-static-blue-500);
+  --chart-5: var(--dsw-static-red-500);
+  --sidebar: var(--dsw-alias-bg-layer-1);
+  --sidebar-foreground: var(--dsw-alias-label-primary);
+  --sidebar-primary: var(--dsw-static-deepseek-500);
+  --sidebar-primary-foreground: var(--dsw-static-neutral-bluish-00);
+  --sidebar-accent: var(--dsw-static-neutral-bluish-100);
+  --sidebar-accent-foreground: var(--dsw-static-neutral-bluish-1000);
+  --sidebar-border: var(--dsw-alias-border-l2);
+  --sidebar-ring: var(--dsw-static-deepseek-500);
 }
 
 [data-ds-dark-theme] {
@@ -59,6 +72,19 @@
   --border: var(--dsw-alias-border-l2);
   --input: var(--dsw-alias-border-l3);
   --ring: var(--dsw-static-deepseek-400);
+  --chart-1: var(--dsw-static-deepseek-400);
+  --chart-2: var(--dsw-static-green-400);
+  --chart-3: var(--dsw-static-amber-400);
+  --chart-4: var(--dsw-static-blue-400);
+  --chart-5: var(--dsw-static-red-400);
+  --sidebar: var(--dsw-alias-bg-layer-1);
+  --sidebar-foreground: var(--dsw-alias-label-primary);
+  --sidebar-primary: var(--dsw-static-deepseek-400);
+  --sidebar-primary-foreground: var(--dsw-static-neutral-bluish-1000);
+  --sidebar-accent: var(--dsw-static-neutral-bluish-800);
+  --sidebar-accent-foreground: var(--dsw-static-neutral-bluish-50);
+  --sidebar-border: var(--dsw-alias-border-l2);
+  --sidebar-ring: var(--dsw-static-deepseek-400);
 }
 
 /* Map shadcn semantic colors to Tailwind theme colors. `inline` keeps the
@@ -84,6 +110,19 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
