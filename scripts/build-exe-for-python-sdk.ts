@@ -256,6 +256,9 @@ class SingleExeBuild {
       '--config.node-linker=hoisted',
       '--config.auto-install-peers=false',
       '--config.link-workspace-packages=true',
+      // Dev-only patches (tsdown) are legitimately absent from a --prod closure;
+      // downgrade the UNUSED_PATCH error to a warning rather than fail the deploy.
+      '--config.allow-unused-patches=true',
       this.staging,
     ])
     await this.restoreLegacyHoists()
