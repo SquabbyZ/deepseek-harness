@@ -11,10 +11,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import clsx from 'clsx'
 import { IconCheckOutline16 } from './icons/index.tsx'
 import { usePointerGrace } from './pointer-grace.ts'
-import css from './Menu.module.css'
+import { cn } from './components/ui/cn.ts'
 
 /** Selectable row (optionally with a nested submenu). */
 export interface MenuItem {
@@ -201,10 +200,10 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
 
   const renderEntry = (entry: MenuEntry) => {
     if (isSeparator(entry)) {
-      return <div key={entry.id} className={css.separator} role="separator" />
+      return <div key={entry.id} className={SEPARATOR} role="separator" />
     }
     if (isLabel(entry)) {
-      return <div key={entry.id} className={css.label} role="presentation">{entry.text}</div>
+      return <div key={entry.id} className={LABEL} role="presentation">{entry.text}</div>
     }
     const hasSub = entry.submenu !== undefined && entry.submenu.length > 0
     const subOpen = hasSub && openSubmenuId === entry.id
@@ -212,14 +211,14 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
     return (
       <div
         key={entry.id}
-        className={css.itemWrap}
+        className={ITEM_WRAP}
         onMouseEnter={() => { setOpenSubmenuId(hasSub ? entry.id : null) }}
         onMouseLeave={() => { setOpenSubmenuId(null) }}
       >
         <button
           type="button"
           role="menuitem"
-          className={clsx(css.item, selected && css.selected, entry.danger === true && css.danger)}
+          className={cn(ITEM, selected && SELECTED, entry.danger === true && DANGER)}
           disabled={entry.disabled}
           aria-haspopup={hasSub ? 'menu' : undefined}
           aria-expanded={hasSub ? subOpen : undefined}
@@ -232,24 +231,24 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
             onSelect(entry.id)
           }}
         >
-          {entry.icon !== undefined && <span className={css.itemIcon}>{entry.icon}</span>}
-          <span className={css.itemLabel}>{entry.label}</span>
+          {entry.icon !== undefined && <span className={ITEM_ICON}>{entry.icon}</span>}
+          <span className={ITEM_LABEL}>{entry.label}</span>
           {/* Selection marker is a trailing check (figma .Menu_cell), not a fill. */}
-          {selected && <IconCheckOutline16 className={css.check} />}
+          {selected && <IconCheckOutline16 className={CHECK} />}
         </button>
         {subOpen && entry.submenu !== undefined && (
-          <div className={clsx(css.submenu, compact && css.compactList)} role="menu">
+          <div className={cn(SUBMENU, compact && COMPACT_LIST)} role="menu">
             {entry.submenu.map(sub => (
               <button
                 key={sub.id}
                 type="button"
                 role="menuitem"
-                className={css.item}
+                className={ITEM}
                 disabled={sub.disabled}
                 onClick={() => { onSelect(sub.id) }}
               >
-                {sub.icon !== undefined && <span className={css.itemIcon}>{sub.icon}</span>}
-                <span className={css.itemLabel}>{sub.label}</span>
+                {sub.icon !== undefined && <span className={ITEM_ICON}>{sub.icon}</span>}
+                <span className={ITEM_LABEL}>{sub.label}</span>
               </button>
             ))}
           </div>
@@ -265,7 +264,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   const list = open && (
     <div
       ref={listRef}
-      className={clsx(css.list, dense && css.denseList, compact && css.compactList, scrollable && css.scrollable, portal && css.portal, side === 'top' && !portal && css.sideTop, align === 'end' && !portal && css.alignEnd)}
+      className={cn(LIST, dense && DENSE_LIST, compact && COMPACT_LIST, scrollable && SCROLLABLE, portal && PORTAL, side === 'top' && !portal && SIDE_TOP, align === 'end' && !portal && ALIGN_END)}
       style={portal ? fixedPos ?? MEASURE_STYLE : undefined}
       role="menu"
       // React portals bubble synthetic events through the REACT tree: without
@@ -273,11 +272,11 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
       // (open/toggle) after onSelect.
       onClick={(e) => { e.stopPropagation() }}
     >
-      <div className={css.viewport} role="presentation">
+      <div className={VIEWPORT} role="presentation">
         {items.map(renderEntry)}
       </div>
       {footer !== undefined && footer.length > 0 && (
-        <div className={css.footer} role="presentation">
+        <div className={FOOTER} role="presentation">
           {footer.map(renderEntry)}
         </div>
       )}
@@ -291,7 +290,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
   return (
     <span
       ref={rootRef}
-      className={clsx(css.root, className)}
+      className={cn(ROOT, className)}
       onPointerEnter={closeOnPointerLeave ? cancelClose : undefined}
       onPointerLeave={closeOnPointerLeave ? () => { if (open) armClose() } : undefined}
     >
@@ -300,3 +299,32 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
     </span>
   )
 }
+
+/* Tailwind class strings. The card skin and every descendant-combinator
+ * override (dense/compact/danger/scrollable) live in web/src/primitives.css
+ * under the menu- prefix, because those overrides must share the @layer
+ * components cascade layer with the base .menu-item / .menu-item-icon /
+ * .menu-label / .menu-separator classes to win by specificity. */
+const ROOT = 'relative inline-flex'
+const LIST =
+  'menu-card absolute top-[calc(100%_+_4px)] left-0 z-[100] min-w-[218px] max-w-[360px]'
+const SUBMENU = 'menu-card menu-submenu'
+const PORTAL = 'fixed top-auto left-auto z-[1100]'
+const SIDE_TOP = 'top-auto bottom-[calc(100%_+_4px)]'
+const ALIGN_END = 'left-auto right-0'
+const SCROLLABLE = 'menu-scrollable max-h-[calc(100vh_-_24px)]'
+const VIEWPORT = 'menu-viewport flex flex-col min-h-0'
+const FOOTER = 'flex-none flex flex-col mt-1 pt-1 border-t border-t-[var(--dsw-alias-border-l2)]'
+const ITEM_WRAP = 'relative'
+const ITEM =
+  'menu-item hover:bg-[var(--dsw-alias-interactive-bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed'
+const DENSE_LIST = 'menu-list-dense'
+const COMPACT_LIST = 'menu-list-compact min-w-[164px] p-0.5 rounded-[7px]'
+const ITEM_ICON = 'menu-item-icon'
+const ITEM_LABEL = 'flex-1 min-w-0 truncate'
+const CHECK = 'flex-none text-[var(--dsw-alias-label-primary)]'
+const SELECTED = 'bg-transparent'
+const DANGER =
+  'menu-item-danger text-[var(--dsw-alias-state-error-primary)] hover:bg-[var(--dsw-alias-interactive-bg-hover-danger)]'
+const LABEL = 'menu-label'
+const SEPARATOR = 'menu-separator'

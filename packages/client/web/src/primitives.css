@@ -138,6 +138,212 @@
   .web-answer > div > :last-child {
     margin-bottom: 0;
   }
+
+  /* --- JsonTree --- */
+
+  /* Component-local syntax colors for LIGHT mode; every child rule references
+   * these via var(--json-tree-*) and inherits them from .jt-root. */
+  .jt-root {
+    --json-tree-property: #881391;
+    --json-tree-string: #c41a16;
+    --json-tree-number: #1c00cf;
+    --json-tree-keyword: #1c00cf;
+    --json-tree-punctuation: #202124;
+    --json-tree-icon: #5f6368;
+    --json-tree-hover: rgb(60 64 67 / 4%);
+  }
+
+  /* Same vars flipped for DARK; still keyed to body[data-ds-dark-theme]. */
+  body[data-ds-dark-theme] .jt-root {
+    --json-tree-property: #5db0d7;
+    --json-tree-string: #f28b82;
+    --json-tree-number: #99c8ff;
+    --json-tree-keyword: #99c8ff;
+    --json-tree-punctuation: #e8eaed;
+    --json-tree-icon: #9aa0a6;
+    --json-tree-hover: rgb(232 234 237 / 5%);
+  }
+
+  /* Hover / copy-active / keyboard-focus row fill: a full-width 16px band
+   * painted behind the row spans by a ::after (kept out of the pointer's way). */
+  .jt-row:not(.jt-top-level-bracket):hover:not(:has(.jt-row:hover))::after,
+  .jt-row:not(.jt-top-level-bracket)[data-json-copy-active]::after,
+  .jt-row:has(> .jt-expander:focus-visible)::after {
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 16px;
+    background: var(--json-tree-hover);
+    content: '';
+    pointer-events: none;
+  }
+
+  /* Lift row spans above the ::after fill (the expander sits higher still). */
+  .jt-row > span:not(.jt-expander) {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Hovering the top-level bracket row tints the whole expanded wrapper. */
+  .jt-expanded-top-level:has(> .jt-top-level-bracket[data-json-root-row]:hover),
+  .jt-expanded-top-level:has(> .jt-top-level-bracket[data-json-root-row][data-json-copy-active]) {
+    background: var(--json-tree-hover);
+  }
+
+  /* Right-pointing triangle drawn with a border-left; rotated 90deg (pointing
+   * down) once expanded, keyed to the expander's aria-expanded state. */
+  .jt-expander::before {
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 6px solid currentColor;
+    content: '';
+    transform: scale(0.75);
+    transform-origin: 33.333% center;
+  }
+
+  .jt-expander[aria-expanded='true']::before {
+    transform: rotate(90deg) scale(0.75);
+  }
+
+  /* Collapsed-content ellipsis glyph (preserved for parity with the CSS-module
+   * rule; not currently referenced by the JsonTree JSX). */
+  .jt-collapsed-content::after {
+    content: '…';
+  }
+
+  /* --- Menu --- */
+
+  /* Shared card skin (figma MenuDropdown): menu surface, r12, inverted hairline
+   * border, shadow-lv3, 4px inset padding. The scrollbar rebinding lives here
+   * (not on .menu-scrollable .menu-viewport) because the elevation is a
+   * property of this surface; the custom properties inherit down to whichever
+   * descendant scrolls. */
+  .menu-card {
+    box-sizing: border-box;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--dsw-alias-border-inverted);
+    border-radius: 12px;
+    background: var(--dsw-specific-menu);
+    box-shadow: var(--dsw-shadow-lv3);
+    --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+    --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  }
+
+  /* Nested card to the right of the parent row: bottom-aligned with the parent
+   * card, 10px past the item wrap. ::before bridges the full gap so the pointer
+   * can cross without mouseLeave. */
+  .menu-submenu {
+    position: absolute;
+    top: auto;
+    bottom: -4px;
+    left: calc(100% + 10px);
+    z-index: 101;
+    min-width: 163px;
+  }
+
+  .menu-submenu::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -10px;
+    width: 10px;
+  }
+
+  /* Menu cell (figma .Menu_cell): min-h 40, r10, pad 10/8, 14/22 primary,
+   * gap 8. Kept as a custom class (not utilities) so the dense/compact
+   * descendant-combinator overrides below win by specificity within the same
+   * @layer components. */
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--dsw-alias-label-primary);
+    text-align: left;
+  }
+
+  .menu-item-icon {
+    display: inline-flex;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    color: var(--dsw-alias-label-tertiary);
+  }
+
+  /* Heading row: non-interactive small grey text, padding aligned with items. */
+  .menu-label {
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--dsw-alias-label-tertiary);
+  }
+
+  /* Separator cell: py 4 / px 2 around the hairline. */
+  .menu-separator {
+    height: 1px;
+    margin: 4px 2px;
+    background: var(--dsw-alias-border-l1);
+  }
+
+  .menu-list-dense .menu-item {
+    min-height: 34px;
+    padding-block: 5px;
+  }
+
+  .menu-list-dense .menu-label {
+    padding-block: 4px;
+  }
+
+  .menu-list-compact .menu-item {
+    min-height: 26px;
+    gap: 6px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .menu-list-compact .menu-item-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .menu-list-compact .menu-separator {
+    margin: 2px;
+  }
+
+  .menu-list-compact .menu-label {
+    padding: 4px 7px;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  /* Destructive row: error icon (text color is a utility on the item). */
+  .menu-item-danger .menu-item-icon {
+    color: var(--dsw-alias-state-error-primary);
+  }
+
+  .menu-scrollable .menu-viewport {
+    overflow-y: auto;
+  }
 }
 
 @keyframes dsh-state-dot-chase {

@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
@@ -9,7 +8,7 @@ import type {
 import { IconCheckOutline16, IconCopyOutline16 } from './icons/index.tsx'
 import { Menu } from './Menu.tsx'
 import type { MenuEntry } from './Menu.tsx'
-import css from './JsonTree.module.css'
+import { cn } from './components/ui/cn.ts'
 
 const OBJECT_PREVIEW_LIMIT = 4
 const ARRAY_PREVIEW_LIMIT = 5
@@ -105,27 +104,27 @@ function bracketOf(value: object | unknown[]): readonly [string, string] {
 }
 
 function previewPrimitive(value: unknown): ReactNode {
-  if (value === null) return <span className={css.keywordValue}>null</span>
+  if (value === null) return <span className={KEYWORD_VALUE}>null</span>
   if (typeof value === 'string') {
-    return <span className={css.stringValue}>{JSON.stringify(value)}</span>
+    return <span className={STRING_VALUE}>{JSON.stringify(value)}</span>
   }
   if (typeof value === 'number') {
-    return <span className={css.numberValue}>{String(value)}</span>
+    return <span className={NUMBER_VALUE}>{String(value)}</span>
   }
   if (typeof value === 'boolean') {
-    return <span className={css.keywordValue}>{String(value)}</span>
+    return <span className={KEYWORD_VALUE}>{String(value)}</span>
   }
   if (typeof value === 'bigint') {
-    return <span className={css.otherValue}>{value.toString()}</span>
+    return <span className={OTHER_VALUE}>{value.toString()}</span>
   }
   if (typeof value === 'undefined') {
-    return <span className={css.otherValue}>undefined</span>
+    return <span className={OTHER_VALUE}>undefined</span>
   }
   if (typeof value === 'symbol') {
-    return <span className={css.otherValue}>{value.description ?? 'Symbol'}</span>
+    return <span className={OTHER_VALUE}>{value.description ?? 'Symbol'}</span>
   }
   if (typeof value === 'function') {
-    return <span className={css.otherValue}>{value.name || 'Function'}</span>
+    return <span className={OTHER_VALUE}>{value.name || 'Function'}</span>
   }
   return null
 }
@@ -141,53 +140,53 @@ function previewValue(value: unknown, depth: number): ReactNode {
 
   return (
     <>
-      <span className={css.punctuation}>{open}</span>
+      <span className={PUNCTUATION}>{open}</span>
       {depth >= PREVIEW_DEPTH_LIMIT
-        ? <span className={css.previewEllipsis}>…</span>
+        ? <span className={PREVIEW_ELLIPSIS}>…</span>
         : visible.map(([key, item], index) => (
           <span key={key}>
-            {index > 0 && <span className={css.punctuation}>, </span>}
+            {index > 0 && <span className={PUNCTUATION}>, </span>}
             {!array && (
               <>
-                <span className={css.previewProperty}>{key}</span>
-                <span className={css.punctuation}>: </span>
+                <span className={PREVIEW_PROPERTY}>{key}</span>
+                <span className={PUNCTUATION}>: </span>
               </>
             )}
             {previewValue(item, depth + 1)}
           </span>
         ))}
       {depth < PREVIEW_DEPTH_LIMIT && entries.length > limit && (
-        <span className={css.previewEllipsis}>, …</span>
+        <span className={PREVIEW_ELLIPSIS}>, …</span>
       )}
-      <span className={css.punctuation}>{close}</span>
+      <span className={PUNCTUATION}>{close}</span>
     </>
   )
 }
 
 function primitiveValue(value: unknown): ReactNode {
-  if (value === null) return <span className={css.keywordValue}>null</span>
+  if (value === null) return <span className={KEYWORD_VALUE}>null</span>
   if (typeof value === 'string') {
-    return <span className={css.stringValue}>{JSON.stringify(value)}</span>
+    return <span className={STRING_VALUE}>{JSON.stringify(value)}</span>
   }
   if (typeof value === 'boolean') {
-    return <span className={css.keywordValue}>{String(value)}</span>
+    return <span className={KEYWORD_VALUE}>{String(value)}</span>
   }
   if (typeof value === 'number') {
-    return <span className={css.numberValue}>{String(value)}</span>
+    return <span className={NUMBER_VALUE}>{String(value)}</span>
   }
   if (typeof value === 'bigint') {
-    return <span className={css.numberValue}>{`${value.toString()}n`}</span>
+    return <span className={NUMBER_VALUE}>{`${value.toString()}n`}</span>
   }
   if (value instanceof Date) {
-    return <span className={css.otherValue}>{value.toISOString()}</span>
+    return <span className={OTHER_VALUE}>{value.toISOString()}</span>
   }
   if (typeof value === 'function') {
-    return <span className={css.otherValue}>function() {'{ }'}</span>
+    return <span className={OTHER_VALUE}>function() {'{ }'}</span>
   }
   if (typeof value === 'undefined') {
-    return <span className={css.otherValue}>undefined</span>
+    return <span className={OTHER_VALUE}>undefined</span>
   }
-  return <span className={css.otherValue}>{(value as symbol).toString()}</span>
+  return <span className={OTHER_VALUE}>{(value as symbol).toString()}</span>
 }
 
 function fieldText(field: string): string {
@@ -230,7 +229,7 @@ function NodeField({
   if (field === undefined) return null
   return (
     <span
-      className={clsx(css.label, expandable && css.clickableLabel)}
+      className={cn(LABEL, expandable && CLICKABLE_LABEL)}
       onClick={expandable ? onToggle : undefined}
     >
       {fieldText(field)}:
@@ -288,7 +287,7 @@ function JsonTreeNode({
 
   const row = (children: ReactNode, ariaExpanded?: boolean) => (
     <div
-      className={css.row}
+      className={ROW}
       role="treeitem"
       aria-expanded={ariaExpanded}
       onMouseOver={(event) => {
@@ -305,7 +304,7 @@ function JsonTreeNode({
       <>
         <NodeField field={field} expandable={false} onToggle={toggle} />
         {primitiveValue(value)}
-        {!lastElement && <span className={css.punctuation}>,</span>}
+        {!lastElement && <span className={PUNCTUATION}>,</span>}
       </>
     ))
   }
@@ -315,9 +314,9 @@ function JsonTreeNode({
     return row((
       <>
         <NodeField field={field} expandable={false} onToggle={toggle} />
-        <span className={css.punctuation}>{open}</span>
-        <span className={css.punctuation}>{close}</span>
-        {!lastElement && <span className={css.punctuation}>,</span>}
+        <span className={PUNCTUATION}>{open}</span>
+        <span className={PUNCTUATION}>{close}</span>
+        {!lastElement && <span className={PUNCTUATION}>,</span>}
       </>
     ))
   }
@@ -326,7 +325,7 @@ function JsonTreeNode({
     <>
       <span
         ref={expanderRef}
-        className={clsx(css.expander, expanded ? css.collapseIcon : css.expandIcon)}
+        className={EXPANDER}
         data-json-expander
         role="button"
         aria-label={expanded ? labels.collapseNode : labels.expandNode}
@@ -338,10 +337,10 @@ function JsonTreeNode({
         onKeyDown={onExpanderKeyDown}
       />
       <NodeField field={field} expandable onToggle={toggle} />
-      <span className={css.preview}>{previewValue(value, 0)}</span>
-      {!lastElement && <span className={css.punctuation}>,</span>}
+      <span className={PREVIEW}>{previewValue(value, 0)}</span>
+      {!lastElement && <span className={PUNCTUATION}>,</span>}
       {expanded && (
-        <ul id={contentsId} role="group" className={css.children}>
+        <ul id={contentsId} role="group" className={CHILDREN}>
           {entries.map(([key, item], index) => (
             <JsonTreeNode
               key={key}
@@ -552,7 +551,7 @@ export function JsonTree({
   return (
     <div
       ref={rootRef}
-      className={clsx(css.root, className)}
+      className={cn(ROOT, className)}
       onMouseOver={handleRootMouseOver}
       onMouseLeave={() => {
         if (!copyMenuOpenRef.current) clearCopyTarget()
@@ -561,20 +560,20 @@ export function JsonTree({
     >
       {expandTopLevel
         ? (
-          <div className={css.expandedTopLevel}>
+          <div className={EXPANDED_TOP_LEVEL}>
             <div
-              className={clsx(css.row, css.topLevelBracket)}
+              className={cn(ROW, TOP_LEVEL_BRACKET)}
               data-json-root-row
               onMouseOver={(event) => {
                 event.stopPropagation()
                 handleRowHover(event.currentTarget, { path: [], value: data })
               }}
             >
-              <span className={css.punctuation}>{rootOpen}</span>
+              <span className={PUNCTUATION}>{rootOpen}</span>
             </div>
             <div
               aria-label={label}
-              className={clsx(css.container, css.expandedTopLevelContainer)}
+              className={cn(CONTAINER, 'p-0')}
               role="tree"
             >
               {rootEntries.map(([key, value], index) => (
@@ -592,13 +591,13 @@ export function JsonTree({
                 />
               ))}
             </div>
-            <div className={clsx(css.row, css.topLevelBracket)}>
-              <span className={css.punctuation}>{rootClose}</span>
+            <div className={cn(ROW, TOP_LEVEL_BRACKET)}>
+              <span className={PUNCTUATION}>{rootClose}</span>
             </div>
           </div>
         )
         : (
-          <div aria-label={label} className={css.container} role="tree">
+          <div aria-label={label} className={CONTAINER} role="tree">
             <JsonTreeNode
               value={data}
               path={[]}
@@ -613,7 +612,7 @@ export function JsonTree({
         )}
       {copyTarget !== undefined && (
         <span
-          className={css.copyAnchor}
+          className={COPY_ANCHOR}
           style={{ left: copyTarget.left, top: copyTarget.top }}
         >
           <Menu
@@ -626,7 +625,7 @@ export function JsonTree({
               <button
                 ref={copyButtonRef}
                 type="button"
-                className={css.copyButton}
+                className={COPY_BUTTON}
                 data-json-copy-button
                 data-state={copyState}
                 aria-label={copyTitle}
@@ -660,3 +659,31 @@ export function JsonTree({
     </div>
   )
 }
+
+/* Tailwind class strings. Simple single-property rules map to utilities with
+ * arbitrary-value var() refs; the complex selectors (:has, the ::before
+ * triangle, the ::after row fill, the dark-theme var rebind) live in
+ * web/src/primitives.css under the jt- prefix. */
+const ROOT =
+  'jt-root min-w-0 overflow-auto relative text-xs leading-[16px] [font-family:var(--ds-font-family-code)] text-[color:var(--dsw-alias-label-primary)] bg-[var(--dsw-alias-bg-layer-1)] overscroll-x-contain overscroll-y-auto'
+const CONTAINER = 'w-max min-w-full m-0 pt-[6px] px-2 pb-2 whitespace-pre'
+const EXPANDED_TOP_LEVEL = 'w-max min-w-full pt-[6px] pr-2 pb-2 pl-[14px] jt-expanded-top-level'
+const ROW = 'relative min-w-full min-h-4 m-0 pl-2.5 list-none jt-row'
+const TOP_LEVEL_BRACKET = 'jt-top-level-bracket pl-0'
+const CHILDREN = 'm-0 p-0 list-none'
+const LABEL = 'mr-[3px] text-[var(--json-tree-property)] font-normal'
+const CLICKABLE_LABEL = 'cursor-pointer'
+const STRING_VALUE = 'text-[var(--json-tree-string)]'
+const NUMBER_VALUE = 'text-[var(--json-tree-number)]'
+const KEYWORD_VALUE = 'text-[var(--json-tree-keyword)]'
+const OTHER_VALUE = 'text-[var(--dsw-alias-label-secondary)]'
+/* .preview / .previewProperty share the punctuation color in the source CSS. */
+const PUNCTUATION = 'text-[var(--json-tree-punctuation)]'
+const PREVIEW = 'text-[var(--json-tree-punctuation)]'
+const PREVIEW_PROPERTY = 'text-[var(--json-tree-punctuation)]'
+const PREVIEW_ELLIPSIS = 'text-[var(--dsw-alias-label-tertiary)]'
+const COPY_ANCHOR = 'fixed z-[3] inline-flex'
+const COPY_BUTTON =
+  'inline-flex items-center justify-center w-5 h-4 m-0 p-0 border-0 rounded-[3px] text-[var(--dsw-alias-label-secondary)] bg-[var(--dsw-alias-bg-layer-1)] shadow-[-5px_0_5px_var(--dsw-alias-bg-layer-1)] cursor-pointer hover:text-[var(--dsw-alias-label-primary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)] focus-visible:outline-1 focus-visible:outline-[var(--dsw-alias-state-business-primary)] focus-visible:outline-offset-[-1px] data-[state=failed]:text-[var(--dsw-alias-state-error-primary)]'
+const EXPANDER =
+  'jt-expander absolute z-[2] top-0 left-0 inline-flex items-center justify-start w-2 h-4 m-0 text-[var(--json-tree-icon)] cursor-pointer select-none hover:text-[var(--dsw-alias-label-primary)] focus-visible:outline-none'
