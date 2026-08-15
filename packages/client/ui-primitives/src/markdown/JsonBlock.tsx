@@ -1,7 +1,6 @@
 // JsonBlock: collapsible JSON block (conversation side; independent from the RPC panel's PayloadJson to avoid cross-panel coupling).
 
 import { useMemo, useState } from 'react'
-import css from './JsonBlock.module.css'
 
 const MAX_CHARS = 20_000
 
@@ -9,6 +8,14 @@ const MAX_CHARS = 20_000
 function defaultTruncatedLabel(total: number): string {
   return `… 已截断，共 ${total} 字符`
 }
+
+const ROOT = 'my-1'
+
+const TOGGLE =
+  'rounded-[6px] border-none bg-transparent cursor-pointer text-xs leading-[18px] text-[var(--dsw-alias-label-secondary)] px-1.5 py-0.5 hover:bg-[var(--dsw-alias-interactive-bg-hover)]'
+
+const BODY =
+  'mt-1 p-2 max-h-[200px] overflow-auto bg-[var(--dsw-alias-markdown-code-block)] border border-[var(--dsw-alias-border-l1)] rounded-[6px] [font-family:var(--ds-font-family-code)] text-[11px] leading-4 text-[var(--dsw-alias-label-primary)]'
 
 export function JsonBlock({ label, payload, defaultOpen = false, truncatedLabel = defaultTruncatedLabel }: {
   label: string
@@ -31,11 +38,11 @@ export function JsonBlock({ label, payload, defaultOpen = false, truncatedLabel 
     return s.length > MAX_CHARS ? `${s.slice(0, MAX_CHARS)}\n${truncatedLabel(s.length)}` : s
   }, [open, payload, truncatedLabel])
   return (
-    <div className={css.root}>
-      <button type="button" className={css.toggle} onClick={() => { setOpen(v => !v) }}>
+    <div className={ROOT}>
+      <button type="button" className={TOGGLE} onClick={() => { setOpen(v => !v) }}>
         {open ? '▾' : '▸'} {label}
       </button>
-      {open && <pre className={css.body}>{body}</pre>}
+      {open && <pre className={BODY}>{body}</pre>}
     </div>
   )
 }

@@ -21,7 +21,6 @@ import {
 } from './render.tsx'
 import type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
 import 'katex/dist/katex.min.css'
-import css from './MarkdownText.module.css'
 
 export type { MarkdownCodeLabels, MarkdownFileMentions } from './render.tsx'
 
@@ -172,5 +171,5 @@ export const MarkdownText = memo(function MarkdownText({ text, streaming = false
     }
     return streamRef.current.render(text)
   }, [text, streaming, codeLabels, fileMentions])
-  return <div className={css.markdown}>{children}</div>
+  return <div className="prose">{children}</div>
 })

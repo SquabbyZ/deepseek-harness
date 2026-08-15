@@ -5,10 +5,9 @@
 // deepsuite `@deepseek/md` code blocks; token colors stay on `--shiki-*`.
 
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import clsx from 'clsx'
 import { writeClipboard } from '../clipboard.ts'
 import { grammarLoadCount, highlightToHtml, subscribeGrammarLoaded } from './highlight.ts'
-import css from './CodeBlock.module.css'
+import { cn } from '../components/ui/cn.ts'
 
 export interface CodeBlockProps {
   /** The source text, rendered verbatim (trailing newline trimmed for display). */
@@ -22,6 +21,27 @@ export interface CodeBlockProps {
   /** Copy-button label during the post-copy confirmation window. */
   copiedLabel?: string | undefined
 }
+
+/* The --dsl-code-block-* rebindable contract, the card margin rhythm, and the
+ * pre/code descendant rules live in primitives.css (.code-block); the rest
+ * are Tailwind utilities. */
+const BLOCK =
+  'code-block relative text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-alias-markdown-code-block)] rounded-[var(--dsl-code-block-border-radius)]'
+
+const BANNER_WRAP =
+  'sticky top-0 z-[6] bg-[var(--dsw-alias-bg-base)] rounded-t-[var(--dsl-code-block-border-radius)]'
+
+const BANNER =
+  'flex justify-between items-center gap-3 px-[14px] py-[9px] bg-[var(--dsl-code-block-banner-background-color)] rounded-t-[var(--dsl-code-block-border-radius)] [font:var(--dsl-code-block-banner-font)]'
+
+const INFO_STRING =
+  'min-w-0 truncate text-[var(--dsw-alias-label-primary)] [font-family:var(--ds-font-family-code)] text-xs leading-[18px]'
+
+const ACTION = 'flex items-center shrink-0'
+
+const COPY_BUTTON = 'bg-transparent border-none p-0 m-0 text-inherit cursor-pointer'
+
+const PLAIN = 'text-[var(--dsw-alias-label-primary)]'
 
 export function CodeBlock({ code, lang, className, copyLabel = '复制', copiedLabel = '复制成功' }: CodeBlockProps) {
   const trimmed = code.endsWith('\n') ? code.slice(0, -1) : code
@@ -47,7 +67,7 @@ export function CodeBlock({ code, lang, className, copyLabel = '复制', copiedL
 
   const body = html === undefined
     ? (
-      <pre className={css.plain}><code>{trimmed}</code></pre>
+      <pre className={PLAIN}><code>{trimmed}</code></pre>
     )
     : (
   // shiki's output is a static span tree it generated from `code` (no user
@@ -57,12 +77,12 @@ export function CodeBlock({ code, lang, className, copyLabel = '复制', copiedL
     )
 
   return (
-    <div ref={rootRef} className={clsx(css.block, 'md-code-block', className)}>
-      <div className={css.bannerWrap}>
-        <div className={css.banner}>
-          <div className={css.infostring}>{lang ?? ''}</div>
-          <div className={css.action}>
-            <button type="button" className={css.copyButton} onClick={onCopy}>
+    <div ref={rootRef} className={cn(BLOCK, 'md-code-block', className)}>
+      <div className={BANNER_WRAP}>
+        <div className={BANNER}>
+          <div className={INFO_STRING}>{lang ?? ''}</div>
+          <div className={ACTION}>
+            <button type="button" className={COPY_BUTTON} onClick={onCopy}>
               {copied ? copiedLabel : copyLabel}
             </button>
           </div>

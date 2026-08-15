@@ -24,7 +24,6 @@ import { normalizeUri } from 'micromark-util-sanitize-uri'
 import { CodeBlock } from './CodeBlock.tsx'
 import { renderTexToReact } from './katex.tsx'
 import type { PositionedBlock } from './incremental.ts'
-import css from './MarkdownText.module.css'
 
 /** Copy-button labels forwarded to fence CodeBlocks (this package is cordis-free, so copy arrives via props). */
 export interface MarkdownCodeLabels {
@@ -246,7 +245,7 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
           <code key={key}>
             <button
               type="button"
-              className={css.fileMention}
+              className="m-0 p-0 border-none bg-transparent cursor-pointer text-[var(--dsw-alias-state-business-primary)] no-underline hover:underline focus:underline hover:decoration-[var(--dsw-alias-state-business-primary)] focus:decoration-[var(--dsw-alias-state-business-primary)] hover:underline-offset-[3px] focus:underline-offset-[3px] hover:outline-none focus:outline-none"
               title={mention.title}
               aria-label={mention.label}
               onClick={mention.open}
@@ -394,7 +393,7 @@ function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): 
   const align = node.align ?? null
   const [headRow, ...bodyRows] = node.children
   return (
-    <div key={key} className={css.tableScroll}>
+    <div key={key} className="max-w-full overflow-x-auto overscroll-x-contain prose-table-scroll">
       <table>
         {headRow !== undefined && <thead>{renderTableRow(headRow, 'th', align, 0, context)}</thead>}
         {bodyRows.length > 0 && (
@@ -471,12 +470,12 @@ function inlineCodeHttpUrl(value: string): string | undefined {
 function renderImage(url: string, alt: string, key: Key): ReactNode {
   const imageSrc = remoteImageUrl(sanitizeUrl(normalizeUri(url)))
   if (imageSrc === undefined) {
-    return <span key={key} className={css.imageAlt}>{alt}</span>
+    return <span key={key} className="text-[var(--dsw-alias-label-tertiary)] italic">{alt}</span>
   }
   return (
     <img
       key={key}
-      className={css.image}
+      className="block w-auto max-w-full h-auto m-0 rounded-[8px] bg-[var(--dsw-alias-bg-base)] object-contain"
       src={imageSrc}
       alt={alt}
       loading="lazy"

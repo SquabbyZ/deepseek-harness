@@ -344,6 +344,277 @@
   .menu-scrollable .menu-viewport {
     overflow-y: auto;
   }
+
+  /* --- MarkdownText --- */
+
+  /* The `.markdown` prose/typography sheet (deepsuite @deepseek/md
+   * markdown.css). Every descendant/:where()/:has()/:not() rule is a
+   * typographic descendant combinator too intertwined to flatten into
+   * utilities; the whole block moves here as one custom class. Root renamed
+   * .markdown → .prose; :global(X) unwrapped to plain X. */
+  .prose {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font: var(--dsw-font-markdown-base);
+    color: var(--dsw-alias-label-primary);
+  }
+
+  .prose strong {
+    font-weight: 600;
+  }
+
+  .prose h1 {
+    font: var(--dsw-font-markdown-h1);
+    margin: 32px 0 16px;
+  }
+
+  .prose h2 {
+    font: var(--dsw-font-markdown-h2);
+    margin: 32px 0 16px;
+  }
+
+  .prose h3 {
+    font: var(--dsw-font-markdown-h3);
+    margin: 32px 0 16px;
+  }
+
+  .prose h4 {
+    font: var(--dsw-font-markdown-h4);
+    margin: 16px 0;
+  }
+
+  .prose :where(h5, h6) {
+    font: var(--dsw-font-markdown-base-strong);
+    margin: 16px 0;
+  }
+
+  .prose :where(h1, h2, h3, h4, h5, h6) strong {
+    font-weight: inherit;
+  }
+
+  .prose p {
+    margin: 16px 0;
+  }
+
+  /* Tighten h4–h6 against a following list (design: 8px gap). */
+  .prose :where(h4, h5, h6) + :where(ul, ol) {
+    margin-top: 8px;
+  }
+
+  .prose :where(h4, h5, h6):has(+ :where(ul, ol)) {
+    margin-bottom: 8px;
+  }
+
+  .prose a {
+    /* deepsuite markdown.css uses brand-text (blue in newDesign); this sheet
+       keeps design-platform brand-text as near-black, so links use the blue
+       business-primary alias instead. */
+    color: var(--dsw-alias-state-business-primary);
+    transition: box-shadow var(--ds-transition-duration) var(--ds-ease-in-out);
+    position: relative;
+    text-decoration: none;
+    /* Transparent hit-area padding; literal zero-alpha only (no painted color). */
+    border-left: 3px solid rgb(255 255 255 / 0);
+    border-right: 3px solid rgb(255 255 255 / 0);
+    border-top: 2px solid rgb(255 255 255 / 0);
+    border-bottom: 2px solid rgb(255 255 255 / 0);
+    margin-left: -3px;
+    margin-right: -3px;
+  }
+
+  .prose a:hover,
+  .prose a:focus {
+    outline: none;
+    text-decoration: underline var(--dsw-alias-state-business-primary);
+  }
+
+  .prose a:focus-visible {
+    box-shadow: 0 0 0 2px var(--dsw-alias-state-business-primary);
+  }
+
+  .prose :where(ul, ol) {
+    margin: 16px 0;
+    padding-left: 18px;
+  }
+
+  .prose li:not(:first-child) {
+    margin-top: 6px;
+  }
+
+  .prose li > :where(ul, ol) {
+    margin-top: 4px;
+  }
+
+  .prose li::marker {
+    line-height: 28px;
+    color: var(--dsw-alias-label-secondary);
+  }
+
+  /* Nested ol under ul/ol: markers inside (models sometimes emit this shape). */
+  .prose :where(ul, ol) ol {
+    list-style-position: inside;
+    padding-left: 0;
+  }
+
+  .prose :where(ul, ol) ol li p {
+    display: inline;
+  }
+
+  .prose li > p {
+    margin: 8px 0;
+  }
+
+  .prose li > *:first-child {
+    margin-top: 0;
+  }
+
+  /* Keep list-nested code-block vertical margins (design: +4px vs other last children). */
+  .prose li > *:last-child:not(.md-code-block) {
+    margin-bottom: 0;
+  }
+
+  .prose hr {
+    display: block;
+    border: none;
+    height: 1px;
+    margin: 32px 0;
+    background: var(--dsw-alias-border-l2);
+  }
+
+  .prose blockquote {
+    border-left: 2px solid var(--dsw-alias-label-caption);
+    margin: 16px 0 0;
+    padding-left: 14px;
+  }
+
+  .prose pre {
+    margin: 16px 0;
+    font-family: var(--ds-font-family-code);
+    overflow: auto;
+  }
+
+  .prose :not(pre) > code {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    font: var(--dsw-font-markdown-code);
+    font-family: var(--ds-font-family-code);
+    font-size: 0.875em !important;
+    background-color: var(--dsw-alias-markdown-inline-code);
+    border-radius: 6px;
+    padding: 0 5px;
+  }
+
+  .prose :where(h1, h2, h3, h4, h5, h6) code {
+    font: inherit;
+    font-family: var(--ds-font-family-code);
+  }
+
+  .prose .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .prose input[type='checkbox'] {
+    margin: 0 8px 0 0;
+    accent-color: var(--dsw-alias-label-secondary);
+  }
+
+  /* Table wrapper's descendant rules; the wrapper's own max-width/overflow/
+   * overscroll are utilities on the element. */
+  .prose-table-scroll table {
+    border-collapse: collapse;
+    width: max-content;
+    max-width: max-content;
+  }
+
+  .prose-table-scroll th {
+    text-align: start;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--dsw-alias-border-l3);
+    border-top: none;
+    font: var(--dsw-font-markdown-table-head);
+    max-width: 320px;
+    max-width: min(30vw, 320px);
+    min-width: 100px;
+  }
+
+  .prose-table-scroll td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--dsw-alias-border-l2);
+    font: var(--dsw-font-markdown-table);
+    max-width: 320px;
+    max-width: min(30vw, 320px);
+    min-width: 100px;
+  }
+
+  .prose-table-scroll th:first-child,
+  .prose-table-scroll td:first-child {
+    padding-left: 0;
+  }
+
+  .prose-table-scroll td:last-child {
+    padding-right: 0;
+  }
+
+  .prose-table-scroll table code {
+    font-size: 13px;
+  }
+
+  .prose > *:first-child,
+  .prose p:first-child {
+    margin-top: 0 !important;
+  }
+
+  .prose > *:last-child,
+  .prose p:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  /* --- CodeBlock --- */
+
+  /* Rebindable --dsl-code-block-* contract (consumers override banner bg,
+   * radius, and fonts), the block card's margin (16/11px rhythm), and the
+   * pre/code descendant rules. The :not(:last-child) override must live here
+   * (same @layer) so it beats the base margin by specificity — a Tailwind
+   * margin utility (later layer) would win. */
+  .code-block {
+    --dsl-code-block-banner-background-color: var(--dsw-alias-markdown-code-block-banner);
+    --dsl-code-block-border-radius: 12px;
+    --dsl-code-block-banner-font: var(--dsw-font-xs-13);
+    --dsl-code-block-content-font: var(--dsw-font-markdown-code-block);
+    margin: 16px 0;
+  }
+
+  .code-block:not(:last-child) {
+    margin-bottom: 11px;
+  }
+
+  .code-block :where(pre) {
+    font: var(--dsl-code-block-content-font);
+    padding: 16px;
+    margin: 0 !important;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: var(--dsw-alias-markdown-code-block);
+    /* Bottom radii live on <pre>: overflow:hidden on the root would kill the
+       sticky banner, and this opaque fill otherwise squares off the wrapper. */
+    border-bottom-left-radius: var(--dsl-code-block-border-radius);
+    border-bottom-right-radius: var(--dsl-code-block-border-radius);
+  }
+
+  /* Shiki inlines its theme background var; route it to the repo token. */
+  .code-block :where(pre.shiki) {
+    background: var(--dsw-alias-markdown-code-block) !important;
+  }
+
+  .code-block :where(pre) code {
+    font: inherit;
+    background: none;
+    padding: 0;
+  }
 }
 
 @keyframes dsh-state-dot-chase {
