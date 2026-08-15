@@ -39,6 +39,9 @@ export function AppRoot(props: AppRootProps) {
           non-focusable and never intercept pointer events. */}
       <div className="app-watermark-layer" aria-hidden="true" />
       <div className="app-live2d-anchor" data-live2d-mount />
+      {/* Transparent-titlebar drag region: the native title bar is transparent,
+          so this fixed strip at the very top carries window dragging. */}
+      <div className="app-titlebar" data-tauri-drag-region />
       {props.renderApp()}
     </>
   )

@@ -10,7 +10,7 @@
   },
   "app": {
     "windows": [
-      { "title": "DeepSeek Harness", "width": 1280, "height": 800, "resizable": true }
+      { "title": "DeepSeek Harness", "width": 1280, "height": 800, "resizable": true, "titleBarStyle": "Transparent" }
     ],
     "security": { "csp": null }
   },

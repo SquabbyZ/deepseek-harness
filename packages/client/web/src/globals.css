@@ -129,6 +129,20 @@
   pointer-events: none;
 }
 
+/* Transparent-titlebar drag region: a fixed strip at the very top that carries
+ * window dragging now that the native title bar is transparent. The right edge
+ * is inset so the native minimize/maximize/close controls (top-right, ~140px)
+ * stay clickable; the strip is empty, so it shows the app background behind it
+ * (the frame's --dsw-alias-bg-base, matching the content below). */
+.app-titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 140px;
+  height: 32px;
+  z-index: 100;
+}
+
 /* --- Skin effects: frosted glass + neon cyber (keyed on body[data-skin]) ---
  *
  * The skins are token-only in ui-theme; the effects that make them read as
