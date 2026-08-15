@@ -5,8 +5,9 @@
 // retracts everything the presenter wrote.
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { SkinId, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { BACKGROUND_IMAGE_PROPERTY, DARK_ATTRIBUTE, SKIN_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
+import type { BackgroundCrop, SkinId, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { cropToBackground } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { BACKGROUND_IMAGE_PROPERTY, BACKGROUND_POSITION_PROPERTY, BACKGROUND_SIZE_PROPERTY, DARK_ATTRIBUTE, SKIN_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
 
 const LIGHT_THEME_COLOR = 'rgb(255, 255, 255)'
 const DARK_THEME_COLOR = 'rgb(21, 21, 23)'
@@ -16,10 +17,12 @@ function snapshot(
   tokens: Record<string, string> = {},
   skin: SkinId = 'default',
   background = '',
+  backgroundName = '',
+  backgroundCrop: BackgroundCrop | null = null,
 ): ThemeSnapshot {
   // The presenter must key off colorScheme, not the id — keep them distinct.
   const active = { id: `${colorScheme}-test`, colorScheme, tokens }
-  return { preference: colorScheme, skin, background, active, themes: [active], revision: 1 }
+  return { preference: colorScheme, skin, background, backgroundName, backgroundCrop, active, themes: [active], revision: 1 }
 }
 
 function clearThemePresentation(): void {
@@ -115,5 +118,40 @@ describe('ThemePresenter', () => {
     expect(document.body.style.getPropertyValue(BACKGROUND_IMAGE_PROPERTY)).toBe('none')
     presenter.dispose()
     expect(document.body.style.getPropertyValue(BACKGROUND_IMAGE_PROPERTY)).toBe('')
+  })
+
+  it('applies a crop region as background-size/position, defaulting to cover/center, and removes on dispose', () => {
+    const presenter = new ThemePresenter()
+    presenter.apply(snapshot('light', {}, 'default', 'https://example.com/bg.png', '', { x: 0.25, y: 0.5, w: 0.5, h: 0.5 }))
+    expect(document.body.style.getPropertyValue(BACKGROUND_SIZE_PROPERTY)).toBe('calc(100% / 0.5) calc(100% / 0.5)')
+    expect(document.body.style.getPropertyValue(BACKGROUND_POSITION_PROPERTY)).toBe('calc(0.25 / 0.5 * 100%) calc(0.5 / 0.5 * 100%)')
+    // Null crop restores the defaults.
+    presenter.apply(snapshot('light', {}, 'default', 'https://example.com/bg.png'))
+    expect(document.body.style.getPropertyValue(BACKGROUND_SIZE_PROPERTY)).toBe('cover')
+    expect(document.body.style.getPropertyValue(BACKGROUND_POSITION_PROPERTY)).toBe('center')
+    presenter.dispose()
+    expect(document.body.style.getPropertyValue(BACKGROUND_SIZE_PROPERTY)).toBe('')
+    expect(document.body.style.getPropertyValue(BACKGROUND_POSITION_PROPERTY)).toBe('')
+  })
+})
+
+describe('cropToBackground', () => {
+  it('scales each axis by 1/w and 1/h and offsets by x/(1-w), y/(1-h)', () => {
+    // Center square: both axes scaled 2x and shifted to the crop's top-left.
+    expect(cropToBackground({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 })).toEqual({
+      size: 'calc(100% / 0.5) calc(100% / 0.5)',
+      position: 'calc(0.25 / 0.5 * 100%) calc(0.25 / 0.5 * 100%)',
+    })
+    // Right half, full height: x scaled 2x, y stays 1x with a 0% offset.
+    expect(cropToBackground({ x: 0.5, y: 0, w: 0.5, h: 1 })).toEqual({
+      size: 'calc(100% / 0.5) calc(100% / 1)',
+      position: 'calc(0.5 / 0.5 * 100%) 0%',
+    })
+  })
+
+  it('falls back to cover/center for null, undefined, and zero-area crops', () => {
+    expect(cropToBackground(null)).toEqual({ size: 'cover', position: 'center' })
+    expect(cropToBackground(undefined)).toEqual({ size: 'cover', position: 'center' })
+    expect(cropToBackground({ x: 0.5, y: 0.5, w: 0, h: 0 })).toEqual({ size: 'cover', position: 'center' })
   })
 })

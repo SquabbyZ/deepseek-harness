@@ -15,6 +15,9 @@ export const zh = {
   'background.url': '图片 URL',
   'background.urlPlaceholder': 'https://example.com/image.png',
   'background.clear': '清除',
+  'background.fileName': '文件名',
+  'background.cropLabel': '拖拽框选区域',
+  'background.clearCrop': '清除裁剪',
 } satisfies Record<string, string>
 
 /** The settings.theme namespace key union. */
@@ -35,4 +38,7 @@ export const en = {
   'background.url': 'Image URL',
   'background.urlPlaceholder': 'https://example.com/image.png',
   'background.clear': 'Clear',
+  'background.fileName': 'File name',
+  'background.cropLabel': 'Drag to crop region',
+  'background.clearCrop': 'Clear crop',
 } satisfies Record<ThemeKey, string>

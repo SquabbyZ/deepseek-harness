@@ -4,7 +4,7 @@
  * reads via props.useStore.
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
-import { DEFAULT_SKIN, type SkinId, type ThemePreference } from '../theme-settings.ts'
+import { DEFAULT_SKIN, type BackgroundCrop, type SkinId, type ThemePreference } from '../theme-settings.ts'
 
 /** Store state mirrored from the theme snapshot. */
 export interface AppearanceRowState {
@@ -14,13 +14,20 @@ export interface AppearanceRowState {
   skin: SkinId
   /** Global background image (raw URL or data URL; empty = none). */
   background: string
+  /** Local upload's file name (empty for remote-URL backgrounds). */
+  backgroundName: string
+  /** Crop region as fractions (null = full-image cover). */
+  backgroundCrop: BackgroundCrop | null
   /** Service revision; -1 until first sync so revision 0 lands as a change. */
   revision: number
 }
 
 /** Declared action shape giving the exported factory a stable return type. */
 type AppearanceRowActions = {
-  sync: (draft: AppearanceRowState, preference: ThemePreference, skin: SkinId, background: string, revision: number) => void
+  sync: (
+    draft: AppearanceRowState, preference: ThemePreference, skin: SkinId, background: string,
+    backgroundName: string, backgroundCrop: BackgroundCrop | null, revision: number,
+  ) => void
 }
 
 /**
@@ -29,13 +36,15 @@ type AppearanceRowActions = {
  */
 export function createAppearanceRowStore(): EngineStoreHandle<AppearanceRowState, AppearanceRowActions> {
   return defineStore({
-    init: (): AppearanceRowState => ({ preference: 'system', skin: DEFAULT_SKIN, background: '', revision: -1 }),
+    init: (): AppearanceRowState => ({ preference: 'system', skin: DEFAULT_SKIN, background: '', backgroundName: '', backgroundCrop: null, revision: -1 }),
     actions: {
-      sync: (d, preference, skin, background, revision) => {
+      sync: (d, preference, skin, background, backgroundName, backgroundCrop, revision) => {
         if (revision <= d.revision) return
         d.preference = preference
         d.skin = skin
         d.background = background
+        d.backgroundName = backgroundName
+        d.backgroundCrop = backgroundCrop
         d.revision = revision
       },
     },

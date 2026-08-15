@@ -36,7 +36,7 @@ function emptyWorkspaces() {
 function mount(skin: SkinId = 'default') {
   // Real store instance — the sanctioned zero-machinery path for tests.
   const store = createAppearanceRowStore().create()
-  store.actions.sync('system', skin, '', 0)
+  store.actions.sync('system', skin, '', '', null, 0)
   const setSkin = vi.fn()
   const props: SkinRowComponentProps = {
     useSessions: emptySessions(),
@@ -68,7 +68,7 @@ describe('SkinRow', () => {
     expect(b.setSkin).toHaveBeenCalledWith('cyber')
     // No store write yet: selection is unchanged.
     expect(pressed(/Glass/)).toBe('true')
-    act(() => { b.store.actions.sync('system', 'cyber', '', 1) })
+    act(() => { b.store.actions.sync('system', 'cyber', '', '', null, 1) })
     expect(pressed(/Cyber/)).toBe('true')
     expect(pressed(/Glass/)).toBe('false')
   })

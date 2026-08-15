@@ -97,6 +97,8 @@
  * watermark slot is reserved for a later pass and left unset here. */
 :root {
   --app-background-image: none;
+  --app-background-size: cover;
+  --app-background-position: center;
   --app-watermark: none;
 }
 
@@ -112,8 +114,8 @@
   opacity: 0.12;
   background-image: var(--app-background-image);
   background-repeat: no-repeat;
-  background-position: center;
-  background-size: cover;
+  background-position: var(--app-background-position, center);
+  background-size: var(--app-background-size, cover);
 }
 
 /* Reserved bottom-right anchor for a future Live2D avatar. Empty for now; sits

@@ -9,6 +9,7 @@
  * it wrote itself, so foreign attributes, metadata, and inline styles survive.
  */
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { cropToBackground } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 /** Body attribute selecting the dark base palette in the token stylesheets. */
 export const DARK_ATTRIBUTE = 'data-ds-dark-theme'
@@ -18,6 +19,12 @@ export const SKIN_ATTRIBUTE = 'data-skin'
 
 /** Body inline property carrying the global tiled background image (`url(...)` wrapped). */
 export const BACKGROUND_IMAGE_PROPERTY = '--app-background-image'
+
+/** Body inline property carrying the background `background-size` (cover or a crop scale). */
+export const BACKGROUND_SIZE_PROPERTY = '--app-background-size'
+
+/** Body inline property carrying the background `background-position` (center or a crop offset). */
+export const BACKGROUND_POSITION_PROPERTY = '--app-background-position'
 
 /** Applies theme snapshots to the document; one instance per plugin fiber. */
 export class ThemePresenter {
@@ -51,6 +58,9 @@ export class ThemePresenter {
     else body.removeAttribute(DARK_ATTRIBUTE)
     body.setAttribute(SKIN_ATTRIBUTE, snapshot.skin)
     body.style.setProperty(BACKGROUND_IMAGE_PROPERTY, snapshot.background ? `url(${snapshot.background})` : 'none')
+    const background = cropToBackground(snapshot.backgroundCrop)
+    body.style.setProperty(BACKGROUND_SIZE_PROPERTY, background.size)
+    body.style.setProperty(BACKGROUND_POSITION_PROPERTY, background.position)
     for (const name of this.appliedTokens) body.style.removeProperty(name)
     this.appliedTokens = []
     for (const [name, value] of Object.entries(snapshot.active.tokens)) {
@@ -68,6 +78,8 @@ export class ThemePresenter {
     body.removeAttribute(DARK_ATTRIBUTE)
     body.removeAttribute(SKIN_ATTRIBUTE)
     body.style.removeProperty(BACKGROUND_IMAGE_PROPERTY)
+    body.style.removeProperty(BACKGROUND_SIZE_PROPERTY)
+    body.style.removeProperty(BACKGROUND_POSITION_PROPERTY)
     for (const name of this.appliedTokens) body.style.removeProperty(name)
     this.appliedTokens = []
     this.themeColorMeta.remove()

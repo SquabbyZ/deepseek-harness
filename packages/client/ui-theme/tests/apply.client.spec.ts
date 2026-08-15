@@ -166,9 +166,20 @@ describe('ui-theme apply', () => {
 
     const bg = backgroundFaceOf(b.slots)
     expect(bg.instance.getSnapshot().background).toBe('')
+    expect(bg.instance.getSnapshot().backgroundName).toBe('')
+    expect(bg.instance.getSnapshot().backgroundCrop).toBeNull()
     bg.face.setBackground('https://example.com/bg.png')
     expect(theme.getTheme().background).toBe('https://example.com/bg.png')
     expect(bg.instance.getSnapshot().background).toBe('https://example.com/bg.png')
+
+    bg.face.setBackgroundName('bg.png')
+    expect(theme.getTheme().backgroundName).toBe('bg.png')
+    expect(bg.instance.getSnapshot().backgroundName).toBe('bg.png')
+
+    const crop = { x: 0.1, y: 0.2, w: 0.3, h: 0.4 }
+    bg.face.setBackgroundCrop(crop)
+    expect(theme.getTheme().backgroundCrop).toBe(crop)
+    expect(bg.instance.getSnapshot().backgroundCrop).toBe(crop)
   })
 
   it('loads Host settings at boot, refreshes its namespace, and keeps remote browsers process-local', async () => {

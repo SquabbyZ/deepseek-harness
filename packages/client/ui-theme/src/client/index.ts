@@ -25,9 +25,10 @@ import { SkinRow } from './SkinRow.tsx'
 import { createAppearanceRowStore } from './settings-store.ts'
 import { en, zh, type ThemeKey } from './locales.ts'
 import {
-  BACKGROUND_FIELD, DEFAULT_PREFERENCE, DEFAULT_SKIN, isSkinId, isThemePreference, SKIN_FIELD,
+  BACKGROUND_CROP_FIELD, BACKGROUND_FIELD, BACKGROUND_NAME_FIELD,
+  DEFAULT_PREFERENCE, DEFAULT_SKIN, isBackgroundCrop, isSkinId, isThemePreference, SKIN_FIELD,
   THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
-  type SkinId, type ThemePreference, type ThemeSettings,
+  type BackgroundCrop, type SkinId, type ThemePreference, type ThemeSettings,
 } from '../theme-settings.ts'
 import { SKIN_PRESETS } from '../skins.ts'
 
@@ -36,8 +37,11 @@ export type { BackgroundRowComponentProps, BackgroundRowInjected } from './Backg
 export type { SkinRowComponentProps, SkinRowInjected } from './SkinRow.tsx'
 export type { AppearanceRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
-export type { SkinId, ThemePreference, ThemeSettings } from '../theme-settings.ts'
-export { BACKGROUND_FIELD, DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, isSkinId } from '../theme-settings.ts'
+export type { BackgroundCrop, SkinId, ThemePreference, ThemeSettings } from '../theme-settings.ts'
+export {
+  BACKGROUND_CROP_FIELD, BACKGROUND_FIELD, BACKGROUND_NAME_FIELD, cropToBackground,
+  DEFAULT_SKIN, isBackgroundCrop, isSkinId, SKIN_FIELD, SKIN_IDS,
+} from '../theme-settings.ts'
 export { SKIN_PRESETS } from '../skins.ts'
 
 /** Namespace owning this feature's settings-row copy. */
@@ -89,6 +93,10 @@ export interface ThemeSnapshot {
   skin: SkinId
   /** The global background image (raw URL or data URL; empty = none). */
   background: string
+  /** Local upload's file name (empty for remote-URL backgrounds). */
+  backgroundName: string
+  /** Crop region as fractions (null = full-image cover). */
+  backgroundCrop: BackgroundCrop | null
   /**
    * The resolved active theme (`system` resolved via prefers-color-scheme)
    * with override layers folded into its tokens (seq order, later layers win
@@ -172,6 +180,8 @@ export class ThemeRuntime {
   private preference: ThemePreference
   private skin: SkinId = DEFAULT_SKIN
   private background: string = ''
+  private backgroundName: string = ''
+  private backgroundCrop: BackgroundCrop | null = null
   private revision = 0
   private snapshot: ThemeSnapshot
   private readonly media: MediaQueryList | undefined
@@ -281,6 +291,32 @@ export class ThemeRuntime {
   }
 
   /**
+   * Set the local upload's file name — display metadata for the background
+   * row; never affects rendering. Persisted alongside the background and
+   * republished on change.
+   * @param value - file name (empty clears it).
+   */
+  setBackgroundName(value: string): void {
+    if (this.backgroundName === value) return
+    this.backgroundName = value
+    void this.host.set(BACKGROUND_NAME_FIELD, value)
+    this.publish()
+  }
+
+  /**
+   * Set the background crop region as fractions (top-left origin, 0–1 each).
+   * `null` clears the crop and restores full-image cover. Every accepted
+   * change emits `theme/change`.
+   * @param value - the crop region or null.
+   */
+  setBackgroundCrop(value: BackgroundCrop | null): void {
+    if (sameCrop(this.backgroundCrop, value)) return
+    this.backgroundCrop = value
+    void this.host.set(BACKGROUND_CROP_FIELD, value)
+    this.publish()
+  }
+
+  /**
    * Mount one skin's override layer without publishing. Used at construction so
    * the initial snapshot already carries the skin layer, and by {@link adopt}
    * so a persisted skin change folds into the same publish as the preference.
@@ -299,10 +335,16 @@ export class ThemeRuntime {
     const skinChanged = this.skin !== skin
     const background = typeof section.background === 'string' ? section.background : ''
     const backgroundChanged = this.background !== background
-    if (!preferenceChanged && !skinChanged && !backgroundChanged) return
+    const backgroundName = typeof section.backgroundName === 'string' ? section.backgroundName : ''
+    const backgroundNameChanged = this.backgroundName !== backgroundName
+    const backgroundCrop = isBackgroundCrop(section.backgroundCrop) ? section.backgroundCrop : null
+    const backgroundCropChanged = !sameCrop(this.backgroundCrop, backgroundCrop)
+    if (!preferenceChanged && !skinChanged && !backgroundChanged && !backgroundNameChanged && !backgroundCropChanged) return
     if (preferenceChanged) this.preference = section.preference
     if (skinChanged) this.mountSkinLayer(skin)
     if (backgroundChanged) this.background = background
+    if (backgroundNameChanged) this.backgroundName = backgroundName
+    if (backgroundCropChanged) this.backgroundCrop = backgroundCrop
     this.publish()
   }
 
@@ -371,6 +413,8 @@ export class ThemeRuntime {
       preference: this.preference,
       skin: this.skin,
       background: this.background,
+      backgroundName: this.backgroundName,
+      backgroundCrop: this.backgroundCrop,
       active: this.composeActive(active),
       themes: Object.freeze([...this.themes]),
       revision: this.revision,
@@ -399,6 +443,17 @@ export class ThemeRuntime {
     this.snapshot = this.buildSnapshot()
     this.ctx.emit('theme/change', this.snapshot)
   }
+}
+
+/**
+ * Structural crop equality: two null crops are equal, and two regions match
+ * only when every fraction is `===`. Keeps re-adopting a structurally equal
+ * crop from republishing an event.
+ */
+function sameCrop(left: BackgroundCrop | null, right: BackgroundCrop | null): boolean {
+  if (left === right) return true
+  if (left === null || right === null) return false
+  return left.x === right.x && left.y === right.y && left.w === right.w && left.h === right.h
 }
 
 /**
@@ -462,7 +517,10 @@ export function apply(ctx: ClientContext): void {
   const store = createAppearanceRowStore()
   let bound: BoundActions<typeof store> | undefined
   const sync = (snapshot: ThemeSnapshot): void => {
-    bound?.sync(snapshot.preference, snapshot.skin, snapshot.background, snapshot.revision)
+    bound?.sync(
+      snapshot.preference, snapshot.skin, snapshot.background,
+      snapshot.backgroundName, snapshot.backgroundCrop, snapshot.revision,
+    )
   }
   ctx.on('theme/change', sync)
   // All three rows share one store handle (and therefore one instance at root
@@ -502,7 +560,11 @@ export function apply(ctx: ClientContext): void {
     locale: SETTINGS_NS,
     inject: (actions: BoundActions<typeof store>): BackgroundRowInjected => {
       bind(actions)
-      return { setBackground: (value) => { theme.setBackground(value) } }
+      return {
+        setBackground: (value) => { theme.setBackground(value) },
+        setBackgroundName: (value) => { theme.setBackgroundName(value) },
+        setBackgroundCrop: (value) => { theme.setBackgroundCrop(value) },
+      }
     },
   }, BackgroundRow))
 }

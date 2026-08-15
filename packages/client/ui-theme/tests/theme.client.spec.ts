@@ -9,7 +9,7 @@ import type {
   ThemeTokenOverrides,
 } from '@deepseek-ai/dsh-client-ui-theme/client'
 import {
-  BACKGROUND_FIELD, DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, SKIN_PRESETS, ThemeRuntime,
+  BACKGROUND_CROP_FIELD, BACKGROUND_FIELD, BACKGROUND_NAME_FIELD, DEFAULT_SKIN, SKIN_FIELD, SKIN_IDS, SKIN_PRESETS, ThemeRuntime,
 } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 const make = (host = stubSettingsScope<ThemeSettings>()): {
@@ -53,17 +53,17 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host section without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'default', background: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'default', background: '', backgroundName: '', backgroundCrop: null }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
-    host.publish({ value: { preference: 'dark', skin: 'default', background: '' }, revision: 2 })
+    host.publish({ value: { preference: 'dark', skin: 'default', background: '', backgroundName: '', backgroundCrop: null }, revision: 2 })
     expect(events).toHaveLength(1)
   })
 
   it('adopts a section already standing at construction', () => {
     const host = stubSettingsScope<ThemeSettings>()
-    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'default', background: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'default', background: '', backgroundName: '', backgroundCrop: null }, revision: 1, writable: true })
     const { theme } = make(host)
     expect(theme.getTheme().preference).toBe('dark')
   })
@@ -237,7 +237,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a persisted skin alongside the preference without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'cyber', background: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', skin: 'cyber', background: '', backgroundName: '', backgroundCrop: null }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
     expect(theme.getTheme().skin).toBe('cyber')
     expect(host.set).not.toHaveBeenCalled()
@@ -270,7 +270,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a persisted background without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', skin: 'default', background: 'https://example.com/bg.png' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', skin: 'default', background: 'https://example.com/bg.png', backgroundName: '', backgroundCrop: null }, revision: 1, writable: true })
     expect(theme.getTheme().background).toBe('https://example.com/bg.png')
     expect(host.set).not.toHaveBeenCalled()
     expect(events).toHaveLength(1)
@@ -278,9 +278,70 @@ describe('ThemeRuntime', () => {
 
   it('treats a non-string persisted background as empty', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', skin: 'default', background: 42 as unknown as string }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', skin: 'default', background: 42 as unknown as string, backgroundName: '', backgroundCrop: null }, revision: 1, writable: true })
     expect(theme.getTheme().background).toBe('')
     expect(events).toHaveLength(0)
+  })
+
+  it('defaults to an empty background name and a null crop', () => {
+    const { theme } = make()
+    expect(theme.getTheme().backgroundName).toBe('')
+    expect(theme.getTheme().backgroundCrop).toBeNull()
+  })
+
+  it('setBackgroundName persists, republishes, and no-ops when unchanged', () => {
+    const { theme, events, host } = make()
+    theme.setBackgroundName('bg.png')
+    expect(theme.getTheme().backgroundName).toBe('bg.png')
+    expect(host.set).toHaveBeenCalledWith(BACKGROUND_NAME_FIELD, 'bg.png')
+    expect(events).toHaveLength(1)
+    theme.setBackgroundName('bg.png')
+    expect(events).toHaveLength(1)
+    expect(host.set).toHaveBeenCalledTimes(1)
+  })
+
+  it('setBackgroundCrop persists a region, republishes, and no-ops on an equal region', () => {
+    const { theme, events, host } = make()
+    const crop = { x: 0.25, y: 0.5, w: 0.5, h: 0.5 }
+    theme.setBackgroundCrop(crop)
+    expect(theme.getTheme().backgroundCrop).toBe(crop)
+    expect(host.set).toHaveBeenCalledWith(BACKGROUND_CROP_FIELD, crop)
+    expect(events).toHaveLength(1)
+    // Structurally equal (new object) is still a no-op.
+    theme.setBackgroundCrop({ x: 0.25, y: 0.5, w: 0.5, h: 0.5 })
+    expect(events).toHaveLength(1)
+    expect(host.set).toHaveBeenCalledTimes(1)
+  })
+
+  it('setBackgroundCrop clears with null', () => {
+    const { theme, events } = make()
+    theme.setBackgroundCrop({ x: 0.25, y: 0.5, w: 0.5, h: 0.5 })
+    theme.setBackgroundCrop(null)
+    expect(theme.getTheme().backgroundCrop).toBeNull()
+    expect(events).toHaveLength(2)
+  })
+
+  it('adopts a persisted background name and crop without writing them back', () => {
+    const { theme, events, host } = make()
+    host.publish({
+      status: 'ready',
+      value: { preference: 'system', skin: 'default', background: '', backgroundName: 'bg.png', backgroundCrop: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } },
+      revision: 1, writable: true,
+    })
+    expect(theme.getTheme().backgroundName).toBe('bg.png')
+    expect(theme.getTheme().backgroundCrop).toEqual({ x: 0.1, y: 0.2, w: 0.3, h: 0.4 })
+    expect(host.set).not.toHaveBeenCalled()
+    expect(events).toHaveLength(1)
+  })
+
+  it('treats a malformed persisted crop as null', () => {
+    const { theme, host } = make()
+    host.publish({
+      status: 'ready',
+      value: { preference: 'system', skin: 'default', background: '', backgroundName: '', backgroundCrop: { x: 0.1, y: 'bad' } as unknown as never },
+      revision: 1, writable: true,
+    })
+    expect(theme.getTheme().backgroundCrop).toBeNull()
   })
 
   it('every skin preset overrides surface tokens only, as { light, dark } pairs', () => {
