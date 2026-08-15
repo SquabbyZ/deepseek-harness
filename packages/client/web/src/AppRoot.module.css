@@ -18,11 +18,16 @@
 }
 
 .wordmark {
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
   color: var(--dsw-alias-label-primary, #0f1115);
+}
+
+.blink {
+  animation: boot-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes boot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 .hint {
