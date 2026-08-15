@@ -25,6 +25,23 @@ const NS = 'sidebar'
 /** Services required by the sidebar plugin. */
 export const inject = ['slots', 'layout', 'sessions', 'workspaces', 'locale']
 
+/** Shipped brand the wordmark falls back to when the Web bootstrap names none. */
+const DEFAULT_PRODUCT_NAME = 'DeepSeek Harness'
+
+/** Window key the Web runtime bootstraps the configured product name into. */
+const PRODUCT_NAME_WINDOW_KEY = '__DSH_PRODUCT_NAME__'
+
+/**
+ * Read the configured product name the Web runtime bootstrapped onto the
+ * window before the shell bundle ran, defaulting to the shipped brand when it
+ * is absent or empty (a bare `dsh web` without the desktop launcher).
+ * @returns the product name to render in the expanded brand row.
+ */
+function readProductName(): string {
+  const value = (globalThis as Record<string, unknown>)[PRODUCT_NAME_WINDOW_KEY]
+  return typeof value === 'string' && value !== '' ? value : DEFAULT_PRODUCT_NAME
+}
+
 /** Registers the sidebar shell and its service callbacks.
  * @param ctx - Client root context.
  */
@@ -36,6 +53,7 @@ export function apply(ctx: ClientContext): void {
     // (current Session Workspace, then recent Workspace).
     startSession: (workspaceId) => { ctx.workspaces.startSession(workspaceId) },
     toggleSidebar: () => { ctx.layout.toggleSidebar() },
+    productName: readProductName(),
   })
   ctx.effect(
     () => ctx.slots.register({

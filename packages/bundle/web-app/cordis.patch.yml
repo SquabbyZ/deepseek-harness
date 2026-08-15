@@ -144,6 +144,10 @@
         printUrl: true
         surfaceContext: true
         trustedHosts: !!js ctx.webStartup.trustedHosts
+        # Product (brand) name the sidebar wordmark renders. Supplied by the
+        # launcher (desktop sets DSH_PRODUCT_NAME before spawning the sidecar);
+        # the schema default keeps a bare `dsh web` on the shipped brand.
+        productName: !!js process.env.DSH_PRODUCT_NAME ?? 'DeepSeek Harness'
 
     # The client-plugin reload chain, always mounted: it is idle until a
     # rebuild watcher (pnpm run dev:web) actually rewrites client bundles. It

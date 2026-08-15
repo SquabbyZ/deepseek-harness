@@ -41,7 +41,7 @@ describe('ui-sidebar apply', () => {
     // Copy rides the standard locale seat, not the inject face.
     expect(b.slots.entries('sidebar')[0]!.locale).toBe('sidebar')
     const injected = (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
-    expect(Object.keys(injected)).toEqual(['startSession', 'toggleSidebar'])
+    expect(Object.keys(injected)).toEqual(['startSession', 'toggleSidebar', 'productName'])
     // Both arms delegate to the runtime's shared New Session action.
     injected.startSession('workspace' as never)
     expect(b.workspaces.startSession).toHaveBeenCalledWith('workspace')
@@ -49,6 +49,27 @@ describe('ui-sidebar apply', () => {
     expect(b.workspaces.startSession).toHaveBeenLastCalledWith(undefined)
     injected.toggleSidebar()
     expect(b.layout.toggleSidebar).toHaveBeenCalledOnce()
+  })
+
+  it('reads the configured product name from the Web bootstrap, defaulting to the shipped brand', async () => {
+    const b = await bench()
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const injected = () => (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
+    const key = '__DSH_PRODUCT_NAME__'
+    const globals = globalThis as Record<string, unknown>
+    const previous = globals[key]
+    try {
+      // Absent (or empty) bootstrap → the shipped brand.
+      globals[key] = undefined
+      expect(injected().productName).toBe('DeepSeek Harness')
+      globals[key] = ''
+      expect(injected().productName).toBe('DeepSeek Harness')
+      // Configured bootstrap → that exact name.
+      globals[key] = 'Acme Harness'
+      expect(injected().productName).toBe('Acme Harness')
+    } finally {
+      globals[key] = previous
+    }
   })
 
   it('fails when no live owner declared the sidebar slot', async () => {

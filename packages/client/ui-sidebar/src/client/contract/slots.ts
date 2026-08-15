@@ -76,6 +76,12 @@ export type SidebarRootInjected = {
   startSession: (workspaceId?: WorkspaceId) => void
   /** Toggle the sidebar column through the layout service. */
   toggleSidebar: () => void
+  /**
+   * Product (brand) name rendered beside the whale in the expanded brand row.
+   * User-supplied config, read from the Web bootstrap (falling back to the
+   * shipped "DeepSeek Harness") — not a locale string.
+   */
+  productName: string
 }
 
 /**

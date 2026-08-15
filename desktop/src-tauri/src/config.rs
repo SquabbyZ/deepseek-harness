@@ -20,3 +20,16 @@ pub fn github_client_id() -> String {
 pub fn github_client_secret() -> String {
     std::env::var("GITHUB_OAUTH_CLIENT_SECRET").unwrap_or_default()
 }
+
+/// The product (brand) name shown in the window title, the spawn-error dialog,
+/// and the Web sidebar wordmark. Read from the `PRODUCT_NAME` env var — like the
+/// GitHub pair it is deliberately NOT `DSH_`-prefixed, because the dsh launcher
+/// forbids `DSH_*` in `.env` files. The desktop shell maps this value onto
+/// `DSH_PRODUCT_NAME` for the sidecar process, which exposes it to the Web
+/// surface. Unset (or empty) falls back to the shipped brand.
+pub fn product_name() -> String {
+    std::env::var("PRODUCT_NAME")
+        .ok()
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| "DeepSeek Harness".to_owned())
+}

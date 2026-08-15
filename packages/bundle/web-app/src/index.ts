@@ -47,12 +47,23 @@ export interface Config {
   surfaceContext: boolean
   /** Explicit `--trusted-host` authorities from this invocation. */
   trustedHosts: string[]
+  /**
+   * Product (brand) name injected into the index and rendered by the sidebar
+   * wordmark. A deployment sets this via `DSH_PRODUCT_NAME` (the desktop shell
+   * maps `PRODUCT_NAME` onto it); omitted, the schema default keeps the shipped
+   * brand.
+   */
+  productName?: string
 }
+
+/** Shipped brand the Web surface falls back to when no product name is configured. */
+export const DEFAULT_PRODUCT_NAME = 'DeepSeek Harness'
 
 export const Config: z<Config> = z.object({
   printUrl: z.boolean().default(true),
   surfaceContext: z.boolean().default(true),
   trustedHosts: z.array(String).default([]),
+  productName: z.string().default(DEFAULT_PRODUCT_NAME),
 })
 
 /** Bind-dependent Web values shared by the trust fence and URL display. */
@@ -127,6 +138,23 @@ function resolveDistIndex(): string {
 export const internals: { resolveDistIndex: () => string } = { resolveDistIndex }
 
 /**
+ * Inject the product (brand) name into `window.__DSH_PRODUCT_NAME__` as the
+ * first script in <head>, before the shell bundle reads it. The value is
+ * JSON-encoded with `<` escaped so a config-controlled name cannot break out
+ * of the script element (same hardening as the boot manifest).
+ * @param html - the index.html source.
+ * @param productName - the resolved product name (schema default applied).
+ * @returns the html with the bootstrap script injected.
+ */
+export function injectProductName(html: string, productName: string): string {
+  const script = `<script>window.__DSH_PRODUCT_NAME__ = ${JSON.stringify(productName).replaceAll('<', '\\u003c')}</script>`
+  const head = html.indexOf('<head>')
+  if (head !== -1) return `${html.slice(0, head + 6)}${script}${html.slice(head + 6)}`
+  // Headless fixture pages may lack <head>; prepending keeps the read-before-shell ordering.
+  return `${script}${html}`
+}
+
+/**
  * Mount the Web runtime: dist serving, surface prompt, the bash runtime
  * variable, and the URL line.
  * @param ctx - plugin context carrying the webServer service.
@@ -137,6 +165,10 @@ export function apply(ctx: Context, config: Config): void {
   // Release dependent rows only after bind-dependent trust has been sampled once.
   ctx.provide(WEB_RUNTIME_SERVICE, runtime)
   ctx.plugin(FrontendStatic, { distIndex: internals.resolveDistIndex() })
+  ctx.effect(
+    () => ctx.webServer.tapIndex(html => injectProductName(html, config.productName ?? DEFAULT_PRODUCT_NAME)),
+    'web-app: product name bootstrap',
+  )
   if (config.surfaceContext) {
     ctx.inject(['systemPrompt'], (promptCtx) => {
       addHarnessSourceSection(promptCtx, SOURCE_ROOT)

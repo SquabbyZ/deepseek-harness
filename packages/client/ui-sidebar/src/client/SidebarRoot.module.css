@@ -124,6 +124,25 @@
   cursor: pointer;
 }
 
+/* The whale mark rides the brand ink; the configurable name sits beside it on
+   the same 24px height as the fixed wordmark it replaced. */
+.brandFish {
+  flex: none;
+}
+
+.brandName {
+  min-width: 0;
+  height: 24px;
+  line-height: 24px;
+  margin-left: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: currentColor;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .iconButton {
   flex: none;
   display: inline-flex;

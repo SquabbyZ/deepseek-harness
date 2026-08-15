@@ -25,6 +25,9 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             menu::setup_tray(&app.handle())?;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title(&config::product_name());
+            }
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 loop {
@@ -70,10 +73,11 @@ pub fn run() {
 /// they pick "Quit". Uses the non-blocking `show` API (which dispatches to the main
 /// thread internally) and blocks the caller on a channel until the user responds.
 fn show_spawn_error(app: &tauri::AppHandle, err: &str) -> bool {
+    let product_name = config::product_name();
     let (tx, rx) = std::sync::mpsc::channel();
     app.dialog()
-        .message(format!("Failed to start the DeepSeek Harness backend:\n\n{err}"))
-        .title("DeepSeek Harness")
+        .message(format!("Failed to start the {product_name} backend:\n\n{err}"))
+        .title(product_name)
         .kind(MessageDialogKind::Error)
         .buttons(MessageDialogButtons::OkCancelCustom(
             "Retry".into(),

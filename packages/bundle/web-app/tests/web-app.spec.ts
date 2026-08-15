@@ -54,6 +54,7 @@ function fakeHttpServer(host: '127.0.0.1' | '0.0.0.0' = '127.0.0.1'): { server: 
       return () => { fallback = undefined }
     },
     applyIndexTaps: (html: string) => html,
+    tapIndex: () => () => {},
   } as unknown as WebServer
   return { server, seat: () => fallback }
 }

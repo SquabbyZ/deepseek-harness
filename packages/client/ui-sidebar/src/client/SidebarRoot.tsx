@@ -18,7 +18,7 @@
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  BrandWordmark, FishLogo,
+  FishLogo,
   IconNewChatOutline16, IconPanelLeftOutline16,
   Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -46,6 +46,7 @@ export function SidebarRoot({
   width,
   startSession,
   toggleSidebar,
+  productName,
   t,
   renderSlot,
 }: SidebarRootComponentProps) {
@@ -137,7 +138,8 @@ export function SidebarRoot({
             aria-label={t('session.new.label')}
             onClick={() => { startSession() }}
           >
-            <BrandWordmark />
+            <FishLogo size={24} className={css.brandFish} />
+            <span className={css.brandName}>{productName}</span>
           </button>
         )}
         {/* Rail resting state is the whale mark; hovering swaps in the panel
