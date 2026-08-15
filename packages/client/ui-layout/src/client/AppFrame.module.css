@@ -4,10 +4,6 @@
   grid-template-rows: 100%;
   height: 100%;
   overflow: hidden;
-  /* Reserve the transparent-titlebar height so the columns sit below the drag
-     strip and the native window controls instead of under them. */
-  padding-top: 32px;
-  box-sizing: border-box;
   background: var(--dsw-alias-bg-base);
   /* Collapse/expand animates the tracks on the deepsuite sider curve
      (--ds-ease-in-out / --ds-transition-duration-slow, ui-theme base.css). */
