@@ -113,7 +113,7 @@
   background-image: var(--app-background-image);
   background-repeat: no-repeat;
   background-position: center;
-  background-size: contain;
+  background-size: cover;
 }
 
 /* Reserved bottom-right anchor for a future Live2D avatar. Empty for now; sits
