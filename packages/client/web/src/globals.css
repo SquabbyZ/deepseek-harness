@@ -11,9 +11,10 @@
  * the package source tree (resolved relative to this CSS file). */
 @source "../../ui-primitives/src";
 
-/* Class-based dark variant (canonical shadcn); the app itself toggles dark via
- * body[data-ds-dark-theme], which the --dsw-* aliases already respect. */
-@custom-variant dark (&:is(.dark *));
+/* Attribute-based dark variant: the app toggles dark via body[data-ds-dark-theme]
+ * (which the --dsw-* aliases already respect), so the shadcn `dark:` variant
+ * keys off that same attribute instead of a `.dark` class. */
+@custom-variant dark (&:is([data-ds-dark-theme] *));
 
 :root {
   --background: var(--dsw-alias-bg-base);
@@ -38,7 +39,7 @@
   --radius: 0.625rem;
 }
 
-.dark {
+[data-ds-dark-theme] {
   --background: var(--dsw-alias-bg-base);
   --foreground: var(--dsw-alias-label-primary);
   --card: var(--dsw-alias-bg-layer-1);
