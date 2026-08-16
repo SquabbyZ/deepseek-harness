@@ -6,9 +6,23 @@ mod menu;
 use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
+/// Build the pre-webview theme bootstrap: resolve the durable preference and
+/// drive `prefers-color-scheme` on the placeholder (and the shell) before the
+/// sidecar injects the same value into the real shell HTML.
+fn theme_boot_script(preference: &str) -> String {
+    format!(
+        "(() => {{ const p = {p:?}; const dark = p === 'dark' || (p === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.style.colorScheme = dark ? 'dark' : 'light'; }})();",
+        p = preference,
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let theme_script = theme_boot_script(&config::theme_preference());
     tauri::Builder::default()
+        .on_page_load(move |window, _payload| {
+            let _ = window.eval(&theme_script);
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {

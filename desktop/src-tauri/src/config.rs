@@ -33,3 +33,59 @@ pub fn product_name() -> String {
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| "DeepSeek Harness".to_owned())
 }
+
+/// The OS home directory (Windows `%USERPROFILE%`, Unix `$HOME`).
+fn home_dir() -> Option<std::path::PathBuf> {
+    if cfg!(windows) {
+        std::env::var("USERPROFILE").ok().map(std::path::PathBuf::from)
+    } else {
+        std::env::var("HOME").ok().map(std::path::PathBuf::from)
+    }
+}
+
+/// The harness home directory: `$DSH_HOME` when set, otherwise `<os home>/.dsh`.
+fn harness_home() -> Option<std::path::PathBuf> {
+    std::env::var("DSH_HOME")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| home_dir().map(|h| h.join(".dsh")))
+}
+
+/// The durable theme preference (`light` / `dark` / `system`) persisted by the
+/// Appearance row in the Host user-settings document (`settings.yaml` under the
+/// harness home). Read ahead of the Web shell so the frontend placeholder can
+/// match the chosen theme before the sidecar injects the same value into the
+/// real shell. Absent / unparsable falls back to `system`.
+pub fn theme_preference() -> String {
+    let Some(home) = harness_home() else { return "system".to_owned() };
+    let path = home.join("settings.yaml");
+    let Ok(text) = std::fs::read_to_string(path) else { return "system".to_owned() };
+
+    // Lightweight YAML scan for the `ui-theme` namespace's `preference` leaf.
+    // The document is a flat map of namespace sections; `ui-theme:` is a
+    // top-level key and `preference:` a value indented beneath it. Stop at the
+    // next top-level key (non-indented, non-comment, non-empty).
+    let mut in_theme = false;
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed == "ui-theme:" {
+            in_theme = true;
+            continue;
+        }
+        if in_theme {
+            let indented = line.starts_with(' ') || line.starts_with('\t');
+            if !indented && !trimmed.is_empty() && !trimmed.starts_with('#') {
+                break;
+            }
+            if let Some(value) = trimmed.strip_prefix("preference:") {
+                let value = value.trim().trim_matches(['"', '\'']).trim();
+                return match value {
+                    "light" | "dark" | "system" => value.to_owned(),
+                    _ => "system".to_owned(),
+                };
+            }
+        }
+    }
+    "system".to_owned()
+}
