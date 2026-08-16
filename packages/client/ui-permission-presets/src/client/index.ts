@@ -31,7 +31,7 @@ import {
   accessEn, accessZh, en, zh,
 } from './locales.ts'
 import {
-  displayPermissionPreset, FULL_ACCESS_PRESET,
+  FULL_ACCESS_PRESET, localizedPermissionPreset,
 } from './presentation.ts'
 import {
   PERMISSION_SETTINGS_NS, PermissionPresetSettingsController, refreshPermissionIfLoaded,
@@ -53,12 +53,12 @@ function selectOf(session: SessionFace | undefined): PermissionSelect | undefine
 }
 
 /** Flatten the projection select into popup rows; `custom` is display state, never a target. */
-function optionsOf(value: PermissionSelect, t: (key: string) => string): SelectOption[] {
+function optionsOf(value: PermissionSelect, t: (key: string) => string, presetT: (key: string) => string): SelectOption[] {
   return value.options
     .filter(option => option.value !== 'custom')
     .map(option => ({
       id: option.value,
-      label: displayPermissionPreset(option.value, option.name),
+      label: localizedPermissionPreset(option.value, option.name, presetT),
       ...(option.description !== undefined ? { detail: option.description } : {}),
       ...(option.value === value.currentValue ? { active: true } : {}),
       ...(option.value === FULL_ACCESS_PRESET
@@ -107,6 +107,9 @@ export function apply(ctx: ClientContext): void {
   }, 'ui-permission: Full access confirmation dictionaries')
   /* jscpd:ignore-end */
   const t = ctx.locale.bind(ACCESS_NS)
+  // Namespaced `bind` returns a keyed translate; widen to the dynamic `preset.*`
+  // lookup the popup performs.
+  const presetT = ctx.locale.bind('settings.permission') as (key: string) => string
   const sessionFor = (session: ClientSessionContext): SessionFace | undefined =>
     sessions.binding(session.sessionId)?.session
 
@@ -156,7 +159,7 @@ export function apply(ctx: ClientContext): void {
       options: (session) => {
         const value = selectOf(sessionFor(session))
         if (value === undefined) throw new Error('permission presets are not available on this host')
-        return Promise.resolve(optionsOf(value, t))
+        return Promise.resolve(optionsOf(value, t, presetT))
       },
       onSelect: async (option, session) => {
         const live = sessionFor(session)

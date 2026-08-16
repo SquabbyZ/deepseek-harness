@@ -23,6 +23,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelSelectInjected } from './slots.ts'
+import type { ModelKey } from './locales.ts'
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
 type Pane = 'root' | 'model' | 'effort'
@@ -51,6 +52,17 @@ const RETRY = 'h-auto flex-[0_0_auto] cursor-pointer rounded-none border-none bg
 const OPTION = 'flex w-full min-h-[38px] cursor-pointer items-center gap-2 rounded-[10px] border-none bg-transparent px-2 py-1.5 text-left font-normal text-inherit outline-none hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-inherit focus-visible:bg-[var(--dsw-alias-interactive-bg-hover)] focus-visible:ring-0 disabled:pointer-events-auto disabled:cursor-default disabled:text-[var(--dsw-alias-label-dimmed)] disabled:opacity-100'
 /** Two-level root cell (figma .Menu_cell). */
 const CELL = 'flex h-10 w-full cursor-pointer items-center gap-2 rounded-[10px] border-none bg-transparent px-2.5 py-0 text-left text-sm font-normal leading-[22px] text-foreground hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-foreground'
+
+/** Effort ids with a localized product label; custom adapter efforts fall back. */
+const EFFORT_LABEL_KEYS: ReadonlySet<string> = new Set([
+  'effort.low', 'effort.medium', 'effort.high', 'effort.xhigh', 'effort.max',
+])
+
+/** Localize a reasoning effort label, falling back to the adapter-supplied name. */
+function localizedEffort(id: string, name: string, t: (key: ModelKey) => string): string {
+  const key = `effort.${id}`
+  return EFFORT_LABEL_KEYS.has(key) ? t(key as ModelKey) : name
+}
 
 /**
  * Render the composer model seat.
@@ -102,7 +114,10 @@ export function ModelSelect(
     ? undefined
     : effectiveEffort === undefined
       ? t('effort.providerDefault')
-      : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
+      : (() => {
+        const level = reasoning.efforts.find(candidate => candidate.id === effectiveEffort)
+        return level === undefined ? effectiveEffort : localizedEffort(level.id, level.name, t)
+      })()
   const effortChoices = useMemo<readonly EffortChoice[]>(() => reasoning === undefined
     ? []
     : [
@@ -112,7 +127,7 @@ export function ModelSelect(
       ...reasoning.efforts.map((effort: ModelReasoningEffort) => ({
         key: `effort:${effort.id}`,
         effort: effort.id,
-        label: effort.name,
+        label: localizedEffort(effort.id, effort.name, t),
         ...effort.description === undefined ? {} : { description: effort.description },
       })),
     ], [reasoning, t])

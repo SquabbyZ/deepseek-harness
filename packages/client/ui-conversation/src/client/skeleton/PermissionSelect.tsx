@@ -4,6 +4,7 @@ import type { PermissionSelect as PermissionSelectValue } from '@deepseek-ai/dsh
 import { cn, IconChevronDownOutline14, Menu, RiskConfirmation, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
+import type { ConversationKey } from '../locales.ts'
 
 const FULL_ACCESS = 'danger-full-access'
 
@@ -46,17 +47,29 @@ function permissionGlyph(value: string): ReactNode | undefined {
 /**
  * Display transform: kebab-case machine names render as title-case labels
  * (`workspace-write` → `Workspace Write`); non-kebab host-configured names
- * pass through. Full access intentionally overrides the machine-name
- * transform so both permission surfaces use the product label `Full access`;
- * the warning body remains locale-aware.
+ * pass through. This is the fallback for custom host presets — the three
+ * built-in presets localize through the `preset.*` keys.
  */
 function displayName(name: string): string {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return name
   return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
-function optionLabel(option: PermissionSelectValue['options'][number]): string {
-  return option.value === FULL_ACCESS ? 'Full access' : displayName(option.name)
+/** Built-in preset ids with a localized product label; custom presets fall back. */
+const PRESET_LABEL_KEYS: ReadonlySet<string> = new Set([
+  'preset.read-only',
+  'preset.workspace-write',
+  'preset.danger-full-access',
+])
+
+/** Localize a permission preset label, falling back to the title-cased host name. */
+function presetLabel(value: string, name: string, t: ComposerBarProps['t']): string {
+  const key = `preset.${value}`
+  return PRESET_LABEL_KEYS.has(key) ? t(key as ConversationKey) : displayName(name)
+}
+
+function optionLabel(option: PermissionSelectValue['options'][number], t: ComposerBarProps['t']): string {
+  return presetLabel(option.value, option.name, t)
 }
 
 export interface PermissionSelectProps {
@@ -90,7 +103,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
     .filter(o => o.value !== 'custom')
     .map((option) => {
       const icon = permissionGlyph(option.value)
-      return { id: option.value, label: optionLabel(option), ...icon === undefined ? {} : { icon } }
+      return { id: option.value, label: optionLabel(option, t), ...icon === undefined ? {} : { icon } }
     })
 
   const submit = (id: string): void => {
@@ -136,7 +149,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
           <ShadcnButton
             variant="ghost"
             className="inline-flex h-7 min-w-0 max-w-[220px] items-center justify-start gap-1 rounded-3xl bg-transparent py-0 pl-2 pr-1 text-[13px] leading-5 font-medium text-[var(--dsw-alias-label-secondary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)] focus-visible:ring-0 disabled:text-[var(--dsw-alias-label-dimmed)] disabled:opacity-100 disabled:cursor-default dsh-permission-trigger"
-            aria-label={t('input.accessMode', { name: current === undefined ? displayName(currentValue) : optionLabel(current) })}
+            aria-label={t('input.accessMode', { name: current === undefined ? displayName(currentValue) : optionLabel(current, t) })}
             title={current?.description}
             disabled={locked || busy}
             onClick={() => { setOpen(!open) }}
@@ -144,7 +157,7 @@ export function PermissionSelect({ value, locked, command, t }: PermissionSelect
             {permissionGlyph(currentValue) !== undefined && (
               <span className="inline-flex flex-none [&_svg]:h-3.5 [&_svg]:w-3.5 dsh-permission-trigger-icon" aria-hidden>{permissionGlyph(currentValue)}</span>
             )}
-            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap dsh-permission-trigger-label">{current === undefined ? displayName(currentValue) : optionLabel(current)}</span>
+            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap dsh-permission-trigger-label">{current === undefined ? displayName(currentValue) : optionLabel(current, t)}</span>
             {/* Same glyph + open rotation as the sibling ModelSelect trigger. */}
             <span className={cn('inline-flex flex-none text-[var(--dsw-alias-label-caption)] transition-transform duration-[120ms]', open && 'rotate-180')} aria-hidden>
               <IconChevronDownOutline14 />

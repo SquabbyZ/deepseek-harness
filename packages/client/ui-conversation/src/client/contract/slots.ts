@@ -394,7 +394,7 @@ export interface CommandRowOwnerProps {
 }
 
 /** Full props of a registered command-row component. */
-export type CommandRowProps = PropsRuntime<'conversation.chat.commandview'>
+export type CommandRowProps = PropsRuntime<'conversation.chat.commandview'> & PropsLocale<'conversation'>
 
 /**
  * Base props of a conversation view entry: the framework standard kit for the

@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { NS } from '../locales.ts'
 import { AssistantNodeView } from './AssistantNodeView.tsx'
 import { CommandNodeView, ManualCompactionNodeView } from './CommandNodeView.tsx'
+import { PermissionCommandCard } from './PermissionCommandCard.tsx'
 import {
   CompactionNodeView, CompactionRunningNodeView, ContextMessageNodeView, RetryNodeView,
   TurnErrorNodeView, TurnMaxTokensNodeView, UnknownNodeView, UserMessageNodeView,
@@ -29,6 +30,8 @@ export function registerChatNodeRenderers(ctx: Context): void {
   }, CommandNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
     { name: 'conversation.chat.node', key: 'manual-compaction', locale: NS }, ManualCompactionNodeView))
+  ctx.slots.inject('conversation.chat.commandview', () => ctx.slots.register(
+    { name: 'conversation.chat.commandview', key: 'permission', locale: NS }, PermissionCommandCard))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
     { name: 'conversation.chat.node', key: 'compaction', locale: NS }, CompactionNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
