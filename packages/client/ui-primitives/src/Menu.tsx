@@ -311,7 +311,7 @@ const ROOT = 'relative inline-flex'
 const LIST =
   'menu-card absolute top-[calc(100%_+_4px)] left-0 z-[100] min-w-[218px] max-w-[360px]'
 const SUBMENU = 'menu-card menu-submenu'
-const PORTAL = 'fixed top-auto left-auto z-[1100]'
+const PORTAL = 'pointer-events-auto fixed top-auto left-auto z-[1100]'
 const SIDE_TOP = 'top-auto bottom-[calc(100%_+_4px)]'
 const ALIGN_END = 'left-auto right-0'
 const SCROLLABLE = 'menu-scrollable max-h-[calc(100vh_-_24px)]'

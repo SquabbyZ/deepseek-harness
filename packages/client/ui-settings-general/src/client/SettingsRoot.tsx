@@ -30,7 +30,7 @@ const TRIGGER_RAIL =
 const NAV_CELL_BASE =
   'flex h-10 items-center gap-2 rounded-xl border-none bg-transparent py-[9px] pl-3 pr-4 text-left text-sm leading-[22px] font-normal text-foreground hover:bg-[var(--dsw-specific-sidebar-nav-item-hover)]'
 
-const NAV_CELL_ACTIVE = 'bg-[var(--dsw-specific-sidebar-nav-item-active)]'
+const NAV_CELL_ACTIVE = 'bg-[var(--dsw-alias-label-primary)] text-[var(--dsw-alias-label-primary-inverted)] hover:bg-[var(--dsw-alias-label-primary)]'
 
 /** Close button (figma .Icon_container): 28x28, r28, 14px glyph. */
 const CLOSE_BUTTON =
