@@ -17,6 +17,19 @@ import { FULL_ACCESS_PRESET } from './presentation.ts'
 /** Preset selector pill (figma capsule on the module-platform fill). */
 const SELECTOR = 'inline-flex h-9 cursor-pointer items-center gap-3 rounded-[18px] border-none bg-[var(--dsw-alias-bg-module-platform)] px-[14px] py-0 text-sm font-normal leading-[22px] text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-foreground disabled:pointer-events-auto disabled:cursor-default disabled:opacity-100'
 
+/** Permission preset ids with a localized product label; unknown/custom presets fall back to the host label. */
+const PRESET_LABEL_KEYS: ReadonlySet<PermissionSettingsKey> = new Set([
+  'preset.read-only',
+  'preset.workspace-write',
+  'preset.danger-full-access',
+])
+
+/** Localize a permission preset label, falling back to the host-supplied label. */
+function presetLabel(id: string, fallback: string, t: (key: PermissionSettingsKey) => string): string {
+  const key = `preset.${id}` as PermissionSettingsKey
+  return PRESET_LABEL_KEYS.has(key) ? t(key) : fallback
+}
+
 /** Registration-side business face for the host-backed preference. */
 export interface PermissionRowInjected {
   hooks: {
@@ -60,8 +73,9 @@ export function PermissionRow({ load, select, usePermission, t }: PermissionRowP
   if (state.status === 'unavailable') return null
   const selected = state.options.find(option => option.id === state.currentValue)
   const busy = state.status === 'loading' || state.status === 'saving' || confirmingFullAccess
-  const label = selected?.label
-    ?? (busy ? t('loading') : t('unavailable'))
+  const label = selected === undefined
+    ? (busy ? t('loading') : t('unavailable'))
+    : presetLabel(selected.id, selected.label, t)
   const description: string = state.error ?? t('description')
 
   return (
@@ -74,7 +88,7 @@ export function PermissionRow({ load, select, usePermission, t }: PermissionRowP
         <Menu
           open={open}
           onClose={() => { setOpen(false) }}
-          items={state.options.map(option => ({ id: option.id, label: option.label }))}
+          items={state.options.map(option => ({ id: option.id, label: presetLabel(option.id, option.label, t) }))}
           selectedId={state.currentValue}
           onSelect={(id) => {
             setOpen(false)
