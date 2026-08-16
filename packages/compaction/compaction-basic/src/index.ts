@@ -15,8 +15,9 @@ import { CONTEXT_WINDOW_EXCEEDED_CODE, assertNever } from '@deepseek-ai/dsh-llm'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
-// Type-only: makes the optional sibling service available to `ctx.get()`.
+// Type-only: makes the optional sibling services available to `ctx.get()`.
 import type {} from '@deepseek-ai/dsh-compaction-tool-result-pruner'
+import type {} from '@deepseek-ai/dsh-compaction-headroom'
 import {
   resolveCompactSpec,
   resolveConfig,
@@ -304,8 +305,16 @@ export class BasicCompactionEngine extends CompactionEngine {
     // Overflow always qualifies; pressure first resolves the routed model's
     // capacity and checks its target-specific threshold.
     const prune = this.ctx.get('toolResultPruner')
+    const headroom = this.ctx.get('headroomCompressor')
 
     if (trigger === 'context-overflow') {
+      // Semantic compression (Headroom proxy) runs before the syntactic prune
+      // so the proxy sees the full over-budget result; the prune then bounds
+      // anything the proxy could not shrink.
+      if (headroom !== undefined && headroom.config.enabled) {
+        await headroom.compressSession(agent.session)
+        measurement = meter.measure(agent.session)
+      }
       if (prune !== undefined) {
         prune.pruneSession(agent.session)
         measurement = meter.measure(agent.session)
@@ -330,7 +339,13 @@ export class BasicCompactionEngine extends CompactionEngine {
     if (measurement.totalTokens < triggerTokens) return null
 
     // Once pressure qualifies, land the model-free pass before choosing a
-    // summary range, then remeasure through the singleton replay fold.
+    // summary range, then remeasure through the singleton replay fold. The
+    // semantic Headroom pass precedes the syntactic prune for the same reason
+    // as the overflow path: the proxy should see the full over-budget result.
+    if (headroom !== undefined && headroom.config.enabled) {
+      await headroom.compressSession(agent.session)
+      measurement = meter.measure(agent.session)
+    }
     if (prune !== undefined) {
       prune.pruneSession(agent.session)
       measurement = meter.measure(agent.session)

@@ -60,10 +60,11 @@ export interface IConversation {
 
 /** Create one browser-only draft descriptor; only its id enters input state. */
 function browserDraftAttachment(file: File): ComposerAttachment {
+  const image = isImageMime(file.type)
   return {
-    kind: 'image',
+    kind: image ? 'image' : 'file',
     id: crypto.randomUUID() as DraftAttachmentId,
-    previewUrl: URL.createObjectURL(file),
+    previewUrl: image ? URL.createObjectURL(file) : '',
     file,
   }
 }
@@ -149,7 +150,7 @@ export class ConversationController extends Service implements IConversation {
     if (attachments.length !== imageIds.length) {
       throw new Error('conversation.sendSession: one or more draft images are no longer available')
     }
-    const uploaded = await this.serializeImages(attachments.map(attachment => attachment.file))
+    const uploaded = await this.serializeAttachments(attachments)
     const content = [...uploaded, ...(text === '' ? [] : [{ type: 'text' as const, text }])]
     const result = await session.prompt(content, mode)
     if (!result.ok) throw new Error(`conversation.send failed: ${result.error.code}: ${result.error.message}`)
@@ -162,11 +163,10 @@ export class ConversationController extends Service implements IConversation {
    * @returns ordered draft descriptors.
    */
   createDraftImages(files: readonly File[]): readonly ComposerAttachment[] {
-    for (const file of files) imageMediaType(file.type)
     return files.map((file) => {
       const attachment = browserDraftAttachment(file)
       this.draftAttachments.set(attachment.id, attachment)
-      this.createdImageUrls.add(attachment.previewUrl)
+      if (attachment.previewUrl !== '') this.createdImageUrls.add(attachment.previewUrl)
       return attachment
     })
   }
@@ -312,14 +312,27 @@ export class ConversationController extends Service implements IConversation {
     return sessions
   }
 
-  /** Convert browser files to canonical base64 prompt parts. */
-  private serializeImages(images: readonly File[]): Promise<Parameters<SessionFace['prompt']>[0]> {
-    return Promise.all(images.map(async file => ({
-      type: 'image' as const,
-      mediaType: imageMediaType(file.type),
-      data: bytesToBase64(new Uint8Array(await file.arrayBuffer())),
-      ...(file.name === '' ? {} : { name: file.name }),
-    })))
+  /** Convert browser attachments to canonical base64 prompt parts (image or file). */
+  private serializeAttachments(attachments: readonly ComposerAttachment[]): Promise<Parameters<SessionFace['prompt']>[0]> {
+    return Promise.all(attachments.map(async (attachment) => {
+      const data = bytesToBase64(new Uint8Array(await attachment.file.arrayBuffer()))
+      const name = attachment.file.name === '' ? {} : { name: attachment.file.name }
+      if (attachment.kind === 'file') return { type: 'file' as const, data, ...name }
+      return { type: 'image' as const, mediaType: imageMediaType(attachment.file.type), data, ...name }
+    }))
+  }
+}
+
+/** True when the browser-declared MIME is a supported raster image. */
+export function isImageMime(value: string): value is ImageMediaType {
+  switch (value) {
+    case 'image/png':
+    case 'image/jpeg':
+    case 'image/webp':
+    case 'image/gif':
+      return true
+    default:
+      return false
   }
 }
 

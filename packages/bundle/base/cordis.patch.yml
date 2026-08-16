@@ -363,6 +363,15 @@
         headChars: 4096
         tailChars: 1024
 
+    # Semantic LLM-backed tool-result compression via the Headroom proxy.
+    # Disabled by default: it needs a running Headroom service and falls back
+    # to the syntactic pruner above when the proxy is unreachable.
+    - id: headroom-compressor
+      name: '@deepseek-ai/dsh-compaction-headroom'
+      config:
+        enabled: false
+        thresholdChars: 8192
+
     - id: tool-todo
       name: '@deepseek-ai/dsh-tool-todo'
       config:

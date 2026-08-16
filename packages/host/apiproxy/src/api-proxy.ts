@@ -12,6 +12,10 @@ import type { Agent, ModelSelection, ModelSelectionRef, AgentOptions, AgentStatu
 import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+// Type-only: brings the `ctx.mediaIntake` Context merge into this program.
+import type {} from '@deepseek-ai/dsh-media-intake'
+// Type-only: brings the `ctx.usageStats` Context merge into this program.
+import type {} from '@deepseek-ai/dsh-usage-stats'
 import { contentHasImage, createUserMessage, freezeMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { errorChain } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
@@ -156,9 +160,16 @@ async function durablePromptContent(ctx: Context, content: readonly PromptConten
   if (content.filter(part => part.type === 'image').length > limits.maxImagesPerMessage) {
     throw new AttachmentError('Prompt exceeds the configured image-count limit.', 'TOO_MANY_IMAGES')
   }
-  const prepared = content.map(part => part.type === 'text'
-    ? part
-    : { part, data: decodeBase64(part.data) })
+  const prepared = content.map((part) => {
+    if (part.type === 'text') return part
+    if (part.type === 'file') {
+      // File parts are reduced to markdown text upstream (filePromptContent);
+      // reaching durable admission with one is a prompt-pipeline bug, not a
+      // client error.
+      throw new AttachmentError('Document part reached durable admission unreduced.', 'UNEXPECTED_FILE_PART')
+    }
+    return { part, data: decodeBase64(part.data) }
+  })
   const images = prepared.filter((part): part is Extract<typeof part, { data: Uint8Array }> => 'data' in part)
   const totalBytes = images.reduce((sum, image) => sum + image.data.byteLength, 0)
   if (totalBytes > limits.maxMessageImageBytes) {
@@ -185,6 +196,54 @@ async function durablePromptContent(ctx: Context, content: readonly PromptConten
     blocks.push({ type: 'image', attachment })
   }
   return blocks
+}
+
+/**
+ * Reduce image parts to their OCR-extracted text for a text-only model. The
+ * marker keeps the model aware that the text came from an image rather than a
+ * typed message, without leaking internal storage details.
+ */
+async function ocrPromptContent(ctx: Context, content: readonly PromptContentPart[]): Promise<PromptContentPart[]> {
+  const out: PromptContentPart[] = []
+  for (const part of content) {
+    if (part.type !== 'image') {
+      out.push(part)
+      continue
+    }
+    const text = (await ctx.mediaIntake.recognizeImage(decodeBase64(part.data))).trim()
+    if (text.length === 0) {
+      throw new AttachmentError('The image contains no readable text, and this model cannot process images directly.', 'IMAGE_NO_TEXT')
+    }
+    out.push({ type: 'text', text: `[Image text]\n${text}` })
+  }
+  return out
+}
+
+/**
+ * Reduce document parts to their markdown text. Documents are never a model
+ * input modality, so every file is converted before admission regardless of
+ * model capability. The filename is a label, not a storage path, and is
+ * stripped of line breaks so it cannot fragment the resulting text block.
+ */
+async function filePromptContent(ctx: Context, content: readonly PromptContentPart[]): Promise<PromptContentPart[]> {
+  const out: PromptContentPart[] = []
+  for (const part of content) {
+    if (part.type !== 'file') {
+      out.push(part)
+      continue
+    }
+    const markdown = await ctx.mediaIntake.convertFile(decodeBase64(part.data), part.name)
+    if (markdown === null) {
+      throw new AttachmentError('The uploaded file is not a recognized document format.', 'UNSUPPORTED_FILE_TYPE')
+    }
+    const trimmed = markdown.trim()
+    if (trimmed.length === 0) {
+      throw new AttachmentError('The uploaded document contains no extractable text.', 'FILE_NO_TEXT')
+    }
+    const label = (part.name ?? 'attached file').replace(/[\r\n]+/g, ' ')
+    out.push({ type: 'text', text: `[File: ${label}]\n${trimmed}` })
+  }
+  return out
 }
 
 /** Search durable content for an image reference, including nested tool results. */
@@ -2480,20 +2539,27 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           ...(canonicalTimeZone === undefined ? {} : { clientTimeZone: canonicalTimeZone }),
         }
         const hasImage = content.some(part => part.type === 'image')
+        // Documents are never a model input modality, so every file is reduced
+        // to markdown before admission regardless of model capability.
+        let effectiveContent: readonly PromptContentPart[] = content
+        if (content.some(part => part.type === 'file')) {
+          effectiveContent = await filePromptContent(ctx, effectiveContent)
+        }
+        // A text-only model cannot see an image, so reduce each image to its
+        // extracted text before the message is admitted. Vision-capable models
+        // keep the durable image path unchanged.
+        let ocrApplied = false
+        if (hasImage) {
+          const current = selectionFor(agent).current
+          const modelInfo = await ctx.llm.resolveModelInfo(current.provider, current.model)
+          if (modelInfo.inputModalities !== undefined && !modelInfo.inputModalities.includes('image')) {
+            effectiveContent = await ocrPromptContent(ctx, effectiveContent)
+            ocrApplied = true
+          }
+        }
         const admit = async (): Promise<RpcResponse<{ accepted: true }>> => {
           try {
-            if (hasImage) {
-              const current = selectionFor(agent).current
-              const modelInfo = await ctx.llm.resolveModelInfo(current.provider, current.model)
-              if (modelInfo.inputModalities !== undefined && !modelInfo.inputModalities.includes('image')) {
-                return err(request, {
-                  code: 'attachment-error',
-                  message: `Model "${current.model}" does not support image input.`,
-                  details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
-                })
-              }
-            }
-            const durable = await durablePromptContent(ctx, content)
+            const durable = await durablePromptContent(ctx, effectiveContent)
             const message: UserMessage = createUserMessage({ content: durable, source })
             if (mode === 'steer') agent.steer(message)
             else agent.followup(message)
@@ -2513,7 +2579,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           }
           return ok(request, { accepted: true as const })
         }
-        return hasImage ? serializeImageAdmission(agent, admit) : admit()
+        return ocrApplied ? admit() : (hasImage ? serializeImageAdmission(agent, admit) : admit())
       },
 
       async attachment(request) {
@@ -3017,6 +3083,14 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       async openPath(request, signal) {
         return openPath(request, request.payload.path, signal)
+      },
+    },
+
+    usage: {
+      // Read-only: the host-side time-series collector folds token usage from
+      // committed session events; the browser polls it for the statistics tab.
+      query(request) {
+        return Promise.resolve(ok(request, ctx.usageStats.query(request.payload)))
       },
     },
 

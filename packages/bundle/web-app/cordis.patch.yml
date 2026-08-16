@@ -84,6 +84,11 @@
     - id: session-stats
       name: '@deepseek-ai/dsh-session-stats'
 
+    # Token-usage time series (second + per-date buckets) for the statistics
+    # settings tab; folds committed session usage events into a durable table.
+    - id: usage-stats
+      name: '@deepseek-ai/dsh-usage-stats'
+
     # Resolve bind host, SSH launch, and display once at boot, then mount the
     # matching dual-face directory picker. Mount -native or -browse directly in
     # an overlay to pin the interaction.
@@ -98,6 +103,12 @@
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
       name: '@deepseek-ai/dsh-host-apiproxy'
+
+    # Image OCR and office-document conversion for text-only models. Both are
+    # cached behind a bounded content-addressed store and loaded lazily, so a
+    # host that never uploads an image or file pays only the package install.
+    - id: media-intake
+      name: '@deepseek-ai/dsh-media-intake'
 
     # GitHub OAuth identity: provides `identity` and registers /auth/github/*
     # routes on the webserver. The client id is an assembly secret supplied by
@@ -208,6 +219,9 @@
 
     - id: ui-settings-models
       name: '@deepseek-ai/dsh-client-ui-settings-models'
+
+    - id: ui-settings-usage
+      name: '@deepseek-ai/dsh-client-ui-settings-usage'
 
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
@@ -379,6 +393,9 @@
   disabled: true
 
 - id: tool-result-pruner
+  disabled: true
+
+- id: headroom-compressor
   disabled: true
 
 # The subagent registry and its backends STAY in the host plane. `subagents` is

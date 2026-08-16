@@ -20,9 +20,11 @@ const REMOVE_BASE = 'absolute top-1 right-1 z-[1] grid size-[18px] cursor-pointe
 export interface AttachmentRailItem {
   /** Stable identity for the React key. */
   id: string
-  /** Object or data URL rendered as the thumbnail. */
+  /** Thumbnail kind; files render a name card instead of an image preview. */
+  kind?: 'image' | 'file'
+  /** Object or data URL rendered as the thumbnail (image kind only). */
   previewUrl: string
-  /** Image alt text (display name with the owner's fallback applied). */
+  /** Display name — the image's alt text or the file's label. */
   alt: string
   /** Accessible label of the item's remove control. */
   removeLabel: string
@@ -179,7 +181,13 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
               title={labels.open}
               onClick={() => { onOpen(item) }}
             >
-              <img className="block h-full w-full object-cover" src={item.previewUrl} alt={item.alt} />
+              {item.kind === 'file' ? (
+                <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] leading-tight break-all text-[var(--dsw-alias-label-secondary)]">
+                  {item.alt}
+                </span>
+              ) : (
+                <img className="block h-full w-full object-cover" src={item.previewUrl} alt={item.alt} />
+              )}
             </ShadcnButton>
             <ShadcnButton
               variant="ghost"
