@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  IconChevronLeftOutline14, IconChevronRightOutline14, IconCloseFill14, ShadcnButton,
+  IconChevronLeftOutline14, IconChevronRightOutline14, IconCloseFill14, ShadcnButton, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Edge arrow: 24px circle overlaid at the rail edges. */
@@ -174,30 +174,45 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
         onScroll={updateEdges}
       >
         {items.map(item => (
-          <div key={item.id} className="group relative flex-none size-16">
-            <ShadcnButton
-              variant="ghost"
-              className={THUMBNAIL_BASE}
-              title={labels.open}
-              onClick={() => { onOpen(item) }}
+          item.kind === 'file' ? (
+            <div
+              key={item.id}
+              className="flex h-8 flex-none items-center self-center gap-1.5 rounded-lg border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-alias-interactive-bg-hover)] pl-2.5 pr-1"
             >
-              {item.kind === 'file' ? (
-                <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] leading-tight break-all text-[var(--dsw-alias-label-secondary)]">
+              <Tooltip label={item.alt} side="top">
+                <span className="max-w-[200px] truncate text-xs text-[var(--dsw-alias-label-secondary)]">
                   {item.alt}
                 </span>
-              ) : (
+              </Tooltip>
+              <ShadcnButton
+                variant="ghost"
+                className="grid size-5 flex-none place-items-center rounded-full border-none p-0 text-[var(--dsw-alias-label-secondary)] hover:bg-[var(--dsw-alias-interactive-bg-hover-solid)] hover:text-[var(--dsw-alias-label-primary)]"
+                aria-label={item.removeLabel}
+                onClick={() => { onRemove(item) }}
+              >
+                <IconCloseFill14 size={12} />
+              </ShadcnButton>
+            </div>
+          ) : (
+            <div key={item.id} className="group relative flex-none size-16">
+              <ShadcnButton
+                variant="ghost"
+                className={THUMBNAIL_BASE}
+                title={labels.open}
+                onClick={() => { onOpen(item) }}
+              >
                 <img className="block h-full w-full object-cover" src={item.previewUrl} alt={item.alt} />
-              )}
-            </ShadcnButton>
-            <ShadcnButton
-              variant="ghost"
-              className={REMOVE_BASE}
-              aria-label={item.removeLabel}
-              onClick={() => { onRemove(item) }}
-            >
-              <IconCloseFill14 size={12} />
-            </ShadcnButton>
-          </div>
+              </ShadcnButton>
+              <ShadcnButton
+                variant="ghost"
+                className={REMOVE_BASE}
+                aria-label={item.removeLabel}
+                onClick={() => { onRemove(item) }}
+              >
+                <IconCloseFill14 size={12} />
+              </ShadcnButton>
+            </div>
+          )
         ))}
       </div>
       {edges.right && (
