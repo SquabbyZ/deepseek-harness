@@ -29,6 +29,8 @@ export interface ConfigurableProviderView {
    * surface must treat absence as "unknown", not as "shipped".
    */
   declared?: boolean
+  /** The adapter's default endpoint for this route, for surfaces to prefill. */
+  baseUrl?: string
 }
 
 /** Llm-domain unary methods (the map keys llm.* of RpcMethodMap). */

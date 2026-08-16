@@ -96,7 +96,15 @@ export class ApiProxyService extends Service implements ApiProxy {
   constructor(ctx: Context, config: Config) {
     super(ctx, 'apiProxy')
     const api = createApiProxy(ctx, {
-      defaultModelSelection: () => ctx.agentDefaultModel.currentSelection(),
+      defaultModelSelection: () => {
+        const selection = ctx.agentDefaultModel.currentSelection()
+        // No provider configured: the "configure first" posture. Agent creation
+        // must fail with this clear message, not a bare NO_ADAPTER downstream.
+        if (selection === undefined) {
+          throw new Error('no model provider configured — add one in Settings → Models before starting a session')
+        }
+        return selection
+      },
       saveDefaultModelSelection: selection => ctx.agentDefaultModel.saveSelection(selection),
       cwd: process.cwd(),
       ...config.nativeOpen === undefined ? {} : { canOpenPath: () => config.nativeOpen as boolean },

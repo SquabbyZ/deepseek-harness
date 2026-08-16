@@ -18,7 +18,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('first-prompt title provider with
     const ctx = new Context()
     contexts.push(ctx)
     await ctx.plugin(LlmRuntime)
-    await ctx.plugin(LlmDeepSeek, { thinking: 'disabled' })
+    await ctx.plugin(LlmDeepSeek, { providers: { 'deepseek-official': { thinking: 'disabled' } } })
     await ctx.plugin(SessionStore)
     await ctx.plugin(SessionTitleService, {
       fallbackMaxWords: 5,

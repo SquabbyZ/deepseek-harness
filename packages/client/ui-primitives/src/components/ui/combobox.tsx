@@ -23,6 +23,8 @@ const ChevronsUpDown = ({ className }: { className?: string }) => (
 export interface ComboboxOption {
   value: string
   label: React.ReactNode
+  /** Additional filter terms, e.g. a display name when `value` is a slug. */
+  keywords?: string[]
 }
 
 export interface ComboboxProps {
@@ -34,6 +36,8 @@ export interface ComboboxProps {
   emptyText?: string
   className?: string
   triggerClassName?: string
+  /** Fixed accessible name for the trigger, independent of the selection. */
+  triggerAriaLabel?: string
 }
 
 export function Combobox({
@@ -45,6 +49,7 @@ export function Combobox({
   emptyText = 'No results found.',
   className,
   triggerClassName,
+  triggerAriaLabel,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const selectedOption = options.find(option => option.value === value)
@@ -56,6 +61,7 @@ export function Combobox({
           type="button"
           role="combobox"
           aria-expanded={open}
+          aria-label={triggerAriaLabel}
           className={cn(
             'flex w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
             className,
@@ -73,7 +79,7 @@ export function Combobox({
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
           align="start"
-          className="z-50 w-[--radix-popover-trigger-width] rounded-md border bg-popover p-0 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          className="z-[1100] w-[--radix-popover-trigger-width] rounded-md border bg-popover p-0 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
         >
           <Command>
             <CommandInput placeholder={searchPlaceholder} className="h-9" />
@@ -84,8 +90,9 @@ export function Combobox({
                   <CommandItem
                     key={option.value}
                     value={option.value}
-                    onSelect={(currentValue) => {
-                      onChange?.(currentValue === value ? '' : currentValue)
+                    {...option.keywords === undefined ? {} : { keywords: option.keywords }}
+                    onSelect={() => {
+                      onChange?.(option.value)
                       setOpen(false)
                     }}
                   >

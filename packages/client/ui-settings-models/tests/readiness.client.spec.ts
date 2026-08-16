@@ -102,29 +102,29 @@ describe('onboardingReadiness', () => {
     }))).toEqual({ kind: 'provider-ready' })
   })
 
-  it('turns missing capabilities into diagnostics that never block the product', () => {
+  it('only a load failure or read-only settings block the prompt', () => {
     expect(onboardingReadiness(state({ status: 'error', error: 'settings down' }))).toEqual({
       kind: 'unavailable',
       reason: 'load-failed',
     })
-    expect(onboardingReadiness(state({
-      rows: [row({ entry: { ...row().entry, active: false } })],
-    }))).toEqual({ kind: 'unavailable', reason: 'provider-inactive' })
-    expect(onboardingReadiness(state({
-      credentialError: 'credentials service is absent',
-    }))).toEqual({
-      kind: 'unavailable',
-      reason: 'credentials-unavailable',
-    })
-    expect(onboardingReadiness(state({
-      rows: [row({ credential: undefined })],
-    }))).toEqual({ kind: 'unavailable', reason: 'credentials-unavailable' })
-    expect(onboardingReadiness(state({
-      rows: [row({ credential: { configured: false, writable: false } })],
-    }))).toEqual({ kind: 'unavailable', reason: 'credential-read-only' })
     expect(onboardingReadiness(state({ writable: false }))).toEqual({
       kind: 'unavailable',
       reason: 'settings-read-only',
     })
+    // Every other missing capability is the configure-first posture, not a
+    // diagnostic: a dormant (inactive) route, an absent credential, or an
+    // unreachable credentials service all still offer the key field.
+    expect(onboardingReadiness(state({
+      rows: [row({ entry: { ...row().entry, active: false } })],
+    }))).toEqual({ kind: 'credential-missing' })
+    expect(onboardingReadiness(state({
+      credentialError: 'credentials service is absent',
+    }))).toEqual({ kind: 'credential-missing' })
+    expect(onboardingReadiness(state({
+      rows: [row({ credential: undefined })],
+    }))).toEqual({ kind: 'credential-missing' })
+    expect(onboardingReadiness(state({
+      rows: [row({ credential: { configured: false, writable: false } })],
+    }))).toEqual({ kind: 'credential-missing' })
   })
 })

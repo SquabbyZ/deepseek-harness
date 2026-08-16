@@ -7,7 +7,7 @@ import LlmRuntime, { createUserMessage, CallId, ReasoningEffortId , createMessag
 import type { Message, ToolSchema } from '@deepseek-ai/dsh-llm'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
-import type { Config } from '@deepseek-ai/dsh-llm-deepseek'
+import type { DeepSeekProfile } from '@deepseek-ai/dsh-llm-deepseek'
 import { assemble, type AssembledResult } from './assemble.ts'
 
 /**
@@ -26,11 +26,11 @@ beforeEach(async () => {
   vi.stubEnv('DSH_HOME', identityHome)
 })
 
-async function harness(_model: string, config: Partial<Config> = {}) {
+async function harness(_model: string, profile: Partial<DeepSeekProfile> = {}) {
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(LlmRuntime)
-  await ctx.plugin(LlmDeepSeek, config)
+  await ctx.plugin(LlmDeepSeek, { providers: { 'deepseek-official': profile } })
   return ctx
 }
 
@@ -80,7 +80,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
       contexts.push(ctx)
       await ctx.plugin(LlmRuntime)
       await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
-      await ctx.plugin(LlmDeepSeek, {})
+      await ctx.plugin(LlmDeepSeek, { providers: { 'deepseek-official': {} } })
 
       const result = await assemble(ctx, {
         model: FLASH,

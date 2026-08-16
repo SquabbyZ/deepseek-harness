@@ -59,9 +59,15 @@ export async function codingHarness(workdir: string, options: CodingHarnessOptio
     systemPrompt: { persona: options.persona ?? '' },
   })
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(LlmDeepSeek, options.modelContextWindow === undefined ? {} : {
-    models: [{ id: 'deepseek-v4-flash', contextWindow: options.modelContextWindow }],
-  })
+  await ctx.plugin(LlmDeepSeek, options.modelContextWindow === undefined
+    ? { providers: { 'deepseek-official': {} } }
+    : {
+      providers: {
+        'deepseek-official': {
+          models: [{ id: 'deepseek-v4-flash', contextWindow: options.modelContextWindow }],
+        },
+      },
+    })
   await ctx.plugin(LocalSubprocessRuntime)
   await ctx.plugin(BashEnvPlugin)
   await ctx.plugin(LocalBashExecutor, { cwd: workdir, timeoutMs: 30_000 })

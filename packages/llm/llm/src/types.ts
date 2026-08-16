@@ -184,6 +184,11 @@ export interface LlmConfigurableProvider {
    * from outside.
    */
   declared?: boolean
+  /**
+   * The adapter's default endpoint for this route, when it ships one, so a
+   * configuration surface can prefill the base URL before any profile exists.
+   */
+  baseUrl?: string
 }
 
 /**

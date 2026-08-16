@@ -1,20 +1,33 @@
 /**
  * Register a {@link DeepSeekAdapter} for the `deepseek-official` provider route on
- * `ctx.llm`, with connection facts resolved per request instead of frozen at
- * load: the plugin layers its `cordis.yml` entry config under the optional
- * `llm-deepseek` user-settings section (`ctx.settings`) and resolves the API
- * key through the optional credential seam (`ctx.credentials`), so a changed
+ * `ctx.llm`, mounted dormant like the pi-ai twin: the route is not registered
+ * until the optional `llm-deepseek` user-settings section supplies a profile,
+ * and it drops again when that profile is removed. Profile facts resolve per
+ * request through the optional credential seam (`ctx.credentials`), so a changed
  * base URL, catalog, or key reaches the very next request without restarting
- * anything, while an in-flight stream keeps the facts it started with. The
- * one registration-captured fact — the retry policy — re-registers the route
- * in place when it changes.
+ * anything, while an in-flight stream keeps the facts it started with. The two
+ * registration-captured facts — the route set and the retry policy — re-register
+ * the adapter in place when they change.
+ *
+ * ```yaml
+ * - id: llm-deepseek
+ *   name: '@deepseek-ai/dsh-llm-deepseek'
+ *   config:
+ *     providers:
+ *       deepseek-official:
+ *         apiKeyEnv: DEEPSEEK_API_KEY
+ *         models:
+ *           - id: deepseek-v4-flash
+ *           - id: deepseek-v4-pro
+ * ```
+ *
  * @module @deepseek-ai/dsh-llm-deepseek
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { assertUsableApiKey, LlmError, resolveRetryPolicy, RetryPolicySchema } from '@deepseek-ai/dsh-llm'
-import type { RetryPolicyConfig } from '@deepseek-ai/dsh-llm'
+import type { AdapterRegistrationHandle, LlmConfigurableProvider, RetryPolicyConfig } from '@deepseek-ai/dsh-llm'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { deepEqualJson, installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
@@ -52,14 +65,13 @@ const DEFAULT_MODELS: DeepSeekCatalogModel[] = [
 ]
 
 /**
- * Plugin config, validated by the same-named schemastery schema and doubling
- * as the `llm-deepseek` settings-section shape. Every field is optional in
- * yml: a missing API key resolves through {@link Config.apiKeyEnv} at each
+ * Configuration for one DeepSeek route. Every field is optional in yml: a
+ * missing API key resolves through {@link DeepSeekProfile.apiKeyEnv} at each
  * request (a request without any key fails with `MISSING_CREDENTIAL`, not at
  * plugin load), omitted thinking mode uses the provider default, and omitted
  * reasoning effort resolves to `high`.
  */
-export interface Config {
+export interface DeepSeekProfile {
   /** Credential reference (environment-variable name) resolved per request; defaults to `DEEPSEEK_API_KEY`. */
   apiKeyEnv?: string
   /** Endpoint base; falls back to $DEEPSEEK_BASE_URL from a trusted environment layer, then the public API. */
@@ -80,6 +92,20 @@ export interface Config {
   retryPolicy?: RetryPolicyConfig
 }
 
+/**
+ * Plugin configuration: the provider routes this instance owns. An empty (or
+ * omitted) dict is the dormant settings-driven posture — the adapter mounts
+ * with no routes and registers `deepseek-official` the moment a settings
+ * section supplies its profile, dropping it again when the profile is removed.
+ */
+export interface Config {
+  /**
+   * DeepSeek provider routes, keyed by route. Only `deepseek-official` is a
+   * route this adapter serves; any other key is refused.
+   */
+  providers?: Record<string, DeepSeekProfile>
+}
+
 const catalogModel: z<DeepSeekCatalogModel> = z.object({
   id: z.string().required(),
   name: z.string(),
@@ -88,7 +114,7 @@ const catalogModel: z<DeepSeekCatalogModel> = z.object({
   maxTokens: z.number().step(1).min(1),
 })
 
-export const Config: z<Config> = z.object({
+const DeepSeekProfileSchema: z<DeepSeekProfile> = z.object({
   apiKeyEnv: z.string().role('credential-ref').default(DEFAULT_API_KEY_ENV),
   baseURL: z.string(),
   thinking: z.union(['enabled', 'disabled']),
@@ -98,6 +124,11 @@ export const Config: z<Config> = z.object({
   models: z.array(catalogModel).default(DEFAULT_MODELS),
   streamIdleTimeoutMs: z.number().min(Number.MIN_VALUE).max(MAX_TIMER_DELAY_MS).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
   retryPolicy: RetryPolicySchema,
+})
+
+/** Runtime schema for {@link Config}. */
+export const Config: z<Config> = z.object({
+  providers: z.dict(DeepSeekProfileSchema).default({}),
 })
 
 /** Public API default; the internal endpoint comes from $DEEPSEEK_BASE_URL. */
@@ -147,32 +178,32 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
 }
 
 /**
- * The one explicit resolve step from raw config to validated connection
+ * The one explicit resolve step from raw profile to validated connection
  * facts. Programmatic construction may bypass Schemastery normalization, so
  * every default and bound is re-judged here — for the composition entry at
  * load (fail loud) and for each settings snapshot at its first use.
- * @param config - raw plugin config or resolved settings snapshot.
+ * @param profile - raw provider profile or resolved settings snapshot.
  * @param environment - this run's environment layers, or `undefined` outside
  * the product CLI. Every layer may supply an endpoint: the product trusts the
  * project it is launched in, so a checkout can point its own agent at the
  * gateway that checkout is meant to use.
  * @returns validated connection facts plus the credential reference.
  */
-export function resolveAdapterOptions(config: Config, environment?: LaunchEnvironmentSnapshot): ResolvedDeepSeekOptions {
-  if (config.thinking === 'disabled'
-    && config.reasoningEffort !== undefined
-    && config.reasoningEffort !== 'off') {
+export function resolveAdapterOptions(profile: DeepSeekProfile, environment?: LaunchEnvironmentSnapshot): ResolvedDeepSeekOptions {
+  if (profile.thinking === 'disabled'
+    && profile.reasoningEffort !== undefined
+    && profile.reasoningEffort !== 'off') {
     throw new Error('llm-deepseek: only reasoningEffort "off" can be configured when thinking is disabled')
   }
-  if (config.defaultContextWindow !== undefined
-    && (!Number.isInteger(config.defaultContextWindow) || config.defaultContextWindow <= 0)) {
+  if (profile.defaultContextWindow !== undefined
+    && (!Number.isInteger(profile.defaultContextWindow) || profile.defaultContextWindow <= 0)) {
     throw new Error('llm-deepseek: defaultContextWindow must be a positive integer')
   }
-  if (config.maxTokens !== undefined
-    && (!Number.isSafeInteger(config.maxTokens) || config.maxTokens <= 0)) {
+  if (profile.maxTokens !== undefined
+    && (!Number.isSafeInteger(profile.maxTokens) || profile.maxTokens <= 0)) {
     throw new Error('llm-deepseek: maxTokens must be a positive safe integer')
   }
-  const streamIdleTimeoutMs = config.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
+  const streamIdleTimeoutMs = profile.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
   if (!Number.isFinite(streamIdleTimeoutMs)
     || streamIdleTimeoutMs <= 0
     || streamIdleTimeoutMs > MAX_TIMER_DELAY_MS) {
@@ -181,46 +212,104 @@ export function resolveAdapterOptions(config: Config, environment?: LaunchEnviro
     )
   }
   return {
-    apiKeyEnv: credentialRef(config.apiKeyEnv ?? DEFAULT_API_KEY_ENV),
-    baseURL: config.baseURL
+    apiKeyEnv: credentialRef(profile.apiKeyEnv ?? DEFAULT_API_KEY_ENV),
+    baseURL: profile.baseURL
       ?? environment?.get(BASE_URL_ENV)?.value
       ?? PUBLIC_BASE_URL,
     defaults: {
-      thinking: config.thinking,
-      reasoningEffort: config.reasoningEffort,
+      thinking: profile.thinking,
+      reasoningEffort: profile.reasoningEffort,
     },
-    maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
-    defaultContextWindow: config.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
-    models: resolveModels(config.models),
+    maxTokens: profile.maxTokens ?? DEFAULT_MAX_TOKENS,
+    defaultContextWindow: profile.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
+    models: resolveModels(profile.models),
     streamIdleTimeoutMs,
-    retryPolicy: resolveRetryPolicy(config.retryPolicy, 'llm-deepseek: retryPolicy'),
+    retryPolicy: resolveRetryPolicy(profile.retryPolicy, 'llm-deepseek: retryPolicy'),
   }
+}
+
+/**
+ * Resolve the provider profiles keyed by route. This is the one explicit
+ * resolve step for the whole section, so an omitted dict resolves to the empty
+ * (dormant) route set here rather than through a hidden fallback.
+ * @param providers - configured provider profiles keyed by route.
+ * @param environment - this run's environment layers.
+ * @returns resolved profiles in configuration order.
+ */
+export function resolveProfiles(
+  providers: Readonly<Record<string, DeepSeekProfile>> | undefined,
+  environment?: LaunchEnvironmentSnapshot,
+): Map<string, ResolvedDeepSeekOptions> {
+  const resolved = new Map<string, ResolvedDeepSeekOptions>()
+  for (const [provider, source] of Object.entries(providers ?? {})) {
+    if (provider !== PROVIDER) {
+      throw new Error(`llm-deepseek: unknown provider route "${provider}"; only "${PROVIDER}" is served`)
+    }
+    resolved.set(provider, resolveAdapterOptions(source, environment))
+  }
+  return resolved
+}
+
+/** The single configurable-provider directory entry: always advertised, dormant until configured. */
+const DIRECTORY_ENTRY: LlmConfigurableProvider = {
+  provider: PROVIDER,
+  displayName: 'DeepSeek',
+  settingsNs: NS,
+  settingsPath: ['providers', PROVIDER],
+  declared: false,
+  baseUrl: 'https://api.deepseek.com',
+}
+
+/**
+ * The registry captures these per route; a change here must re-register. The
+ * route set is captured by the entry keys and the retry policy rides each
+ * entry, so both a route appearing/disappearing and a policy change are seen.
+ */
+function registrationFacts(profiles: ReadonlyMap<string, ResolvedDeepSeekOptions>): unknown {
+  return [...profiles.entries()].map(([provider, profile]) => ({
+    provider,
+    retryPolicy: profile.retryPolicy,
+  }))
 }
 
 export function apply(ctx: Context, config: Config): void {
   let current: () => Config = () => config
   let lastRaw: Config | undefined
-  let lastGood: ResolvedDeepSeekOptions | undefined
-  const options = (): ResolvedDeepSeekOptions => {
+  let memoized: ReadonlyMap<string, ResolvedDeepSeekOptions> | undefined
+  /**
+   * The resolved profiles for the current configuration, memoized by the raw
+   * snapshot's identity — which is also what makes the adapter's own snapshot
+   * stable across operations that observe no change. A snapshot that fails the
+   * beyond-schema resolve step keeps the last good route set serving requests.
+   */
+  const profiles = (): ReadonlyMap<string, ResolvedDeepSeekOptions> => {
     const raw = current()
-    if (raw === lastRaw && lastGood !== undefined) return lastGood
+    if (raw === lastRaw && memoized !== undefined) return memoized
     try {
-      const next = resolveAdapterOptions(raw, launchEnvironmentOf(ctx))
+      const next = resolveProfiles(raw.providers, launchEnvironmentOf(ctx))
       lastRaw = raw
-      lastGood = next
+      memoized = next
       return next
     } catch (error) {
-      // Static composition resolves before anything registers, so this branch
-      // only sees a live settings snapshot failing a beyond-schema bound:
-      // keep serving the last good facts and say so once per bad snapshot.
-      if (lastGood === undefined) throw error
+      if (memoized === undefined) throw error
       lastRaw = raw
       ctx.logger.error('llm-deepseek: keeping the last good configuration after an invalid settings section')
       ctx.logger.error(error)
-      return lastGood
+      return memoized
     }
   }
-  options()
+  profiles()
+
+  const options = (): ResolvedDeepSeekOptions => {
+    const profile = profiles().get(PROVIDER)
+    if (profile === undefined) {
+      throw new LlmError(
+        `llm-deepseek: no profile for provider route "${PROVIDER}"`,
+        'MISSING_CREDENTIAL',
+      )
+    }
+    return profile
+  }
 
   const resolveApiKey = async (connection: ResolvedDeepSeekOptions): Promise<string> => {
     // Every credential fact comes from the caller's snapshot, so a rejected
@@ -248,29 +337,49 @@ export function apply(ctx: Context, config: Config): void {
   let userId: AnonymousUserId | undefined
   const resolveUserId = (): AnonymousUserId => userId ??= getOrCreateAnonymousUserId()
   const adapter = new DeepSeekAdapter({ options, resolveApiKey, resolveUserId })
-  ctx.llm.registerConfigurableProviders([
-    { provider: PROVIDER, displayName: 'DeepSeek', settingsNs: NS, settingsPath: [] },
-  ])
+
+  // The route is configurable from the moment the plugin mounts — dormant or
+  // not — so configuration surfaces can offer it before any profile exists.
+  ctx.llm.registerConfigurableProviders([DIRECTORY_ENTRY])
+
   // Route effects bind to this apply fiber via the stable `ctx` reference,
-  // even when a swap runs inside the scoped settings callback below.
-  const registration = ctx.llm.registerAdapter([PROVIDER], adapter)
-  let registeredPolicy = options().retryPolicy
+  // even when a swap runs inside the scoped settings callback below. A bare
+  // mount (zero profiles) is the dormant posture: nothing registers until a
+  // settings section supplies a profile, and the route drops when it empties.
+  let registration: AdapterRegistrationHandle | undefined
+  let registeredFacts: unknown
   const ensureRegistrationFacts = (): void => {
-    const policy = options().retryPolicy
-    if (deepEqualJson(policy, registeredPolicy)) return
-    // The registry captures the retry policy at registration, so it is the one
-    // fact per-request resolution cannot refresh. `replace` re-reads it in one
-    // synchronous registry section: disposing and re-registering instead would
-    // publish an empty route set between the two, and an observer that reacted
-    // to it would see this provider disappear and come back.
-    registration.replace([PROVIDER])
-    registeredPolicy = policy
+    const facts = registrationFacts(profiles())
+    if (deepEqualJson(facts, registeredFacts)) return
+    const routes = [...profiles().keys()]
+    if (registration === undefined) {
+      // Dormant bare mount: nothing is registered until a section supplies a
+      // profile, and an empty section keeps it that way.
+      if (routes.length === 0) {
+        registeredFacts = facts
+        return
+      }
+      registration = ctx.llm.registerAdapter(routes, adapter)
+    } else {
+      registration.replace(routes)
+    }
+    registeredFacts = facts
   }
+  ensureRegistrationFacts()
 
   installSettingsSection(ctx, NS, Config, config, {
     setSource: (source) => {
       current = source
     },
-    onChange: ensureRegistrationFacts,
+    onChange: () => {
+      // A refused swap keeps the previous routes serving and `registeredFacts`
+      // stays put, so returning to a working configuration re-applies.
+      try {
+        ensureRegistrationFacts()
+      } catch (error) {
+        ctx.logger.error('llm-deepseek: keeping the previously registered routes after a refused update')
+        ctx.logger.error(error)
+      }
+    },
   })
 }

@@ -61,7 +61,7 @@ import { assertUsableApiKey, LlmError } from '@deepseek-ai/dsh-llm'
 import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'
 import { deepEqualJson, installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { PiAiAdapter } from './adapter.ts'
-import { catalogProviderIds, catalogProviderTakesApiKey } from './catalog.ts'
+import { catalogProvider, catalogProviderIds, catalogProviderTakesApiKey } from './catalog.ts'
 import { assertServiceable, Config, resolveProfiles } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
@@ -123,6 +123,7 @@ function directoryEntries(
   const catalog = new Set(catalogProviderIds())
   const entries = new Map<string, LlmConfigurableProvider>()
   const declare = (provider: string, displayName: string): void => {
+    const baseUrl = catalogProvider(provider)?.baseUrl
     entries.set(provider, {
       provider,
       displayName,
@@ -132,17 +133,34 @@ function directoryEntries(
       // narrowing a shipped provider's models stores a profile too, and that
       // route is still one pi-ai knows.
       declared: !catalog.has(provider),
+      // The catalog's own endpoint, so a surface can prefill the base URL; a
+      // hand-declared route has no catalog entry and answers nothing here.
+      ...baseUrl === undefined ? {} : { baseUrl },
     })
   }
+  // The installed catalog's own display name for a route, when pi-ai ships one.
+  const catalogName = (provider: string): string | undefined => catalogProvider(provider)?.name
   // A provider whose only native method is OAuth leaves this adapter nothing
   // to authenticate with, so offering it would put a card on the settings page
   // whose own posture — no key, credentials discovered by the provider — fails
   // every request. Catalog *membership* is unaffected, so `declare` above still
   // answers what pi-ai ships.
   for (const provider of catalog) {
-    if (catalogProviderTakesApiKey(provider)) declare(provider, provider)
+    if (catalogProviderTakesApiKey(provider)) declare(provider, catalogName(provider) ?? provider)
   }
-  for (const [provider, profile] of profiles) declare(provider, profile.displayName)
+  for (const [provider, profile] of profiles) {
+    // A shipped route reads as the vendor, not its wire id, both before and
+    // after it gains a profile: when the profile names no displayName (the
+    // route key is the resolve default), prefer the catalog's own. An
+    // explicitly named route — or a hand-declared one, which has no catalog
+    // name — keeps the profile's name verbatim.
+    declare(
+      provider,
+      profile.displayName !== provider || !catalog.has(provider)
+        ? profile.displayName
+        : catalogName(provider) ?? provider,
+    )
+  }
   return [...entries.values()]
 }
 

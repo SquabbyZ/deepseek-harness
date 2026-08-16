@@ -38,15 +38,19 @@ async function harness(
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(LlmDeepSeek, {
-    baseURL,
-    streamIdleTimeoutMs: options.streamIdleTimeoutMs ?? 1_000,
-    retryPolicy: {
-      mode: 'normal',
-      maxRetries: 2,
-      backoff: {
-        initialDelayMs: options.initialDelayMs ?? 10,
-        maxDelayMs: options.initialDelayMs ?? 10,
-        jitterRatio: 0,
+    providers: {
+      'deepseek-official': {
+        baseURL,
+        streamIdleTimeoutMs: options.streamIdleTimeoutMs ?? 1_000,
+        retryPolicy: {
+          mode: 'normal',
+          maxRetries: 2,
+          backoff: {
+            initialDelayMs: options.initialDelayMs ?? 10,
+            maxDelayMs: options.initialDelayMs ?? 10,
+            jitterRatio: 0,
+          },
+        },
       },
     },
   })

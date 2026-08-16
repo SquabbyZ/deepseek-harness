@@ -59,12 +59,11 @@
       name: '@deepseek-ai/dsh-agent'
 
     # The transport-independent default for Agents created by entry points.
+    # Ships with no default: a deployment without a configured model provider
+    # surfaces the "configure first" posture instead of a bare NO_ADAPTER.
     # Settings may supply a saved selection; consumers read it at creation time.
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
-      config:
-        provider: deepseek-official
-        model: deepseek-v4-flash
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'

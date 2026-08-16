@@ -69,10 +69,11 @@ describe('request-level dynamic profiles', () => {
     expect(directory.length).toBeGreaterThan(30)
     expect(directory).toContainEqual({
       provider: 'openai',
-      displayName: 'openai',
+      displayName: 'OpenAI',
       settingsNs: 'llm-pi-ai',
       settingsPath: ['providers', 'openai'],
       declared: false,
+      baseUrl: 'https://api.openai.com/v1',
     })
     await ctx.settings.update(NS, {
       providers: { deepseek: { apiKeyEnv: 'PI_DYNAMIC_KEY', baseURL: server.url } },

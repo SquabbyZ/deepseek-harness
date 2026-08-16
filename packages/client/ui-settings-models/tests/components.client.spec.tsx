@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Section, setup-card, and hand-written editor behavior over a scripted wire face. */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Schema from '@deepseek-ai/schemastery'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import type { RpcResponse, SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
@@ -19,6 +19,28 @@ import type { ProviderRow } from '../src/client/store.ts'
 import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
+
+/** jsdom lacks the DOM APIs Radix Select's popper and scroll buttons rely on. */
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+  Element.prototype.scrollIntoView = () => {}
+  Element.prototype.hasPointerCapture = () => true
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+})
+afterEach(() => { vi.unstubAllGlobals() })
+
+/** Open the shadcn Select labeled `label` and click the option named `option`. */
+async function chooseOption(label: string, option: string): Promise<void> {
+  fireEvent.click(screen.getByLabelText(label))
+  fireEvent.click(await screen.findByRole('option', { name: option }))
+}
 
 const t: ModelsSectionInjected['t'] = key => en[key]
 const OPENAI_TARGET = { provider: 'openai', displayName: 'openai' }
@@ -150,7 +172,7 @@ function scriptedFace(overrides: {
     llm: {
       providers: vi.fn(() => Promise.resolve(ok({
         providers: [
-          { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
+          { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [], active: true, baseUrl: 'https://api.deepseek.com' },
           { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true },
           { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: false },
           { provider: 'zombie', displayName: 'zombie', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'zombie'], active: false },
@@ -849,6 +871,7 @@ describe('ModelsSection', () => {
     render(<ProviderEditor
       provider="deepseek-official"
       displayName="DeepSeek"
+      baseUrl="https://api.deepseek.com"
       namespace={bare}
       settingsPath={[]}
       api={face as never}
@@ -900,9 +923,13 @@ describe('ModelsSection', () => {
   it('adds a dormant provider with a derived reference and stores its key', async () => {
     const { mutate, set } = await mountSection()
     fireEvent.click(screen.getByText(en.add))
-    const pick = await screen.findByLabelText<HTMLSelectElement>(en.provider)
-    expect([...pick.options].map(option => option.value)).toEqual(['anthropic', 'broken', 'plain'])
-    expect(pick.value).toBe('anthropic')
+    const pick = await screen.findByLabelText(en.provider)
+    // The first addable route is pre-selected, so the trigger reads its name.
+    expect(pick.textContent).toContain('anthropic')
+    fireEvent.click(pick)
+    const options = await screen.findAllByRole('option')
+    expect(options.map(option => option.textContent)).toEqual(['anthropic', 'broken', 'plain'])
+    fireEvent.click(options[0]!)
     // A dormant profile has no endpoint anywhere: the pi-ai placeholder
     // falls back to the provider-default wording.
     fireEvent.click(screen.getByText(en.customized))
@@ -975,10 +1002,9 @@ describe('ModelsSection', () => {
   it('switches the add card target and degrades unknown or broken targets loudly', async () => {
     await mountSection()
     fireEvent.click(screen.getByText(en.add))
-    const pick = await screen.findByLabelText<HTMLSelectElement>(en.provider)
-    fireEvent.change(pick, { target: { value: 'broken' } })
+    await chooseOption(en.provider, 'broken')
     await screen.findByText(/unresolvable settings path/)
-    fireEvent.change(pick, { target: { value: 'plain' } })
+    await chooseOption(en.provider, 'plain')
     await waitFor(() => {
       expect(screen.getAllByText(content => content.includes(en.advancedHint)).length).toBeGreaterThan(0)
     })

@@ -39,7 +39,7 @@ const INPUT =
 const LINK_BUTTON =
   'inline-flex h-7 items-center rounded-[14px] border-none bg-transparent px-2.5 text-xs leading-[18px] font-normal text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-[var(--dsw-alias-label-secondary)] disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
 const ICON_BUTTON =
-  'inline-flex h-7 w-7 items-center justify-center rounded-md border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+  'inline-flex h-7 w-7 px-0 py-0 items-center justify-center rounded-md border-none bg-transparent text-[var(--dsw-alias-label-tertiary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:enabled:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
 const ICON_BUTTON_DANGER =
   'hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-danger)] hover:enabled:text-[var(--dsw-alias-state-error-primary)]'
 const ADD_MODEL_BUTTON =

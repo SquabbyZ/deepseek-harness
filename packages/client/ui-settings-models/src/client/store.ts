@@ -215,10 +215,7 @@ export type OnboardingReadiness =
     kind: 'unavailable'
     reason:
       | 'load-failed'
-      | 'provider-inactive'
-      | 'credentials-unavailable'
       | 'settings-read-only'
-      | 'credential-read-only'
   }
 
 /**
@@ -242,35 +239,17 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
     }
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
+  // The DeepSeek route is the one this adapter ships; when nothing is usable it
+  // is dormant (no profile) rather than "inactive". Dormant is the "configure
+  // first" posture — the prompt offers to create the profile and its key.
   const row = state.rows.find(candidate =>
     candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+    && candidate.entry.settingsNs === 'llm-deepseek')
   if (row === undefined) return { kind: 'adapter-absent' }
-  if (!row.entry.active) {
-    return {
-      kind: 'unavailable',
-      reason: 'provider-inactive',
-    }
-  }
-  // Past the usable gate an active route names a reference it has no stored
-  // credential for, so the remaining questions are all about that credential.
-  if (state.credentialError !== null || row.credential === undefined) {
-    return {
-      kind: 'unavailable',
-      reason: 'credentials-unavailable',
-    }
-  }
   if (!state.writable) {
     return {
       kind: 'unavailable',
       reason: 'settings-read-only',
-    }
-  }
-  if (!row.credential.writable) {
-    return {
-      kind: 'unavailable',
-      reason: 'credential-read-only',
     }
   }
   return { kind: 'credential-missing' }

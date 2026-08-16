@@ -24,7 +24,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
-import { NativeSelect, ShadcnInput } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, ShadcnInput } from '@deepseek-ai/dsh-client-ui-primitives'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
@@ -246,15 +246,18 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       <div className={FIELD}>
         <span className={FIELD_LABEL}>{t('customApi')}</span>
         <div className="max-w-[240px]">
-          <NativeSelect
-            className={INPUT}
+          <Select
             value={protocol}
-            aria-label={t('customApi')}
             disabled={profileDisabled}
-            onChange={(event) => { setProtocol(event.target.value) }}
+            onValueChange={setProtocol}
           >
-            {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
-          </NativeSelect>
+            <SelectTrigger className={INPUT} aria-label={t('customApi')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {protocols.map(choice => <SelectItem key={choice} value={choice}>{choice}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className={FIELD}>

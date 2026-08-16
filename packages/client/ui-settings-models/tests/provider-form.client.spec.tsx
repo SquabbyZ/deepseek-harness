@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Model-list editing, endpoint interrogation, and hand-declared provider creation. */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Schema from '@deepseek-ai/schemastery'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import type { RpcResponse, SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
@@ -13,6 +13,28 @@ import { ModelsSettingsStore, deriveKeyRef, protocolChoices } from '../src/clien
 import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
+
+/** jsdom lacks the DOM APIs Radix Select's popper and scroll buttons rely on. */
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+  Element.prototype.scrollIntoView = () => {}
+  Element.prototype.hasPointerCapture = () => true
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+})
+afterEach(() => { vi.unstubAllGlobals() })
+
+/** Open the shadcn Select labeled `label` and click the option named `option`. */
+async function chooseOption(label: string, option: string): Promise<void> {
+  fireEvent.click(screen.getByLabelText(label))
+  fireEvent.click(await screen.findByRole('option', { name: option }))
+}
 
 const t: ModelsSectionInjected['t'] = key => en[key]
 
@@ -714,7 +736,7 @@ describe('hand-declared providers', () => {
     // control could only be set to a value some of them reject — which would
     // take the whole provider out of the picker. The composer's model picker
     // owns the choice, and a switch there records provider+model+effort together.
-    const fields = () => [...document.querySelectorAll('input,select')]
+    const fields = () => [...document.querySelectorAll('input,select,[role="combobox"]')]
       .map(el => el.getAttribute('aria-label')).filter(Boolean)
 
     mountCard()
@@ -737,7 +759,8 @@ describe('hand-declared providers', () => {
       declaredRoutes: ['acme-gateway'],
     })
     openEditor('acme-gateway')
-    expect(fields()).toEqual([en.keyInput, en.customDisplayName, en.baseUrl, en.customApi])
+    // The base URL now sits above the customized disclosure, beside the key.
+    expect(fields()).toEqual([en.keyInput, en.baseUrl, en.customDisplayName, en.customApi])
   })
 
   it('renames a declared route and falls back to its id when the name is cleared', async () => {
@@ -842,9 +865,11 @@ describe('hand-declared providers', () => {
     })
     openEditor('acme-gateway')
 
-    const protocol = screen.getByLabelText<HTMLSelectElement>(en.customApi)
-    expect(protocol.value).toBe('openai-completions')
-    fireEvent.change(protocol, { target: { value: 'anthropic-messages' } })
+    fireEvent.click(screen.getByLabelText(en.customApi))
+    const protocolOptions = await screen.findAllByRole('option')
+    expect(protocolOptions.find(option => option.getAttribute('data-state') === 'checked')?.textContent)
+      .toBe('openai-completions')
+    fireEvent.click(await screen.findByRole('option', { name: 'anthropic-messages' }))
     fireEvent.click(screen.getByText(en.apply))
 
     await waitFor(() => { expect(mutate).toHaveBeenCalledTimes(1) })
@@ -867,7 +892,11 @@ describe('hand-declared providers', () => {
     })
     openEditor('acme-gateway')
 
-    expect(screen.getByLabelText<HTMLSelectElement>(en.customApi).value).toBe('')
+    // The card offers the explicit "unset" choice, not the first protocol.
+    fireEvent.click(screen.getByLabelText(en.customApi))
+    const options = await screen.findAllByRole('option')
+    expect(options.find(option => option.getAttribute('data-state') === 'checked')?.textContent)
+      .toBe(en.customApiUnset)
   })
 
   it('retries only the key after the profile landed, and reports the provider on cancel', async () => {
@@ -1140,7 +1169,7 @@ describe('hand-declared providers', () => {
 
     fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
     fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://acme.test/v1' } })
-    fireEvent.change(screen.getByLabelText(en.customApi), { target: { value: 'anthropic-messages' } })
+    await chooseOption(en.customApi, 'anthropic-messages')
     fireEvent.click(screen.getByRole('button', { name: en.addModel }))
     fireEvent.change(screen.getByLabelText(`${en.modelId} 1`), { target: { value: 'm' } })
     fireEvent.click(screen.getByText(en.create))
@@ -1159,7 +1188,8 @@ describe('hand-declared providers', () => {
 
   it('offers no protocol when the namespace declares none', () => {
     mountCard({ protocols: [] })
-    expect(screen.getByLabelText<HTMLSelectElement>(en.customApi).value).toBe('')
+    fireEvent.click(screen.getByLabelText(en.customApi))
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 
   it('closes without writing on cancel, and honors a read-only deployment', () => {

@@ -15,7 +15,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
-import { Button, IconPlusOutline16, Modal, NativeSelect, ShadcnButton, cn } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Combobox, FishLogo, IconPlusOutline16, Modal, ShadcnButton, cn } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
 import { deriveKeyRef, messageOf, protocolChoices, providerUsable } from './store.ts'
@@ -53,6 +53,11 @@ const ROW_DANGER_BUTTON =
   'inline-flex h-7 items-center justify-center rounded-[14px] border-none bg-transparent px-2.5 text-xs leading-[18px] font-normal text-[var(--dsw-alias-state-error-primary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-danger)] hover:text-[var(--dsw-alias-state-error-primary)] disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
 const ADD_BUTTON =
   'inline-flex h-11 min-w-[180px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-input bg-transparent px-[14px] text-sm leading-[22px] font-normal text-foreground hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-foreground disabled:opacity-40 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_var(--dsw-alias-border-l3)]'
+const EMPTY = 'flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border px-6 py-12 text-center'
+const EMPTY_LOGO = 'text-[var(--dsw-alias-label-tertiary)] opacity-60'
+const EMPTY_TITLE = 'm-0 text-base leading-6 font-medium text-foreground'
+const EMPTY_BODY = 'm-0 max-w-[400px] text-sm leading-[22px] text-[var(--dsw-alias-label-tertiary)]'
+const EMPTY_ACTIONS = 'flex flex-wrap justify-center gap-2.5'
 const DELETE_DIALOG = 'w-[min(480px,100%)]'
 const DELETE_CONFIRM =
   'enabled:border-[var(--dsw-alias-state-error-primary)] enabled:text-[var(--dsw-alias-state-error-primary)] hover:enabled:bg-[var(--dsw-alias-interactive-bg-hover-danger)]'
@@ -91,6 +96,8 @@ interface EditorTarget extends ProviderIdentity {
   credentialRef?: string
   /** The adapter reports this route as one it does not ship (see {@link ProviderEditorProps.declared}). */
   declared?: boolean
+  /** The adapter's default endpoint, for the editor's base-URL prefill. */
+  baseUrl?: string
 }
 
 /** Values that vary around the shared provider-editor rendering. */
@@ -109,6 +116,7 @@ function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): 
       displayName={target.displayName}
       settingsPath={target.settingsPath}
       {...target.declared === true ? { declared: true } : {}}
+      {...target.baseUrl === undefined ? {} : { baseUrl: target.baseUrl }}
       {...props}
     />
   )
@@ -181,6 +189,7 @@ function targetOf(row: ProviderRow): EditorTarget {
     // route-level fields only a declared route owns off the card, exactly as
     // it leaves the custom tag off the row.
     ...row.entry.declared === true ? { declared: true } : {},
+    ...row.entry.baseUrl === undefined ? {} : { baseUrl: row.entry.baseUrl },
   }
 }
 
@@ -297,6 +306,17 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
   const anyUsable = state.rows.some(providerUsable)
   const configured = state.rows.filter(row => row.configured)
   const addable = state.rows.filter(row => !row.configured && row.entry.settingsNs !== '')
+  // The empty posture: no provider is configured and no card is open. The
+  // DeepSeek route (the one this adapter ships) is the natural first choice.
+  const isEmpty = state.status === 'ready' && configured.length === 0 && !adding && !declaring
+  const deepseekRow = state.rows.find(row => row.entry.provider === 'deepseek-official')
+  const configureDeepSeek = (): void => {
+    if (deepseekRow === undefined) return
+    setSavedTarget(undefined)
+    setDeclaring(false)
+    setAdding(true)
+    setEditing(targetOf(deepseekRow))
+  }
   const addTarget = adding ? editing : undefined
   const addNamespace = addTarget === undefined ? undefined : state.namespaces.get(addTarget.settingsNs)
   // Hand-declared routes live in the pi-ai namespace, which is also the only
@@ -316,7 +336,38 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
             {providerCopy(t('savedProvider'), savedIdentity)}
           </p>
         )}
-      <ul className={ROWS}>
+      {isEmpty
+        ? (
+          <div className={EMPTY}>
+            <FishLogo size={40} className={EMPTY_LOGO} />
+            <h3 className={EMPTY_TITLE}>{t('emptyTitle')}</h3>
+            <p className={EMPTY_BODY}>{t('emptyBody')}</p>
+            <div className={EMPTY_ACTIONS}>
+              {deepseekRow === undefined
+                ? null
+                : (
+                  <Button variant="primary" onClick={configureDeepSeek}>
+                    {t('emptyPrimary')}
+                  </Button>
+                )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const first = addable[0]
+                  if (first === undefined) return
+                  setSavedTarget(undefined)
+                  setDeclaring(false)
+                  setAdding(true)
+                  setEditing(targetOf(first))
+                }}
+              >
+                {t('emptySecondary')}
+              </Button>
+            </div>
+          </div>
+        )
+        : null}
+      <ul className={cn(ROWS, isEmpty ? 'hidden' : '')}>
         {configured.map((row) => {
           const target = targetOf(row)
           const namespace = state.namespaces.get(target.settingsNs)
@@ -424,28 +475,31 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
           )
         })}
       </ul>
-      <div className={ADD_BLOCK}>
+      <div className={cn(ADD_BLOCK, isEmpty ? 'hidden' : '')}>
         {addTarget !== undefined && addNamespace !== undefined
           ? (
             <div className={ADD_CARD}>
               <div className={FIELD}>
                 <span className={FIELD_LABEL}>{t('provider')}</span>
                 <div className="max-w-[240px]">
-                  <NativeSelect
-                    className={INPUT}
+                  <Combobox
+                    options={addable.map(row => ({
+                      value: row.entry.provider,
+                      label: row.entry.displayName,
+                      keywords: [row.entry.displayName],
+                    }))}
                     value={addTarget.provider}
-                    aria-label={t('provider')}
-                    onChange={(event) => {
-                      const row = addable.find(candidate => candidate.entry.provider === event.target.value)
-                      /* v8 ignore next -- the select only lists addable rows */
+                    onChange={(value) => {
+                      const row = addable.find(candidate => candidate.entry.provider === value)
+                      /* v8 ignore next -- the combobox only lists addable rows */
                       if (row === undefined) return
                       setEditing(targetOf(row))
                     }}
-                  >
-                    {addable.map(row => (
-                      <option key={row.entry.provider} value={row.entry.provider}>{row.entry.displayName}</option>
-                    ))}
-                  </NativeSelect>
+                    triggerAriaLabel={t('provider')}
+                    searchPlaceholder={t('providerSearch')}
+                    emptyText={t('providerEmpty')}
+                    className={INPUT}
+                  />
                 </div>
               </div>
               <ProviderEditor
@@ -455,6 +509,7 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                 hideTitle
                 namespace={addNamespace}
                 settingsPath={addTarget.settingsPath}
+                {...addTarget.baseUrl === undefined ? {} : { baseUrl: addTarget.baseUrl }}
                 api={api}
                 t={t}
                 readOnly={!state.writable}

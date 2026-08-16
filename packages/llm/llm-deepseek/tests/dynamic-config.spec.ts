@@ -40,7 +40,7 @@ interface Harness {
  * flowing through the in-process write path, which is deterministic; external
  * file watching is the providers' own covered concern.
  */
-async function boot(dir: string, config: object): Promise<Harness> {
+async function boot(dir: string, profile: LlmDeepSeek.DeepSeekProfile): Promise<Harness> {
   vi.stubEnv('DSH_HOME', dir)
   const ctx = new Context()
   cleanups.push(async () => {
@@ -50,7 +50,7 @@ async function boot(dir: string, config: object): Promise<Harness> {
   const settingsFiber = ctx.plugin(FileSettingsProvider, { path: join(dir, 'settings.yaml'), watch: false })
   await settingsFiber
   await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
-  await ctx.plugin(LlmDeepSeek, config)
+  await ctx.plugin(LlmDeepSeek, { providers: { 'deepseek-official': profile } })
   return { ctx, settingsFiber }
 }
 
@@ -70,7 +70,7 @@ describe('request-level dynamic configuration', () => {
     await prompt(ctx)
     expect(serverA.headers[0]?.authorization).toBe('Bearer first-key')
 
-    await ctx.settings.update(NS, { baseURL: serverB.url })
+    await ctx.settings.update(NS, { providers: { 'deepseek-official': { baseURL: serverB.url } } })
     await ctx.credentials.set(KEY_REF, 'second-key')
 
     await prompt(ctx)
@@ -118,7 +118,7 @@ describe('request-level dynamic configuration', () => {
     const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })
 
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toHaveLength(2)
-    await ctx.settings.update(NS, { models: [{ id: 'settings-model', name: 'From Settings' }] })
+    await ctx.settings.update(NS, { providers: { 'deepseek-official': { models: [{ id: 'settings-model', name: 'From Settings' }] } } })
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
       { provider: 'deepseek-official', id: 'settings-model', name: 'From Settings', inputModalities: ['text'] },
     ])
@@ -137,7 +137,7 @@ describe('request-level dynamic configuration', () => {
     })
 
     await ctx.settings.update(NS, {
-      retryPolicy: { mode: 'always', backoff: { initialDelayMs: 25, maxDelayMs: 100, jitterRatio: 0.2 } },
+      providers: { 'deepseek-official': { retryPolicy: { mode: 'always', backoff: { initialDelayMs: 25, maxDelayMs: 100, jitterRatio: 0.2 } } } },
     })
     expect(ctx.llm.providerRetryPolicy('deepseek-official')).toEqual({
       mode: 'always',
@@ -155,9 +155,9 @@ describe('request-level dynamic configuration', () => {
 
     // Schema-valid but resolver-invalid: duplicate catalog ids pass the array
     // schema and fail the explicit resolve step.
-    await ctx.settings.update(NS, { models: [{ id: 'dup' }, { id: 'dup' }] })
+    await ctx.settings.update(NS, { providers: { 'deepseek-official': { models: [{ id: 'dup' }, { id: 'dup' }] } } })
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toHaveLength(2)
-    await ctx.settings.update(NS, { models: [{ id: 'recovered' }] })
+    await ctx.settings.update(NS, { providers: { 'deepseek-official': { models: [{ id: 'recovered' }] } } })
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
       { provider: 'deepseek-official', id: 'recovered', name: 'recovered', inputModalities: ['text'] },
     ])
@@ -173,8 +173,7 @@ describe('request-level dynamic configuration', () => {
     // One snapshot moves the endpoint and fails the resolve step beyond the
     // schema (duplicate catalog ids).
     await ctx.settings.update(NS, {
-      baseURL: rejected.url,
-      models: [{ id: 'dup' }, { id: 'dup' }],
+      providers: { 'deepseek-official': { baseURL: rejected.url, models: [{ id: 'dup' }, { id: 'dup' }] } },
     })
 
     await prompt(ctx)
@@ -193,7 +192,7 @@ describe('request-level dynamic configuration', () => {
     const serverB = await mockServer([{ kind: 'sse', events: textEvents }])
     const { ctx, settingsFiber } = await boot(dir, { baseURL: serverA.url })
 
-    await ctx.settings.update(NS, { baseURL: serverB.url })
+    await ctx.settings.update(NS, { providers: { 'deepseek-official': { baseURL: serverB.url } } })
     await prompt(ctx)
     expect(serverB.requests).toHaveLength(1)
 

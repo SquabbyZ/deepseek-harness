@@ -2923,7 +2923,17 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     host: {
       describe(request) {
         // TODO: version should read apps/cli's package.json; placeholder for now.
-        const selection = defaults.defaultModelSelection()
+        // No default model may be configured yet; report empty so the UI can
+        // render its empty state rather than the describe call failing.
+        let provider = ''
+        let model = ''
+        try {
+          const selection = defaults.defaultModelSelection()
+          provider = selection.provider
+          model = selection.model
+        } catch {
+          // The "configure a model first" posture — reported as no default.
+        }
         return Promise.resolve(ok(request, {
           version: '0.0.1',
           // Same source as session.create's fallback: the UI's default project
@@ -2931,8 +2941,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           cwd: defaults.cwd,
           // Read live for the same reason: this is what the NEXT session will
           // start from, so a saved default has to be what it reports.
-          provider: selection.provider,
-          model: selection.model,
+          provider,
+          model,
           attachedSessions: ctx.agents.list().length,
           canOpenPath: canOpenPaths(),
         }))
@@ -3380,6 +3390,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           settingsPath: [...entry.settingsPath],
           active: active.has(entry.provider),
           ...entry.declared === undefined ? {} : { declared: entry.declared },
+          ...entry.baseUrl === undefined ? {} : { baseUrl: entry.baseUrl },
         }))
         // Routes registered without a directory declaration still appear —
         // they exist and serve models — just with no settings address. No

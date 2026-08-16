@@ -92,6 +92,7 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        provider="deepseek-official",
         model="deepseek-v4-flash",
         max_tokens=4096,
         cwd=str(tmp_path),
@@ -150,6 +151,8 @@ for line in sys.stdin:
 
     seen: list[str] = []
     with DeepSeekHarness(
+        provider="deepseek-official",
+        model="deepseek-v4-flash",
         launch_args_override=(sys.executable, str(script)),
         cwd=str(tmp_path),
     ) as harness:
@@ -188,6 +191,8 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        provider="deepseek-official",
+        model="deepseek-v4-flash",
         launch_args_override=(sys.executable, str(script)),
         cwd=str(tmp_path),
     ) as harness:
@@ -222,6 +227,8 @@ for line in sys.stdin:
     monkeypatch.chdir(tmp_path)
 
     with DeepSeekHarness(
+        provider="deepseek-official",
+        model="deepseek-v4-flash",
         cwd=".",
         runtime_cwd=".",
         launch_args_override=(sys.executable, str(script)),
@@ -263,6 +270,8 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        provider="deepseek-official",
+        model="deepseek-v4-flash",
         launch_args_override=(sys.executable, str(script)),
         cwd=str(tmp_path),
     ) as harness:
@@ -312,6 +321,8 @@ for line in sys.stdin:
 
     seen: list[str] = []
     with DeepSeekHarness(
+        provider="deepseek-official",
+        model="deepseek-v4-flash",
         launch_args_override=(sys.executable, str(script)),
         cwd=str(tmp_path),
     ) as harness:
@@ -367,6 +378,8 @@ for line in sys.stdin:
     )
 
     with DeepSeekHarness(
+        provider="deepseek-official",
+        model="deepseek-v4-flash",
         launch_args_override=(sys.executable, str(script)),
         cwd=str(tmp_path),
     ) as harness:
@@ -401,7 +414,7 @@ for line in sys.stdin:
 """.strip()
     )
 
-    with DeepSeekHarness(launch_args_override=(sys.executable, str(script)), cwd=str(tmp_path)) as harness:
+    with DeepSeekHarness(provider="deepseek-official", model="deepseek-v4-flash", launch_args_override=(sys.executable, str(script)), cwd=str(tmp_path)) as harness:
         result = harness.run("one turn", session_id="main")
         assert harness.client._notifications.qsize() == 0
 
@@ -441,7 +454,7 @@ for line in sys.stdin:
 """.strip()
     )
 
-    with DeepSeekHarness(launch_args_override=(sys.executable, str(script)), cwd=str(tmp_path)) as harness:
+    with DeepSeekHarness(provider="deepseek-official", model="deepseek-v4-flash", launch_args_override=(sys.executable, str(script)), cwd=str(tmp_path)) as harness:
         first = harness.run("first turn", session_id="main")
         second = harness.run("second turn", session_id="main")
 

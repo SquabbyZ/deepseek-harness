@@ -42,7 +42,7 @@ function fakeLaunch(env: Record<string, string> = {}, extra: LaunchOverrides = {
 }
 
 function harnessWith(env: Record<string, string> = {}, extra: LaunchOverrides = {}): DeepSeekHarness {
-  const harness = new DeepSeekHarness({ launch: fakeLaunch(env, extra) })
+  const harness = new DeepSeekHarness({ launch: fakeLaunch(env, extra), provider: 'test-provider', model: 'test-model' })
   cleanups.push(() => harness.close())
   return harness
 }
@@ -182,6 +182,8 @@ describe('DeepSeekHarness', () => {
     expect(isAbsolute(relativeCwd)).toBe(false)
     const harness = new DeepSeekHarness({
       launch: fakeLaunch({ FAKE_RECORD_INIT: recordFile, FAKE_ECHO_CWD_IN_INIT: '1' }, { cwd: relativeCwd }),
+      provider: 'test-provider',
+      model: 'test-model',
     })
     cleanups.push(() => harness.close())
     await harness.start()
@@ -232,7 +234,7 @@ describe('DeepSeekHarness', () => {
   it('supports await using disposal', async () => {
     let captured: DeepSeekHarness
     {
-      await using harness = new DeepSeekHarness({ launch: fakeLaunch() })
+      await using harness = new DeepSeekHarness({ launch: fakeLaunch(), provider: 'test-provider', model: 'test-model' })
       captured = harness
       const result = await harness.run('scoped')
       expect(result.finalResponse).toBe('hello from fake runtime')

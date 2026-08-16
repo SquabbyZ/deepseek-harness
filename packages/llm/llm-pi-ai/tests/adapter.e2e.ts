@@ -149,7 +149,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-pi-ai e2e (real API)', () =>
     const deepseekCtx = new Context()
     contexts.push(deepseekCtx)
     await deepseekCtx.plugin(LlmRuntime)
-    await deepseekCtx.plugin(LlmDeepSeek, { thinking: 'disabled' })
+    await deepseekCtx.plugin(LlmDeepSeek, { providers: { 'deepseek-official': { thinking: 'disabled' } } })
 
     const piCtx = await harness(FLASH)
 

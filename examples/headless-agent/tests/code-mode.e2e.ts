@@ -77,7 +77,7 @@ async function workspaceCodeModeHarness(): Promise<Context> {
   await harness.plugin(ToolFs)
   await harness.plugin(WorkspaceContext, { maxBytes: 65536 })
   await harness.plugin(AgentLoop, { agents: [] })
-  await harness.plugin(LlmDeepSeek, { models: [{ id: 'deepseek-v4-flash' }] })
+  await harness.plugin(LlmDeepSeek, { providers: { 'deepseek-official': { models: [{ id: 'deepseek-v4-flash' }] } } })
   await harness.plugin(WorkerThreadCodeRuntime, {})
   return harness
 }

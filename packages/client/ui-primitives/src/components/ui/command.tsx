@@ -43,10 +43,19 @@ CommandInput.displayName = CommandPrimitive.Input.displayName
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
+>(({ className, onWheel, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
     className={cn('max-h-[300px] overflow-y-auto overflow-x-hidden', className)}
+    onWheel={(event) => {
+      // A body-portaled command list sits outside the owning dialog's scroll
+      // lock (`body { overflow: hidden }`), which swallows native wheel
+      // scrolling; scroll by hand so every option stays reachable. No
+      // `preventDefault` here: React attaches `wheel` listeners passively,
+      // and the lock already stops the native scroll.
+      event.currentTarget.scrollTop += event.deltaY
+      onWheel?.(event)
+    }}
     {...props}
   />
 ))

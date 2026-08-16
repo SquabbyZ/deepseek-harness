@@ -962,10 +962,11 @@ describe('configurable-provider directory', () => {
 
     expect(ctx.llm.listConfigurableProviders()).toContainEqual({
       provider: 'openai-codex',
-      displayName: 'openai-codex',
+      displayName: 'OpenAI Codex',
       settingsNs: 'llm-pi-ai',
       settingsPath: ['providers', 'openai-codex'],
       declared: false,
+      baseUrl: 'https://chatgpt.com/backend-api',
     })
   })
 })

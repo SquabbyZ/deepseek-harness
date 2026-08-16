@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import * as agentCore from '@deepseek-ai/dsh-agent-spine-demo'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
 import * as jsonrpc from '../src/index.ts'
 
 /**
@@ -62,6 +63,7 @@ async function mountPlugin(
   const ctx = new Context()
   await ctx.plugin(agentCore, { workspaceContext: false })
   await ctx.plugin(JsonlSessionPersistence, { root: storageDir })
+  await ctx.plugin(LlmDeepSeek, { providers: { 'deepseek-official': {} } })
   await new Promise(resolve => setTimeout(resolve, 50))
 
   const input = new PassThrough()
