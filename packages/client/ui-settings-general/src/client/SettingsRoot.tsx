@@ -10,10 +10,11 @@
  * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs
  * to the step, so a mounted-but-deciding step paints nothing here.
  */
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import {
   IconAgentPresetOutline16, IconCloseOutline16, IconDataOutline16,
-  IconPersonalizationOutline16, IconSettingsOutline16, ShadcnButton, cn,
+  IconPersonalizationOutline16, IconSettingsOutline16, ShadcnButton, Sheet,
+  SheetContent, SheetTitle, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
 
@@ -49,71 +50,61 @@ type PanelProps = {
   activeId: string | undefined
   onSelect: (id: string) => void
   onClose: () => void
+  open: boolean
 }
 
 /**
- * The modal layer: full-viewport mask + centered panel. Close paths: the
- * header button, a mask click, and document-level Escape (mounted only while
- * open, so the listener lifetime is the panel's).
+ * The settings panel as a right-side drawer (shadcn Sheet): full-height and
+ * side-anchored with the section nav rail. Mask click, Escape, and focus
+ * management are the Radix dialog's own, so the panel stays thin.
  */
-function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
+function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose, open }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
   const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
   const titleId = useId()
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => { document.removeEventListener('keydown', onKeyDown) }
-  }, [onClose])
-
-  // Baseline focus management: entering the dialog lands on the close button.
-  const closeButton = useRef<HTMLButtonElement | null>(null)
-  useEffect(() => { closeButton.current?.focus() }, [])
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center" role="presentation">
-      <div className="absolute inset-0 bg-[var(--dsw-alias-bg-mask-1)] [backdrop-filter:var(--dsw-mask-blur)]" aria-hidden="true" onClick={onClose} />
-      <div
-        className="relative z-[1] flex h-[min(800px,calc(100vh_-_48px))] w-[800px] max-w-[calc(100vw_-_48px)] overflow-hidden rounded-3xl bg-[var(--dsw-alias-bg-layer-2)] shadow-[var(--dsw-shadow-lv3)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
+    <Sheet open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <SheetContent
+        side="right"
+        hideClose
+        className="w-[560px] max-w-[calc(100vw_-_16px)] sm:max-w-none gap-0 bg-[var(--dsw-alias-bg-overlay)] p-0 shadow-[var(--dsw-shadow-lv3)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
       >
-        <nav className="flex-none flex w-[188px] flex-col gap-[18px] px-3 pt-[22px]">
-          <div className="px-3 text-base leading-6 font-medium text-foreground" id={titleId}>{renderSlot('settings.header', {})}</div>
-          <div className="flex flex-col gap-1">
-            {rows.map(row => (
-              <ShadcnButton
-                key={row.id}
-                variant="ghost"
-                className={cn(NAV_CELL_BASE, row.id === active && NAV_CELL_ACTIVE)}
-                aria-current={row.id === active ? 'true' : undefined}
-                onClick={() => { onSelect(row.id) }}
-              >
-                {navIcon(row.id)}
-                <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{row.label}</span>
+        <SheetTitle className="sr-only">{renderSlot('settings.header', {})}</SheetTitle>
+        <div className="flex h-full">
+          <nav className="flex-none flex w-[188px] flex-col gap-[18px] px-3 pt-[22px]">
+            <div className="px-3 text-base leading-6 font-medium text-foreground" id={titleId}>{renderSlot('settings.header', {})}</div>
+            <div className="flex flex-col gap-1">
+              {rows.map(row => (
+                <ShadcnButton
+                  key={row.id}
+                  variant="ghost"
+                  className={cn(NAV_CELL_BASE, row.id === active && NAV_CELL_ACTIVE)}
+                  aria-current={row.id === active ? 'true' : undefined}
+                  onClick={() => { onSelect(row.id) }}
+                >
+                  {navIcon(row.id)}
+                  <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{row.label}</span>
+                </ShadcnButton>
+              ))}
+            </div>
+          </nav>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex-none flex h-[54px] items-start justify-between gap-2 pt-5 pr-[14px] pb-2 pl-2.5">
+              <div className="ml-auto flex min-w-0 items-center justify-end gap-2">{renderSlot('settings.action', {})}</div>
+              <ShadcnButton variant="ghost" className={CLOSE_BUTTON} onClick={onClose}>
+                <IconCloseOutline16 size={14} />
+                <span className="sr-only">{renderSlot('settings.close', {})}</span>
               </ShadcnButton>
-            ))}
-          </div>
-        </nav>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex-none flex h-[54px] items-start justify-between gap-2 pt-5 pr-[14px] pb-2 pl-2.5">
-            <div className="ml-auto flex min-w-0 items-center justify-end gap-2">{renderSlot('settings.action', {})}</div>
-            <ShadcnButton ref={closeButton} variant="ghost" className={CLOSE_BUTTON} onClick={onClose}>
-              <IconCloseOutline16 size={14} />
-              <span className="sr-only">{renderSlot('settings.close', {})}</span>
-            </ShadcnButton>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-            {active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+              {active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -178,6 +169,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           activeId={activeId}
           onSelect={setActiveId}
           onClose={close}
+          open={open}
         />
       )}
       {/* Dialog chrome and `#root` inert ownership live inside each step's

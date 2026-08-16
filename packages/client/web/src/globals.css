@@ -223,8 +223,8 @@ body[data-ds-dark-theme] {
  * (rgba tints of --dsw-static-neutral-*), so background content shows through
  * as soft, desaturated glass rather than a flat tint. */
 [data-skin='glass'] [data-surface] {
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  backdrop-filter: blur(10px) saturate(1.4);
 }
 
 /* Glass edge: the raised sidebar keeps its light hairline (the glass border-l1

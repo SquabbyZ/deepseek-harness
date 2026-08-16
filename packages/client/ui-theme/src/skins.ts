@@ -24,7 +24,7 @@ export const SKIN_PRESETS: Record<SkinId, ThemeTokenOverrides> = {
     // needs to stay thin enough that background content shows through. The
     // l1/l2 hairlines flip to a light (white) tint in BOTH schemes — the
     // classic glass edge — instead of the default dark hairline.
-    '--dsw-alias-bg-base': { light: 'rgba(255, 255, 255, 0.42)', dark: 'rgba(15, 17, 21, 0.45)' },
+    '--dsw-alias-bg-base': { light: 'rgba(255, 255, 255, 0.3)', dark: 'rgba(15, 17, 21, 0.32)' },
     '--dsw-alias-bg-layer-1': { light: 'rgba(255, 255, 255, 0.58)', dark: 'rgba(21, 21, 23, 0.55)' },
     '--dsw-alias-bg-layer-2': { light: 'rgba(255, 255, 255, 0.74)', dark: 'rgba(27, 27, 28, 0.7)' },
     '--dsw-alias-bg-overlay': { light: 'rgba(255, 255, 255, 0.88)', dark: 'rgba(35, 35, 36, 0.85)' },
