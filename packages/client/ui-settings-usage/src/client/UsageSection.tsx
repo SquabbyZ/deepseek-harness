@@ -23,7 +23,7 @@ import type { en } from './locales.ts'
 
 const DAY_MS = 86_400_000
 
-const SECTION = 'flex flex-col gap-5 max-w-[720px] text-foreground'
+const SECTION = 'flex flex-col gap-5 w-full text-foreground'
 const TITLE = 'm-0 text-base leading-6 font-medium text-foreground'
 const INTRO = 'm-0 text-sm leading-[22px] text-[var(--dsw-alias-label-tertiary)]'
 const CONTROLS = 'flex flex-wrap items-end gap-4'

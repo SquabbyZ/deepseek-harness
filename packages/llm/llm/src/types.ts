@@ -74,6 +74,22 @@ export interface ImageBlock {
   attachment: ImageAttachmentRef
 }
 
+/**
+ * A document reduced to text for a text-only model (office files via anydoc,
+ * PDFs via OCR). The block carries both the original filename and the converted
+ * text, so the UI can render a compact tag that opens the content in a drawer
+ * while the adapter flattens the text into the model request.
+ */
+export interface DocumentBlock {
+  type: 'document'
+  /** Original filename, for the conversation tag and the drawer header. */
+  name: string
+  /** Converted text (markdown for office formats, plain text for OCR'd PDFs). */
+  content: string
+  /** Content kind, so the drawer renders plain text line-for-line and markdown as markdown. */
+  format: 'markdown' | 'text'
+}
+
 /** A tool invocation requested by the model. */
 export interface ToolCallBlock {
   type: 'tool-call'
@@ -100,6 +116,7 @@ export interface ContentBlockMap {
   'text': TextBlock
   'reasoning': ReasoningBlock
   'image': ImageBlock
+  'document': DocumentBlock
   'tool-call': ToolCallBlock
   'tool-result': ToolResultBlock
 }

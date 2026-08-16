@@ -8,7 +8,10 @@ import type { ReactNode } from 'react'
 import type {
   ModelRetryNode, TurnErrorNode, UserMessageNode,
 } from '@deepseek-ai/dsh-client-runtime/client'
-import { IconApiOutline14, JsonBlock, MessageText, Progress, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconApiOutline14, IconPaperclipOutline16, JsonBlock, MarkdownText, MessageText, Progress,
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, StateDot,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeViewProps, ChatViewSlotProps } from '../contract/slots.ts'
 import { ImageGallery, type ImageLoader } from '@deepseek-ai/dsh-client-ui-attachment'
 import { messageImageLabels } from '../image-labels.ts'
@@ -21,20 +24,25 @@ type UserImage = Extract<UserMessageNode['content'][number], { type: 'image' }>
 function contentParts(content: readonly unknown[]): {
   text: string
   images: { attachment: UserImage['attachment'] }[]
+  documents: { name: string; content: string; format: 'markdown' | 'text' }[]
   rest: unknown[]
 } {
   const texts: string[] = []
   const images: { attachment: UserImage['attachment'] }[] = []
+  const documents: { name: string; content: string; format: 'markdown' | 'text' }[] = []
   const rest: unknown[] = []
   for (const block of content) {
-    const b = block as { type?: string; text?: string; attachment?: unknown }
+    const b = block as { type?: string; text?: string; attachment?: unknown; name?: string; content?: string; format?: string }
     if (b.type === 'text' && typeof b.text === 'string') texts.push(b.text)
     else if (b.type === 'image' && b.attachment !== undefined) {
       images.push({ attachment: (b as UserImage).attachment })
     }
+    else if (b.type === 'document' && typeof b.name === 'string' && typeof b.content === 'string') {
+      documents.push({ name: b.name, content: b.content, format: b.format === 'text' ? 'text' : 'markdown' })
+    }
     else rest.push(block)
   }
-  return { text: texts.join(''), images, rest }
+  return { text: texts.join(''), images, documents, rest }
 }
 
 function retrySeconds(milliseconds: number): number {
@@ -186,13 +194,41 @@ function UserStyleBubble({
   pending?: boolean
   t: ChatViewSlotProps['t']
 }): ReactNode {
-  const { text, images, rest } = contentParts(content)
+  const { text, images, documents, rest } = contentParts(content)
   const truncated = (total: number): string => t('json.truncated', { total })
   const showBubble = text !== '' || rest.length > 0
   return (
     <div className="userRow flex flex-col items-end gap-[6px]" data-pending-steering={pending || undefined} data-time-hover-root>
       <div className="flex flex-col items-end gap-2 min-w-0 max-w-[min(525px,82%)]">
         <ImageGallery images={images} load={imageLoader} align="end" labels={messageImageLabels(t)} />
+        {documents.length > 0 && (
+          <div className="flex flex-col items-end gap-2">
+            {documents.map((doc, index) => (
+              <Sheet key={index}>
+                <SheetTrigger asChild>
+                  <button type="button" className="inline-flex h-8 max-w-[260px] items-center gap-1.5 rounded-lg border border-[var(--dsw-alias-border-l2-darkmode-thin)] bg-[var(--dsw-specific-bubble)] px-2.5 text-xs text-[var(--dsw-alias-label-primary)] hover:bg-[var(--dsw-alias-interactive-bg-hover-solid)] cursor-pointer">
+                    <IconPaperclipOutline16 className="flex-none size-3.5" aria-hidden />
+                    <span className="truncate">{doc.name}</span>
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="right" className="flex w-[520px] flex-col gap-0 p-0" style={{ maxWidth: 'min(520px, 90vw)' }}>
+                  <SheetHeader className="flex items-center justify-between gap-2 border-b border-[var(--dsw-alias-border-l2-darkmode-thin)] px-4 py-3">
+                    <SheetTitle className="truncate text-sm">{doc.name}</SheetTitle>
+                  </SheetHeader>
+                  {doc.format === 'text' ? (
+                    <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 text-sm leading-6 text-[var(--dsw-alias-label-primary)] font-sans">
+                      {doc.content}
+                    </pre>
+                  ) : (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                      <MarkdownText text={doc.content} />
+                    </div>
+                  )}
+                </SheetContent>
+              </Sheet>
+            ))}
+          </div>
+        )}
         {showBubble && <div className="max-w-full rounded-[22px] px-4 py-[10px] text-base leading-6 text-[var(--dsw-alias-label-primary)] bg-[var(--dsw-specific-bubble)]">
           {projectUserText(text)}
           {rest.map((block, i) => <JsonBlock key={i} label={t('message.extraBlock')} payload={block} truncatedLabel={truncated} />)}

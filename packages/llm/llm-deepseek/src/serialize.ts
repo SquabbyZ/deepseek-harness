@@ -52,11 +52,12 @@ function resolveThinking(options: GenerateOptions, defaults: RequestDefaults): R
   return defaults.thinking === undefined ? {} : { thinking: defaults.thinking }
 }
 
-/** Join the text blocks of a message (used for user/tool-result content). */
+/** Join the text blocks of a message (used for user/tool-result content); documents reduce to their text with a filename marker. */
 function flattenText(blocks: ContentBlock[]): string {
   return blocks
-    .filter(block => block.type === 'text')
-    .map(block => block.text)
+    .map(block => block.type === 'text'
+      ? block.text
+      : block.type === 'document' ? `[File: ${block.name}]\n${block.content}` : '')
     .join('')
 }
 

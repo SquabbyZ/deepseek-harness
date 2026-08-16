@@ -16,7 +16,8 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
-import { convertWithAnydoc } from './files.ts'
+import { convertDocument, detectDocumentFormat } from './files.ts'
+import type { DocumentConversion } from './files.ts'
 import {
   ContentTextCache,
   DEFAULT_MAX_CACHE_BYTES,
@@ -77,7 +78,7 @@ export class MediaIntake extends Service {
     this.ocrEnabled = config.ocrEnabled ?? true
     this.fileEnabled = config.fileEnabled ?? true
     this.cache = new ContentTextCache({
-      root: resolve(join(resolveDshHome(config.dshHome), 'media-intake', 'v1')),
+      root: resolve(join(resolveDshHome(config.dshHome), 'media-intake', 'v2')),
       maxBytes: config.cacheMaxBytes ?? DEFAULT_MAX_CACHE_BYTES,
       maxEntries: config.cacheMaxEntries ?? DEFAULT_MAX_CACHE_ENTRIES,
       ttlMs: config.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS,
@@ -100,21 +101,24 @@ export class MediaIntake extends Service {
   }
 
   /**
-   * Convert one document to markdown, cached by content hash.
+   * Convert one document to text, cached by content hash.
    * @param bytes - encoded document bytes.
    * @param name - optional original filename, used only to disambiguate signature-less formats.
-   * @returns markdown, or `null` when the format is unrecognized.
+   * @returns the converted text and its kind, or `null` when the format is unrecognized.
    */
-  async convertFile(bytes: Uint8Array, name?: string): Promise<string | null> {
+  async convertFile(bytes: Uint8Array, name?: string): Promise<DocumentConversion | null> {
     if (!this.fileEnabled) throw new AttachmentError('Document conversion is disabled.', 'FILE_CONVERSION_DISABLED')
     try {
       const key = digest(bytes)
       const cached = await this.cache.get(key)
-      if (cached !== undefined) return cached
-      const markdown = await convertWithAnydoc(bytes, name)
-      if (markdown === null) return null
-      await this.cache.set(key, markdown)
-      return markdown
+      if (cached !== undefined) {
+        const format = await detectDocumentFormat(bytes, name)
+        return format === null ? null : { content: cached, format }
+      }
+      const result = await convertDocument(bytes, name)
+      if (result === null) return null
+      await this.cache.set(key, result.content)
+      return result
     } catch (error) {
       if (error instanceof AttachmentError) throw error
       throw new AttachmentError('Document conversion failed.', 'FILE_CONVERSION_FAILED', { cause: error })

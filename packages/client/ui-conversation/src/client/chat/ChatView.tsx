@@ -14,7 +14,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
-import { IconChevronDownOutline14, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
+import { FishLogo, IconChevronDownOutline14, ShadcnButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { PendingSteeringBubble } from './MessageItem.tsx'
 import { ChatNodeSeat } from './ChatNodeSeat.tsx'
@@ -22,9 +22,9 @@ import { formatRunDuration } from './message-chrome.ts'
 
 const FOLLOW_THRESHOLD = 24
 
-/** Active column host when present; otherwise the view-local scroller. */
+/** The chat's own scroll container: `.chat-view-scroll` owns overflow; the composer sits in the outer conversation scroll below it. */
 function scrollerOf(from: HTMLElement): HTMLElement {
-  return (from.closest('[data-conversation-scroll]')) ?? from
+  return from
 }
 
 interface PagingAnchor {
@@ -150,6 +150,10 @@ export function ChatView({
   const nodeStore = useSession(s => s.chat.nodes)
   const timeline = useSession(s => s.chat.timeline)
   const inbox = useSession(s => s.queue)
+  // A queued (not yet admitted) message means the host is still converting an
+  // attachment (OCR) or otherwise preparing the turn — show a wait signal
+  // instead of a blank conversation until the running turn takes over.
+  const sending = inbox.some(item => item.placement === 'queued')
   // Workspace root off the session list row: path summaries display relative to it.
   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
   const running = useSession(s => s.running)
@@ -331,8 +335,7 @@ export function ChatView({
     const column = columnRef.current
     const local = listRef.current
     if (column === null || local === null || typeof ResizeObserver === 'undefined') return
-    const scrollport = scrollerOf(local)
-    const composer = scrollport.querySelector<HTMLElement>('[data-composer-seat]')
+    const composer = (local.closest('[data-conversation-scroll]') ?? local).querySelector<HTMLElement>('[data-composer-seat]')
     const observer = new ResizeObserver(() => { followRef.current?.() })
     observer.observe(column)
     if (composer !== null) observer.observe(composer)
@@ -404,6 +407,12 @@ export function ChatView({
               double-render the same wait. */}
           {/* Turn-level loading signal: rides the whole running turn (first-token
               wait, tool execution, streaming) so it never flickers per step. */}
+          {sending && !running && (
+            <div className="flex items-center gap-2 py-2" role="status" aria-label={t('loading')}>
+              <FishLogo size={20} className="animate-pulse text-[var(--dsw-alias-label-tertiary)]" />
+              <span className="text-sm leading-6 text-[var(--dsw-alias-label-tertiary)]">{t('loading')}</span>
+            </div>
+          )}
           {running && <TurnStatus startTime={runningTurnStart} t={t} />}
           {pendingSteering.map(item => (
             <PendingSteeringBubble key={item.id} content={item.content} loadImage={loadImage} t={t} />

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ContentTextCache, digest } from '../src/cache.ts'
-import { convertWithAnydoc } from '../src/files.ts'
+import { convertDocument } from '../src/files.ts'
 import { recognizeWithLightOcr } from '../src/ocr.ts'
 
 vi.mock('@arcships/light-ocr', () => ({
@@ -75,14 +75,14 @@ describe('recognizeWithLightOcr', () => {
   })
 })
 
-describe('convertWithAnydoc', () => {
+describe('convertDocument', () => {
   it('converts detected bytes to markdown', async () => {
-    expect(await convertWithAnydoc(new Uint8Array([1]))).toBe('# doc (docx)')
+    expect(await convertDocument(new Uint8Array([1]))).toEqual({ content: '# doc (docx)', format: 'markdown' })
   })
 
   it('returns null for an unrecognized format', async () => {
     const anydoc = await import('@firecrawl/anydoc')
     vi.mocked(anydoc.formatFromBytes).mockReturnValueOnce(null)
-    expect(await convertWithAnydoc(new Uint8Array([1]))).toBeNull()
+    expect(await convertDocument(new Uint8Array([1]))).toBeNull()
   })
 })

@@ -31,6 +31,11 @@ export function estimateContent(blocks: readonly ContentBlock[]): number {
       case 'reasoning':
         tokens += Math.ceil(block.text.length / CHARS_PER_TOKEN) + BLOCK_OVERHEAD
         break
+      case 'document':
+        tokens += Math.ceil(block.content.length / CHARS_PER_TOKEN)
+          + Math.ceil(block.name.length / CHARS_PER_TOKEN)
+          + BLOCK_OVERHEAD
+        break
       case 'tool-call':
         tokens += Math.ceil(block.name.length / CHARS_PER_TOKEN)
           + Math.ceil(block.arguments.length / CHARS_PER_TOKEN)

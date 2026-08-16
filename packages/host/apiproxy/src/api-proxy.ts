@@ -220,30 +220,22 @@ async function ocrPromptContent(ctx: Context, content: readonly PromptContentPar
 }
 
 /**
- * Reduce document parts to their markdown text. Documents are never a model
- * input modality, so every file is converted before admission regardless of
- * model capability. The filename is a label, not a storage path, and is
- * stripped of line breaks so it cannot fragment the resulting text block.
+ * Convert one file part into a durable document block. Documents are never a
+ * model input modality, so every file is converted before admission regardless
+ * of model capability. The filename is a label, not a storage path, and is
+ * stripped of line breaks so it cannot fragment the resulting block.
  */
-async function filePromptContent(ctx: Context, content: readonly PromptContentPart[]): Promise<PromptContentPart[]> {
-  const out: PromptContentPart[] = []
-  for (const part of content) {
-    if (part.type !== 'file') {
-      out.push(part)
-      continue
-    }
-    const markdown = await ctx.mediaIntake.convertFile(decodeBase64(part.data), part.name)
-    if (markdown === null) {
-      throw new AttachmentError('The uploaded file is not a recognized document format.', 'UNSUPPORTED_FILE_TYPE')
-    }
-    const trimmed = markdown.trim()
-    if (trimmed.length === 0) {
-      throw new AttachmentError('The uploaded document contains no extractable text.', 'FILE_NO_TEXT')
-    }
-    const label = (part.name ?? 'attached file').replace(/[\r\n]+/g, ' ')
-    out.push({ type: 'text', text: `[File: ${label}]\n${trimmed}` })
+async function fileToDocument(ctx: Context, part: Extract<PromptContentPart, { type: 'file' }>): Promise<ContentBlock> {
+  const result = await ctx.mediaIntake.convertFile(decodeBase64(part.data), part.name)
+  if (result === null) {
+    throw new AttachmentError('The uploaded file is not a recognized document format.', 'UNSUPPORTED_FILE_TYPE')
   }
-  return out
+  const content = result.content.trim()
+  if (content.length === 0) {
+    throw new AttachmentError('The uploaded document contains no extractable text.', 'FILE_NO_TEXT')
+  }
+  const name = (part.name ?? 'attached file').replace(/[\r\n]+/g, ' ')
+  return { type: 'document', name, content, format: result.format }
 }
 
 /** Search durable content for an image reference, including nested tool results. */
@@ -2539,11 +2531,16 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           ...(canonicalTimeZone === undefined ? {} : { clientTimeZone: canonicalTimeZone }),
         }
         const hasImage = content.some(part => part.type === 'image')
+        const hasFile = content.some(part => part.type === 'file')
         // Documents are never a model input modality, so every file is reduced
-        // to markdown before admission regardless of model capability.
-        let effectiveContent: readonly PromptContentPart[] = content
-        if (content.some(part => part.type === 'file')) {
-          effectiveContent = await filePromptContent(ctx, effectiveContent)
+        // to a durable document block before admission; text and image parts
+        // continue through durablePromptContent below.
+        let documentBlocks: ContentBlock[] = []
+        let remainingContent: readonly PromptContentPart[] = content
+        if (hasFile) {
+          const fileParts = content.filter((part): part is Extract<PromptContentPart, { type: 'file' }> => part.type === 'file')
+          documentBlocks = await Promise.all(fileParts.map(part => fileToDocument(ctx, part)))
+          remainingContent = content.filter(part => part.type !== 'file')
         }
         // A text-only model cannot see an image, so reduce each image to its
         // extracted text before the message is admitted. Vision-capable models
@@ -2553,13 +2550,14 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           const current = selectionFor(agent).current
           const modelInfo = await ctx.llm.resolveModelInfo(current.provider, current.model)
           if (modelInfo.inputModalities !== undefined && !modelInfo.inputModalities.includes('image')) {
-            effectiveContent = await ocrPromptContent(ctx, effectiveContent)
+            remainingContent = await ocrPromptContent(ctx, remainingContent)
             ocrApplied = true
           }
         }
         const admit = async (): Promise<RpcResponse<{ accepted: true }>> => {
           try {
-            const durable = await durablePromptContent(ctx, effectiveContent)
+            const textImageBlocks = await durablePromptContent(ctx, remainingContent)
+            const durable: ContentBlock[] = [...documentBlocks, ...textImageBlocks]
             const message: UserMessage = createUserMessage({ content: durable, source })
             if (mode === 'steer') agent.steer(message)
             else agent.followup(message)

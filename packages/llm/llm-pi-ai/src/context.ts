@@ -13,8 +13,9 @@ import { toPiAssistant } from './replay.ts'
 /** Join the text blocks of a harness message. */
 function flattenText(message: Message): string {
   return message.content
-    .filter(block => block.type === 'text')
-    .map(block => block.text)
+    .map(block => block.type === 'text'
+      ? block.text
+      : block.type === 'document' ? `[File: ${block.name}]\n${block.content}` : '')
     .join('')
 }
 
@@ -35,6 +36,9 @@ async function userContent(
     switch (block.type) {
       case 'text':
         if (block.text.length > 0) content.push({ type: 'text', text: block.text })
+        break
+      case 'document':
+        if (block.content.length > 0) content.push({ type: 'text', text: `[File: ${block.name}]\n${block.content}` })
         break
       case 'image': {
         const stored = await attachments.readImage(block.attachment)
