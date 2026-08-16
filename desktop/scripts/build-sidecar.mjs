@@ -193,4 +193,11 @@ cpSync(join(dshApp, 'config'), join(dshDir, 'config'), { recursive: true })
 // 5. Copy the Node runtime binary.
 copyFileSync(process.execPath, join(runtime, isWin ? 'node.exe' : 'node'))
 
+// 6. Restore the workspace node_modules. The deploy's --config.node-linker=hoisted
+//    leaves pnpm's deps-status check out of sync, so the NEXT `pnpm run` would
+//    trigger an internal `install --production` that purges dev deps
+//    (lefthook/typescript/react/…). A full reinstall undoes that purge so the
+//    developer's workspace stays buildable.
+run('pnpm install')
+
 console.log(`sidecar runtime ready at ${runtime}`)

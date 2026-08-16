@@ -69,7 +69,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose, open }: 
       <SheetContent
         side="right"
         hideClose
-        className="w-[560px] max-w-[calc(100vw_-_16px)] sm:max-w-none gap-0 bg-[var(--dsw-alias-bg-overlay)] p-0 shadow-[var(--dsw-shadow-lv3)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
+        className="w-screen sm:max-w-none gap-0 bg-[var(--dsw-alias-bg-overlay)] p-0 shadow-[var(--dsw-shadow-lv3)] [--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)] [--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)]"
       >
         <SheetTitle className="sr-only">{renderSlot('settings.header', {})}</SheetTitle>
         <div className="flex h-full">
