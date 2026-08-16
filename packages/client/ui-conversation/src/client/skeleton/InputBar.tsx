@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import {
-  cn, IconPlusOutline16, IconWarningOutline16, ShadcnButton, Textarea, Toast, Tooltip,
+  cn, IconPlusOutline16, IconWarningOutline16, ShadcnButton, Switch, Textarea, Toast, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AttachmentRail, DropOverlay, ImageLightbox } from '@deepseek-ai/dsh-client-ui-attachment'
 import type { AttachmentRailItem } from '@deepseek-ai/dsh-client-ui-attachment'
@@ -53,7 +53,7 @@ export type InputBarProps = ComposerBarProps
 export function InputBar({
   useSession, useInput, inputActions, keyboard, addImages, removeImage, draftImages,
   resolveSubmitMode, toggleCommandMenu, stop, command, t,
-  renderSlot, useNotices, useLexicon, useMenuLauncher,
+  renderSlot, useNotices, useLexicon, useMenuLauncher, useAutoCompact, setAutoCompact,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
   placeholder, accessory, overlay, leftItems, rightItems, footer,
@@ -66,6 +66,8 @@ export function InputBar({
   const running = useSession(s => s.running) ?? false
   const subagent = useSession(s => s.subagent) ?? null
   const removed = useSession(s => s.removed) ?? false
+  // Auto-compact quick toggle state, shared with the General settings row.
+  const autoCompact = useAutoCompact(value => value)
   // Plan mode swaps the textarea placeholder (the projection is the folded
   // host value; owner-prop placeholders — hero, session-unavailable — win).
   const planActive = useProjection('plan', plan => plan !== undefined && (plan.pending ? !plan.active : plan.active))
@@ -762,6 +764,13 @@ export function InputBar({
             {rightItems}
             {renderSlot('conversation.input.model', { locked: modelSeatLocked })}
             <ContextMeter useProjection={useProjection} t={t} />
+            <Tooltip label={t('settings.autoCompact.title')} side="top" delayMs={500}>
+              <Switch
+                checked={autoCompact}
+                onCheckedChange={setAutoCompact}
+                aria-label={t('settings.autoCompact.title')}
+              />
+            </Tooltip>
             {interruptible && (
               <Tooltip label={t('input.stop')} side="top" delayMs={500}>
                 <ShadcnButton

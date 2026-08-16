@@ -27,6 +27,9 @@ import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { InputBar } from './skeleton/InputBar.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowInjected } from './settings/EnterBehaviorRow.tsx'
+import { AutoCompactRow } from './settings/AutoCompactRow.tsx'
+import type { AutoCompactRowInjected } from './settings/AutoCompactRow.tsx'
+import { CompactionSettingsPolicy } from './compaction-policy.ts'
 import { ChatView } from './chat/ChatView.tsx'
 import { StatsLine } from './chat/StatsLine.tsx'
 import { ApprovalPanel } from './skeleton/ApprovalPanel.tsx'
@@ -39,6 +42,7 @@ import { en, NS, zh, type ConversationKey } from './locales.ts'
 import { registerConversationNodes } from './conversation-nodes/register.ts'
 import { registerChatNodeRenderers } from './chat/register-node-renderers.ts'
 import { CONVERSATION_SETTINGS_NAMESPACE, type ConversationSettings } from '../submission-settings.ts'
+import { COMPACTION_SETTINGS_NAMESPACE, type CompactionSettings } from '../compaction-settings.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -134,6 +138,10 @@ export function apply(ctx: Context): void {
     ctx.settingsScope.bind<ConversationSettings>({ namespace: CONVERSATION_SETTINGS_NAMESPACE }),
   )
 
+  const compactionPolicy = new CompactionSettingsPolicy(
+    ctx.settingsScope.bind<CompactionSettings>({ namespace: COMPACTION_SETTINGS_NAMESPACE }),
+  )
+
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',
     id: 'composer-enter',
@@ -144,6 +152,25 @@ export function apply(ctx: Context): void {
       setBusyEnter: (behavior) => { submissionPolicy.setBusyEnter(behavior) },
     }),
   }, EnterBehaviorRow))
+
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'auto-compact',
+    order: 30,
+    locale: NS,
+    inject: (): AutoCompactRowInjected => ({
+      hooks: {
+        autoCompact: compactionPolicy.auto,
+        warnRatio: compactionPolicy.thresholdRatio,
+        redlineRatio: compactionPolicy.redlineRatio,
+      },
+      setAutoCompact: (value) => { compactionPolicy.setAuto(value) },
+      setWarnRatio: (value) => { compactionPolicy.setThresholdRatio(value) },
+      setRedlineRatio: (value) => { compactionPolicy.setRedlineRatio(value) },
+      previewWarnRatio: (value) => { compactionPolicy.previewThresholdRatio(value) },
+      previewRedlineRatio: (value) => { compactionPolicy.previewRedlineRatio(value) },
+    }),
+  }, AutoCompactRow))
 
   // Chat semantic reader positions by session, surviving view switches and
   // width reflow when the tab ring remounts the view. Deliberately not
@@ -297,7 +324,13 @@ export function apply(ctx: Context): void {
           toggleCommandMenu: undefined,
           stop: undefined,
           command: undefined,
-          hooks: { notices: ABSENT_NOTICES, lexicon: ABSENT_LEXICON, menuLauncher: ABSENT_MENU_LAUNCHER },
+          setAutoCompact: (value) => { compactionPolicy.setAuto(value) },
+          hooks: {
+            notices: ABSENT_NOTICES,
+            lexicon: ABSENT_LEXICON,
+            menuLauncher: ABSENT_MENU_LAUNCHER,
+            autoCompact: compactionPolicy.auto,
+          },
         }
       }
       const conversation = concreteConversation(ctx)
@@ -351,10 +384,12 @@ export function apply(ctx: Context): void {
           const result = await session.command(line)
           return result.ok && result.value.matched
         },
+        setAutoCompact: (value) => { compactionPolicy.setAuto(value) },
         hooks: {
           notices: shell.notices,
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          autoCompact: compactionPolicy.auto,
         },
       }
     },

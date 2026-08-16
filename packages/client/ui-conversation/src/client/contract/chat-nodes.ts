@@ -44,6 +44,11 @@ export interface ManualCompactionChatData {
   readonly compaction: CompactionSummaryNode | null
 }
 
+/** In-flight automatic compaction before its checkpoint lands. */
+export interface CompactionRunningChatData {
+  readonly compactionId: string
+}
+
 /** One durable retry chain rendered as a single row. */
 export interface RetryChatData {
   readonly attempts: readonly ModelRetryNode[]

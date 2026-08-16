@@ -152,9 +152,11 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(controller.launcher),
+    useAutoCompact: bindSnapshotSelector(createSnapshotStore(true)),
     renderSlot: (() => null) as InputBarProps['renderSlot'],
     stop: vi.fn(),
     command: () => Promise.resolve(true),
+    setAutoCompact: vi.fn(),
     // Mirrors the real lookup chain (conversation namespace, then common).
     t: makeTranslate(zh, commonZh),
     variant: 'composer',

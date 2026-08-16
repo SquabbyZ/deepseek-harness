@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import type {
   ModelRetryNode, TurnErrorNode, UserMessageNode,
 } from '@deepseek-ai/dsh-client-runtime/client'
-import { JsonBlock, MessageText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconApiOutline14, JsonBlock, MessageText, Progress, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeViewProps, ChatViewSlotProps } from '../contract/slots.ts'
 import { ImageGallery, type ImageLoader } from '@deepseek-ai/dsh-client-ui-attachment'
 import { messageImageLabels } from '../image-labels.ts'
@@ -271,6 +271,23 @@ export const ContextMessageNodeView = memo(function ContextMessageNodeView({ nod
 /** Automatic compaction keyed Chat renderer. */
 export const CompactionNodeView = memo(function CompactionNodeView({ node, t }: ChatNodeViewProps<'compaction'>) {
   return <CompactionItem node={node.data} t={t} />
+})
+
+/** In-flight automatic compaction keyed Chat renderer (before its checkpoint lands). */
+export const CompactionRunningNodeView = memo(function CompactionRunningNodeView({ node, t }: ChatNodeViewProps<'compaction-running'>) {
+  return (
+    <div className="flex flex-col py-0.5" data-compaction-running={node.data.compactionId}>
+      <div className="flex items-center h-6 min-w-0">
+        <span className="relative flex-none size-4 inline-flex items-center justify-center mr-[6px] text-[var(--dsw-alias-label-secondary)]" aria-hidden>
+          <IconApiOutline14 />
+        </span>
+        <span className="flex-none text-sm leading-6 text-[var(--dsw-alias-label-primary-dimmed)]">{t('message.compaction')}</span>
+        <span className="flex-none size-0.5 mx-2 rounded-[1px] bg-[var(--dsw-alias-label-caption)]" aria-hidden />
+        <span className="min-w-0 flex-1 overflow-hidden text-sm leading-6 text-[var(--dsw-alias-label-tertiary)] text-ellipsis whitespace-nowrap">{t('message.compaction.running')}</span>
+      </div>
+      <Progress value={50} className="mt-1 h-1 animate-pulse" aria-hidden />
+    </div>
+  )
 })
 
 /** Correlated retry-chain keyed Chat renderer. */

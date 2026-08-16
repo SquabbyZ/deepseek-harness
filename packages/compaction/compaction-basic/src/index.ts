@@ -8,6 +8,7 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { CompactionEngine, ManualCompactionError } from '@deepseek-ai/dsh-compaction'
 import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
 import type { Session } from '@deepseek-ai/dsh-session'
 import { CONTEXT_WINDOW_EXCEEDED_CODE, assertNever } from '@deepseek-ai/dsh-llm'
@@ -71,6 +72,7 @@ function conversationTarget(
 }
 
 const thresholdRatioSchema = z.number()
+const redlineRatioSchema = z.number()
 const retainRatioSchema = z.number()
 const retainTokensSchema = z.number().step(1).min(0)
 const summarizationProviderSchema = z.string()
@@ -100,11 +102,15 @@ const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
  * mutation strategy stays fixed so every pricing decision uses the singleton
  * token meter.
  */
+/** Settings namespace owning the live auto-compact policy (auto / thresholds). */
+const NS = settingsNamespace('compaction')
+
 export class BasicCompactionEngine extends CompactionEngine {
   static inject = ['llm', 'tokenMeter', 'sessions']
 
   static Config: z<BasicCompactionConfig> = z.object({
     thresholdRatio: thresholdRatioSchema,
+    redlineRatio: redlineRatioSchema,
     retainRatio: retainRatioSchema,
     retainTokens: retainTokensSchema,
     summarizationProvider: summarizationProviderSchema,
@@ -116,8 +122,8 @@ export class BasicCompactionEngine extends CompactionEngine {
     auto: z.boolean(),
   })
 
-  /** Resolved and validated compaction configuration. */
-  readonly config: ResolvedConfig
+  /** Resolved and validated compaction configuration, re-derived on settings changes. */
+  config: ResolvedConfig
 
   private readonly warnedPressureConfigTargets = new Set<string>()
   private readonly overflowRetries = new WeakMap<Agent, number>()
@@ -125,8 +131,22 @@ export class BasicCompactionEngine extends CompactionEngine {
 
   constructor(ctx: Context, config: BasicCompactionConfig = {}) {
     super(ctx)
+    // The resolved policy is live-updatable when a settings service is
+    // composed: `current` resolves to the active source (settings section, or
+    // the composition entry), and every committed change re-derives `config`
+    // so the composer switch and threshold sliders apply to the next step
+    // without a restart. A bare composition stays exactly as configured.
+    let current: () => BasicCompactionConfig = () => config
     this.config = resolveConfig(config)
-    if (this.config.auto) this._registerAutomaticCompaction()
+    this._registerAutomaticCompaction()
+    installSettingsSection(this.ctx, NS, BasicCompactionEngine.Config, config, {
+      // Refuse a write whose cross-field constraint the schema cannot express
+      // (red line below the warn threshold) at the settings seam, before it
+      // persists, rather than silently keeping the last good policy.
+      validate: (value) => { void resolveConfig(value) },
+      setSource: (source) => { current = source },
+      onChange: () => { this.config = resolveConfig(current()) },
+    })
   }
 
   /**
@@ -144,22 +164,26 @@ export class BasicCompactionEngine extends CompactionEngine {
       )
     }
 
+    // One pre-step hook serves both automatic triggers: the first step of a
+    // turn is the "between tasks" boundary (warn threshold), later steps are
+    // safe mid-task stopping points (red-line threshold). Gated on the live
+    // `auto` policy so the composer switch disables both without a restart.
     ctx.on('agent/pre-step', async (
-      { agent, signal },
+      { agent, step, signal },
       next,
     ): Promise<PreStepDecision> => {
-      if (!signal.aborted) {
-        try {
-          const result = await this.compactIfNeeded(agent, 'pressure', signal)
-          if (result !== null) logResult(result, 'step pressure')
-        } catch (error: unknown) {
-          if (error instanceof TargetPressureConfigError) {
-            if (this.warnedPressureConfigTargets.has(error.targetKey)) return next()
-            this.warnedPressureConfigTargets.add(error.targetKey)
-          }
-          const message = error instanceof Error ? error.message : String(error)
-          ctx.logger.warn(`step compaction failed: ${message}; continuing the turn`)
+      if (!this.config.auto || signal.aborted) return next()
+      const trigger = step === 1 ? 'pressure' : 'redline'
+      try {
+        const result = await this.compactIfNeeded(agent, trigger, signal)
+        if (result !== null) logResult(result, trigger === 'pressure' ? 'turn pressure' : 'step redline')
+      } catch (error: unknown) {
+        if (error instanceof TargetPressureConfigError) {
+          if (this.warnedPressureConfigTargets.has(error.targetKey)) return next()
+          this.warnedPressureConfigTargets.add(error.targetKey)
         }
+        const message = error instanceof Error ? error.message : String(error)
+        ctx.logger.warn(`step compaction failed: ${message}; continuing the turn`)
       }
       return next()
     })
@@ -180,7 +204,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       { agent, failure, signal },
       next,
     ) => {
-      if (failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next()
+      if (!this.config.auto || failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next()
       this.overflowAgents.set(agent.session, agent)
       const target = routedTarget(agent.session)
       if (target === undefined) return next()
@@ -269,6 +293,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       case 'context-overflow':
         break
       case 'pressure':
+      case 'redline':
         break
       /* v8 ignore next -- closed-union exhaustiveness guard */
       default:
@@ -291,7 +316,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     }
 
     const context = (await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)).context
-    assertNoActiveCompaction(agent.session, 'automatic pressure compaction')
+    assertNoActiveCompaction(agent.session, 'automatic compaction')
     const targetKey = `${target.provider}/${target.model}`
     if (context === undefined) {
       throw new TargetPressureConfigError(
@@ -301,7 +326,8 @@ export class BasicCompactionEngine extends CompactionEngine {
       )
     }
     const spec = resolveCompactSpec(policy, context.contextWindow)
-    if (measurement.totalTokens < spec.thresholdTokens) return null
+    const triggerTokens = trigger === 'redline' ? spec.redlineTokens : spec.thresholdTokens
+    if (measurement.totalTokens < triggerTokens) return null
 
     // Once pressure qualifies, land the model-free pass before choosing a
     // summary range, then remeasure through the singleton replay fold.
@@ -309,7 +335,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       prune.pruneSession(agent.session)
       measurement = meter.measure(agent.session)
     }
-    if (measurement.totalTokens < spec.thresholdTokens) return null
+    if (measurement.totalTokens < triggerTokens) return null
 
     let result: CompactionResult | null = null
     for (let attempt = 0; attempt <= spec.compactionRetries; attempt += 1) {
@@ -322,12 +348,12 @@ export class BasicCompactionEngine extends CompactionEngine {
       }
       result = await this.compactRegion(range.start, range.end, agent, signal)
       measurement = meter.measure(agent.session)
-      if (measurement.totalTokens < spec.thresholdTokens) return result
+      if (measurement.totalTokens < triggerTokens) return result
     }
 
     throw new Error(
       `compaction still above threshold after ${spec.compactionRetries + 1} compaction attempts `
-      + `(${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`,
+      + `(${measurement.totalTokens} estimated tokens >= threshold ${triggerTokens})`,
     )
   }
 

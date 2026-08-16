@@ -21,8 +21,12 @@ export { toolPairingBalancedAfter, toolPairingBalancedBefore } from './tool-pair
 export { compactCheckpointSource, isCompactCheckpointSource } from './checkpoint.ts'
 export type { CompactionCheckpointSource } from './checkpoint.ts'
 
-/** Why automatic policy is asking a backend to consider compaction. */
-export type CompactionTrigger = 'pressure' | 'context-overflow'
+/**
+ * Why automatic policy is asking a backend to consider compaction.
+ * `pressure` is the warn-level trigger at a turn boundary; `redline` is the
+ * higher step-boundary trigger that fires mid-turn at a safe stopping point.
+ */
+export type CompactionTrigger = 'pressure' | 'redline' | 'context-overflow'
 
 /** Expected failure classes for an explicit idle-session compaction request. */
 export type ManualCompactionErrorCode =
@@ -106,7 +110,7 @@ export abstract class CompactionEngine extends Service {
    * unit or request envelope cannot be repaired through surface compaction.
    *
    * @param agent - agent context owning the session surface and routing options.
-   * @param trigger - normal pressure or provider-confirmed context overflow.
+   * @param trigger - turn-boundary pressure, mid-turn redline, or provider-confirmed context overflow.
    * @param signal - cancellation signal; model-backed implementations must forward it.
    * @returns the compaction result, or `null` if no compaction was needed.
    */

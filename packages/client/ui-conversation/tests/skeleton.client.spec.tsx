@@ -207,8 +207,10 @@ function mount(
           useNotices={bindSnapshotSelector(wiring.notices)}
           useLexicon={bindSnapshotSelector(wiring.lexicon)}
           useMenuLauncher={bindSnapshotSelector(createSnapshotStore<string | null>(null))}
+          useAutoCompact={bindSnapshotSelector(createSnapshotStore(true))}
           stop={stop}
           command={() => Promise.resolve(true)}
+          setAutoCompact={vi.fn()}
           t={t}
           renderSlot={((key: string, seatOwner: object) => {
             // The bar's own seats: recorded so a case can assert what share

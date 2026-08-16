@@ -57,12 +57,12 @@ export const CompactionItem = memo(function CompactionItem({
         aria-expanded={expandable ? open : undefined}
         onClick={() => { setExpanded(value => !value) }}
       >
-        <span className="flex-none inline-grid place-items-center size-4 mr-[6px] text-[var(--dsw-alias-label-secondary)]" aria-hidden>
-          <span className="inline-flex grid-area-[1/1] items-center justify-center group-hover:opacity-0 group-focus-visible:opacity-0" data-compaction-icon="context">
+        <span className="relative flex-none size-4 inline-flex items-center justify-center mr-[6px] text-[var(--dsw-alias-label-secondary)]" aria-hidden>
+          <span className="inline-flex items-center justify-center opacity-100 transition-opacity duration-100 group-hover:opacity-0 group-focus-visible:opacity-0" data-compaction-icon="context">
             <IconApiOutline14 />
           </span>
           <span
-            className="inline-flex grid-area-[1/1] items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+            className="absolute inset-0 m-auto inline-flex items-center justify-center opacity-0 transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100"
             data-compaction-disclosure={open ? 'expanded' : 'collapsed'}
           >
             {open ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}

@@ -166,6 +166,10 @@ async function harness(toolSteps: number): Promise<{ ctx: Context; compact: Repr
   const compact = new ReproCompactionEngine(ctx, {
     auto: true,
     thresholdRatio: 0.5,
+    // Same red line so mid-turn (step-boundary) compaction fires at the same
+    // 50% the pre-split tests relied on; the default 0.9 would leave the
+    // runaway turn below the red line until the window is nearly full.
+    redlineRatio: 0.5,
     retainTokens: 50,
     maxTokens: 8192,
     compactionRetries: 1,

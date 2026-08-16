@@ -6,7 +6,7 @@
 
 import { useState, type ReactNode } from 'react'
 import type { ChatViewSlotProps, CommandRowOwnerProps } from '../contract/slots.ts'
-import { DisclosureRow, IconApiOutline14, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { DisclosureRow, IconApiOutline14, Progress, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 
 type CommandRowState = 'running' | 'ok' | 'error'
 
@@ -25,9 +25,11 @@ export interface GenericCommandCardProps extends CommandRowOwnerProps {
   t: ChatViewSlotProps['t']
   /** Command-specific running copy; absent uses the generic command label. */
   runningSummary?: string | undefined
+  /** Show a pulsing progress bar while the command runs (compaction). */
+  progress?: boolean | undefined
 }
 
-export function GenericCommandCard({ node, t, runningSummary }: GenericCommandCardProps) {
+export function GenericCommandCard({ node, t, runningSummary, progress }: GenericCommandCardProps) {
   const [expanded, setExpanded] = useState(false)
   const text = node.outcome?.text
   const summary = node.outcome === null
@@ -66,6 +68,9 @@ export function GenericCommandCard({ node, t, runningSummary }: GenericCommandCa
       >
         <pre className="max-h-[260px] mt-1 mb-1 ml-1 overflow-auto rounded-[12px] border border-[var(--dsw-alias-border-l1)] bg-[var(--dsw-alias-markdown-code-block)] py-3 px-4 text-[var(--dsw-alias-label-primary)] [font:var(--dsw-font-markdown-code-block-small)] whitespace-pre-wrap data-[error]:text-[var(--dsw-alias-state-error-primary)]" data-error={state === 'error' || undefined}>{body}</pre>
       </DisclosureRow>
+      {state === 'running' && progress === true && (
+        <Progress value={50} className="mt-1 h-1 animate-pulse" aria-hidden />
+      )}
     </div>
   )
 }

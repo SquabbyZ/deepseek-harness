@@ -516,6 +516,8 @@ export interface ComposerBarInjected {
    * Resolves admission: false = rejected/unmatched/transport failure.
    */
   command: ((line: string) => Promise<boolean>) | undefined
+  /** Toggle the shared auto-compact policy (persisted through the settings scope). */
+  setAutoCompact: (value: boolean) => void
   /**
    * Registrant hooks compartment: the renderer binds these to
    * useNotices/useLexicon (static absent sources without a session — hook
@@ -529,6 +531,8 @@ export interface ComposerBarInjected {
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     /** Source name opened by the programmatic menu launcher, or null. */
     menuLauncher: ObservableSnapshot<string | null>
+    /** Live auto-compact enable flag, shared with the General settings row. */
+    autoCompact: ObservableSnapshot<boolean>
   }
 }
 

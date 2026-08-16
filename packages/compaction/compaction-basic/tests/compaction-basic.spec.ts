@@ -290,6 +290,7 @@ describe('compact configuration and defaults', () => {
 
     expect(resolved).toEqual({
       thresholdRatio: 0.8,
+      redlineRatio: 0.9,
       retainRatio: 0.16,
       summarizationProvider: '',
       summarizationModel: '',

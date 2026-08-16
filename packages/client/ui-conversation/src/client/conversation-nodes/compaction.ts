@@ -5,15 +5,19 @@ import type {
 import type {} from '@deepseek-ai/dsh-compaction/types'
 import { chatNode } from './common.ts'
 import { compactSource, compactSummary, updateCompactionState } from './command.ts'
+import type { CompactionRunningChatData } from '../contract/chat-nodes.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
   interface ChatNodeDataMap {
     /** Automatic compaction checkpoint marker. */
     compaction: CompactionSummaryNode
+    /** In-flight automatic compaction before its checkpoint lands. */
+    'compaction-running': CompactionRunningChatData
   }
 }
 
 interface CompactionState {
+  readonly started?: boolean
   readonly summary?: ConversationMatch
   readonly checkpoint?: ConversationMatch
 }
@@ -46,13 +50,26 @@ export const compactionDefinition: ConversationNodeDefinition<CompactionState> =
     }
     return null
   },
-  start: () => ({}),
+  start: () => ({ started: true }),
   update: (context, match) => updateCompactionState(context.state, match),
   buildViewNode: (context) => {
     const state = context.state ?? fallbackState(context)
-    if (state.checkpoint === undefined) return null
-    const marker = compactSummary(state.summary, state.checkpoint)
-    return chatNode(context, 'compaction', marker.seq, marker)
+    if (state.checkpoint !== undefined) {
+      const marker = compactSummary(state.summary, state.checkpoint)
+      return chatNode(context, 'compaction', marker.seq, marker)
+    }
+    // Between `compaction/start` and the checkpoint, the same node stays keyed
+    // but renders its in-flight row; it swaps to the summary marker above once
+    // the replacement checkpoint lands (or disappears when `end` closes it).
+    if (state.started === true) {
+      return chatNode(
+        context,
+        'compaction-running',
+        context.start?.event.seq ?? 0,
+        { compactionId: String(context.id) },
+      )
+    }
+    return null
   },
 }
 

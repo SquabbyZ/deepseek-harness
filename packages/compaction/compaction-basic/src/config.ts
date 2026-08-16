@@ -19,12 +19,16 @@ import type {
 /** Default request-pressure fraction for every routed model. */
 const DEFAULT_THRESHOLD_RATIO = 0.8
 
+/** Default mid-turn red-line fraction for every routed model. */
+const DEFAULT_REDLINE_RATIO = 0.9
+
 /** Default verbatim-tail fraction for every routed model. */
 const DEFAULT_RETAIN_RATIO = 0.16
 
 /** Fields shared by top-level defaults and exact-target overrides. */
 const POLICY_CONFIG_KEYS = [
   'thresholdRatio',
+  'redlineRatio',
   'retainRatio',
   'retainTokens',
   'summarizationProvider',
@@ -72,12 +76,18 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
   }
 
   const thresholdRatio = config.thresholdRatio ?? DEFAULT_THRESHOLD_RATIO
+  // An explicit red line is honored verbatim (the two thresholds are
+  // independently configurable). Only the *default* follows the warn
+  // threshold up, so a legacy config that only raised `thresholdRatio` does
+  // not end up with a default red line below it.
+  const redlineRatio = config.redlineRatio ?? Math.max(DEFAULT_REDLINE_RATIO, thresholdRatio)
   const retention = resolveRetention(config, { retainRatio: DEFAULT_RETAIN_RATIO })
   validateRatioRetention(thresholdRatio, retention, 'BasicCompactionConfig')
   const modelPolicies = resolveModelPolicies(config.modelPolicies)
   for (const [index, policy] of modelPolicies.entries()) {
+    const policyThreshold = policy.thresholdRatio ?? thresholdRatio
     validateRatioRetention(
-      policy.thresholdRatio ?? thresholdRatio,
+      policyThreshold,
       resolveRetention(policy, retention),
       `BasicCompactionConfig: modelPolicies[${index}]`,
     )
@@ -85,6 +95,7 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
 
   return deepFreeze({
     thresholdRatio,
+    redlineRatio,
     ...retention,
     summarizationProvider: config.summarizationProvider ?? '',
     summarizationModel: config.summarizationModel ?? '',
@@ -112,9 +123,11 @@ export function resolveTargetPolicy(
   const inheritedRetention: ResolvedRetention = config.retainTokens === undefined
     ? { retainRatio: config.retainRatio }
     : { retainTokens: config.retainTokens }
+  const thresholdRatio = override?.thresholdRatio ?? config.thresholdRatio
   return deepFreeze({
     target: { provider: target.provider, model: target.model },
-    thresholdRatio: override?.thresholdRatio ?? config.thresholdRatio,
+    thresholdRatio,
+    redlineRatio: override?.redlineRatio ?? config.redlineRatio,
     ...resolveRetention(override ?? {}, inheritedRetention),
     summarizationProvider: override?.summarizationProvider ?? config.summarizationProvider,
     summarizationModel: override?.summarizationModel ?? config.summarizationModel,
@@ -142,6 +155,7 @@ export function resolveCompactSpec(
     )
   }
   const thresholdTokens = Math.floor(contextWindow * policy.thresholdRatio)
+  const redlineTokens = Math.floor(contextWindow * policy.redlineRatio)
   const retainTokens = policy.retainTokens === undefined
     ? Math.floor(contextWindow * policy.retainRatio)
     : policy.retainTokens
@@ -156,7 +170,9 @@ export function resolveCompactSpec(
     target: { ...policy.target },
     contextWindow,
     thresholdRatio: policy.thresholdRatio,
+    redlineRatio: policy.redlineRatio,
     thresholdTokens,
+    redlineTokens,
     retainTokens,
     summarizationProvider: policy.summarizationProvider,
     summarizationModel: policy.summarizationModel,
@@ -229,12 +245,14 @@ function validatePolicy(
   name: string,
 ): void {
   const thresholdRatio = config.thresholdRatio
+  const redlineRatio = config.redlineRatio
   const retainRatio = config.retainRatio
   const retainTokens = config.retainTokens
   const maxTokens = config.maxTokens
   const compactionRetries = config.compactionRetries
   const maxOverflowRetries = config.maxOverflowRetries
   if (thresholdRatio !== undefined) assertRatio(`${name}.thresholdRatio`, thresholdRatio)
+  if (redlineRatio !== undefined) assertRatio(`${name}.redlineRatio`, redlineRatio)
   if (retainRatio !== undefined) assertRatio(`${name}.retainRatio`, retainRatio)
   if (retainTokens !== undefined) assertNonNegativeInteger(`${name}.retainTokens`, retainTokens)
   if (retainRatio !== undefined && retainTokens !== undefined) {

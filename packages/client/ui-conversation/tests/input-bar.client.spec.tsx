@@ -175,8 +175,10 @@ function bench(over?: BenchOptions) {
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(menuLauncher),
+    useAutoCompact: bindSnapshotSelector(createSnapshotStore(true)),
     stop,
     command: over?.command ?? (() => Promise.resolve(true)),
+    setAutoCompact: vi.fn(),
     // Mirrors the real lookup chain (conversation namespace, then common).
     t: over?.t ?? makeTranslate(zh, commonZh),
     renderSlot,

@@ -32,6 +32,7 @@ interface CommandState {
 interface CompactionEvidence {
   readonly summary?: ConversationMatch
   readonly checkpoint?: ConversationMatch
+  readonly started?: boolean
 }
 
 function commandFromRun(match: ConversationMatch): CommandNode {
@@ -168,7 +169,8 @@ export function updateCompactionState<State extends CompactionEvidence>(
   match: ConversationMatch,
 ): State {
   if (match.event.type === 'compaction/summary') return { ...state, summary: match }
-  if (compactSource(match.event) !== undefined) return { ...state, checkpoint: match }
+  if (match.event.type === 'compaction/end') return { ...state, started: false }
+  if (compactSource(match.event) !== undefined) return { ...state, checkpoint: match, started: false }
   return state
 }
 
