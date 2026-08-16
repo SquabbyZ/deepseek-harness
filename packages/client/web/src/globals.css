@@ -241,8 +241,8 @@ body[data-ds-dark-theme] {
 body[data-skin='glass'] {
   background-image: var(--app-background-image);
   background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
+  background-size: var(--app-background-size, cover);
+  background-position: var(--app-background-position, center);
 }
 
 body[data-skin='glass'] .app-watermark-layer {
