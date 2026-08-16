@@ -49,7 +49,12 @@
  * keys off that same attribute instead of a `.dark` class. */
 @custom-variant dark (&:is([data-ds-dark-theme] *));
 
-:root {
+/* The shadcn semantic tokens live on `body`, not `:root`: the --dsw-static-*
+ * and --dsw-alias-* layers they reference are defined on `body` in
+ * design-platform.css, and `:root` (an ancestor of body) cannot see body's
+ * custom properties — defining them on :root left every `var(--dsw-*)`
+ * unresolved (bg-primary rendered transparent). */
+body {
   --background: var(--dsw-alias-bg-base);
   --foreground: var(--dsw-alias-label-primary);
   --card: var(--dsw-alias-bg-layer-1);
@@ -85,7 +90,7 @@
   --sidebar-ring: var(--dsw-static-deepseek-500);
 }
 
-[data-ds-dark-theme] {
+body[data-ds-dark-theme] {
   --background: var(--dsw-alias-bg-base);
   --foreground: var(--dsw-alias-label-primary);
   --card: var(--dsw-alias-bg-layer-1);
