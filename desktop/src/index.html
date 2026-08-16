@@ -8,6 +8,10 @@
     body { display: grid; place-items: center; background: #f9fafb; }
     .logo { color: #0f1115; animation: blink 1.4s ease-in-out infinite; }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f1115; }
+      .logo { color: #f9fafb; }
+    }
   </style>
 </head>
 <body>
