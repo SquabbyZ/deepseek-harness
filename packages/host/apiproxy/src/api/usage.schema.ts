@@ -13,6 +13,10 @@ export const usageQueryRequestSchema = z.object({
   from: z.number().int().nonnegative().optional(),
   to: z.number().int().nonnegative().optional(),
   granularity: z.enum(['5s', '10s', '30s', '60s', 'day']).optional(),
+  filter: z.array(z.object({
+    provider: z.string(),
+    model: z.string(),
+  })).optional(),
 }) as unknown as z.ZodType<Wire<RequestPayload<'usage.query'>>>
 
 /** usage.query response value. */
@@ -34,5 +38,9 @@ export const usageQueryValueSchema = z.object({
     date: z.string(),
     tokens: z.number().int().nonnegative(),
     requests: z.number().int().nonnegative(),
+  })),
+  providers: z.array(z.object({
+    provider: z.string(),
+    models: z.array(z.string()),
   })),
 }) as unknown as z.ZodType<Wire<ResponseValue<'usage.query'>>>

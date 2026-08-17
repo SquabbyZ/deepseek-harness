@@ -69,7 +69,7 @@ export function apply(ctx: ClientContext): void {
   // Registration-time text (the nav label thunk) and the inject face share one
   // bound translate; copy freshness rides the locale revision.
   const t = ctx.locale.bind(NS) as UsageSectionInjected['t']
-  const injected = (): UsageSectionInjected => ({ controller, useSnapshot, t })
+  const injected = (): UsageSectionInjected => ({ controller, useSnapshot, t, getLocale: () => ctx.locale.getLocale().active })
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',

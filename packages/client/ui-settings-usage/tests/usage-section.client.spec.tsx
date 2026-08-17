@@ -2,7 +2,8 @@
 /**
  * The Usage section's presentation rules: the six stat tiles render from the
  * controller's result (the consumption hero reads its compact count), and the
- * two query-time controls — refresh interval and date dimension — are present.
+ * three query-time controls — provider/model filter, refresh interval + button,
+ * and the date-range picker — are present.
  */
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -30,6 +31,7 @@ const RESULT: UsageStatsResult = {
     { at: Date.parse('2026-08-16T10:00:05.000Z'), tokens: 800 },
   ],
   byDate: [{ date: '2026-08-16', tokens: 1_200, requests: 3 }],
+  providers: [{ provider: 'deepseek-official', models: ['deepseek-v4-pro'] }],
 }
 
 beforeEach(() => { vi.stubGlobal('ResizeObserver', ResizeObserverStub) })
@@ -45,6 +47,7 @@ function renderSection(result: UsageStatsResult = RESULT) {
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
     t: (key: keyof typeof en) => en[key],
+    getLocale: () => 'zh',
   } as UsageSectionProps
   render(<UsageSection {...props} />)
   return controller
@@ -74,16 +77,16 @@ describe('the usage stat tiles', () => {
 })
 
 describe('the query-time controls', () => {
-  it('offers the refresh-interval and date-dimension selectors', () => {
+  it('offers the provider/model, refresh, and date-range controls', () => {
     renderSection()
 
-    expect(screen.getByText(en.rangeLabel)).toBeTruthy()
+    expect(screen.getByText(en.providerModelLabel)).toBeTruthy()
     expect(screen.getByText(en.intervalLabel)).toBeTruthy()
-    for (const key of ['rangeToday', 'range7d', 'range30d', 'rangeAll'] as const) {
-      expect(screen.getByText(en[key])).toBeTruthy()
-    }
-    for (const key of ['interval5s', 'interval10s', 'interval30s', 'interval60s'] as const) {
-      expect(screen.getByText(en[key])).toBeTruthy()
-    }
+    expect(screen.getByText(en.rangeLabel)).toBeTruthy()
+    // Default filter trigger reads "All"; default date trigger reads "Today".
+    expect(screen.getByText(en.providerModelAll)).toBeTruthy()
+    expect(screen.getByText(en.rangeToday)).toBeTruthy()
+    // Manual refresh button.
+    expect(screen.getByText(en.refreshButton)).toBeTruthy()
   })
 })

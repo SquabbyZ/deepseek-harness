@@ -1,21 +1,22 @@
 /**
  * Client-side usage-stats controller: a snapshot store the section renders
  * from, plus the polling lifecycle that keeps it fresh. The host stays the
- * single fact source — the controller only maps a date-range selection onto a
- * `usage.query` window and repolls on the chosen refresh interval. The query
- * function is injected (wired to `connection.api` in `apply`), so the section
- * renders against a fake controller in tests with zero wire machinery.
+ * single fact source — the controller only maps a date window + provider/model
+ * filter onto a `usage.query` payload and repolls on the chosen interval (the
+ * manual refresh button re-runs the same poll immediately). The query function
+ * is injected (wired to `connection.api` in `apply`), so the section renders
+ * against a fake controller in tests with zero wire machinery.
  */
 
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import type { UsageQueryOptions, UsageStatsResult } from './contract.ts'
+import type { UsageFilter, UsageQueryOptions, UsageStatsResult } from './contract.ts'
 
 /** One unary stats read (already unwrapped from the RPC envelope by `apply`). */
 export type UsageStatsQuery = (options: UsageQueryOptions) => Promise<UsageStatsResult>
 
-/** The date-dimension choices the section offers. */
-export type UsageRangeKey = 'today' | '7d' | '30d' | 'all'
+/** The preset date-dimension choices the section offers (plus a picked custom range). */
+export type UsagePresetKey = 'today' | '7d' | '30d' | 'all' | 'custom'
 
 const DAY_MS = 86_400_000
 
@@ -26,6 +27,7 @@ export const EMPTY_USAGE_RESULT: UsageStatsResult = {
   },
   series: [],
   byDate: [],
+  providers: [],
 }
 
 /** Section snapshot. */
@@ -37,6 +39,16 @@ export interface UsageStatsState {
   result: UsageStatsResult
 }
 
+/** The section's query window: explicit bounds (absent `to` = "now" each poll) plus a provider/model filter. */
+export interface UsageWindow {
+  /** Inclusive lower bound, epoch ms; absent means all time. */
+  from?: number
+  /** Exclusive upper bound, epoch ms; absent means now (recomputed per poll). */
+  to?: number
+  /** Exact (provider, model) pairs to keep; absent/empty means every route. */
+  filter?: UsageFilter[]
+}
+
 /** The wall-clock start of the local day containing `now`. */
 function startOfLocalDay(now: number): number {
   const d = new Date(now)
@@ -44,13 +56,32 @@ function startOfLocalDay(now: number): number {
   return d.getTime()
 }
 
-/** Map a date-range selection onto the `usage.query` window (recomputed per poll). */
-export function queryOptionsFor(range: UsageRangeKey, now: number): UsageQueryOptions {
-  switch (range) {
-    case 'today': return { from: startOfLocalDay(now), to: now, granularity: '5s' }
-    case '7d': return { from: now - 7 * DAY_MS, to: now, granularity: '60s' }
-    case '30d': return { from: now - 30 * DAY_MS, to: now, granularity: 'day' }
-    case 'all': return { granularity: 'day' }
+/** Series granularity from the window span: sub-day spans get second buckets, week-ish spans minute buckets, longer spans day buckets. */
+function granularityFor(spanMs: number): UsageQueryOptions['granularity'] {
+  if (spanMs <= DAY_MS) return '5s'
+  if (spanMs <= 10 * DAY_MS) return '60s'
+  return 'day'
+}
+
+/** Map a window + `now` onto the `usage.query` payload (recomputed per poll so `to` tracks now). */
+export function queryOptionsFor(window: UsageWindow, now: number): UsageQueryOptions {
+  const from = window.from
+  const to = window.to ?? now
+  return {
+    ...(from !== undefined ? { from } : {}),
+    to,
+    granularity: granularityFor(to - (from ?? 0)),
+    ...(window.filter !== undefined && window.filter.length > 0 ? { filter: window.filter } : {}),
+  }
+}
+
+/** The preset window for a key: `to` stays absent so the controller tracks "now" each poll. */
+export function presetWindow(key: Exclude<UsagePresetKey, 'custom'>, now: number): UsageWindow {
+  switch (key) {
+    case 'today': return { from: startOfLocalDay(now) }
+    case '7d': return { from: now - 7 * DAY_MS }
+    case '30d': return { from: now - 30 * DAY_MS }
+    case 'all': return {}
   }
 }
 
@@ -98,12 +129,12 @@ export class UsageStatsController {
 
   /**
    * Start (or restart) polling: an immediate refresh, then one per interval.
-   * @param range - the date dimension to poll.
+   * @param window - the date window + provider/model filter to poll.
    * @param intervalMs - the client polling cadence.
    */
-  start(range: UsageRangeKey, intervalMs: number): void {
+  start(window: UsageWindow, intervalMs: number): void {
     this.stop()
-    const poll = (): void => { void this.refresh(queryOptionsFor(range, Date.now())) }
+    const poll = (): void => { void this.refresh(queryOptionsFor(window, Date.now())) }
     poll()
     this.timer = setInterval(poll, intervalMs)
   }

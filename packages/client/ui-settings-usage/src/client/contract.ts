@@ -16,11 +16,18 @@ export const USAGE_QUERY_METHOD = 'usage.query'
 /** Series bucket granularity: second-based roll-ups or the per-date table. */
 export const usageGranularitySchema = z.enum(['5s', '10s', '30s', '60s', 'day'] as const)
 
-/** `usage.query` request payload: an inclusive `from`/exclusive `to` window plus a granularity. */
+/** One provider/model route filter entry (an exact pair). */
+export const usageFilterSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+})
+
+/** `usage.query` request payload: an inclusive `from`/exclusive `to` window plus a granularity and an optional provider/model filter. */
 export const usageQueryRequestSchema = z.object({
   from: z.number().int().nonnegative().optional(),
   to: z.number().int().nonnegative().optional(),
   granularity: usageGranularitySchema.optional(),
+  filter: z.array(usageFilterSchema).optional(),
 })
 
 /** Range-scoped totals with the derived cache-hit rate (null when no input billed). */
@@ -47,14 +54,23 @@ export const usageDateRowSchema = z.object({
   requests: z.number().int().nonnegative(),
 })
 
+/** One provider with its distinct models (the filter dropdown's source). */
+export const usageProviderRowSchema = z.object({
+  provider: z.string(),
+  models: z.array(z.string()),
+})
+
 /** `usage.query` response value. */
 export const usageStatsResultSchema = z.object({
   totals: usageTotalsSchema,
   series: z.array(usageSeriesPointSchema),
   byDate: z.array(usageDateRowSchema),
+  providers: z.array(usageProviderRowSchema),
 })
 
 export type UsageGranularity = z.infer<typeof usageGranularitySchema>
+export type UsageFilter = z.infer<typeof usageFilterSchema>
+export type UsageProviderRow = z.infer<typeof usageProviderRowSchema>
 export type UsageQueryOptions = z.infer<typeof usageQueryRequestSchema>
 export type UsageTotals = z.infer<typeof usageTotalsSchema>
 export type UsageSeriesPoint = z.infer<typeof usageSeriesPointSchema>

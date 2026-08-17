@@ -56,11 +56,21 @@ export interface UsageDateRow {
   requests: number
 }
 
+/** One distinct provider and the models seen under it, for the filter dropdown. */
+export interface UsageProviderRow {
+  /** Provider route id. */
+  provider: string
+  /** Distinct model ids seen under this provider, sorted. */
+  models: string[]
+}
+
 /** The stable JSON result of {@link UsageStats.query}. */
 export interface UsageStatsResult {
   totals: UsageTotals
   series: UsageSeriesPoint[]
   byDate: UsageDateRow[]
+  /** Distinct providers + their models, derived from the accumulated buckets. */
+  providers: UsageProviderRow[]
 }
 
 /**
@@ -78,4 +88,6 @@ export interface UsageQueryOptions {
   to?: number
   /** Series bucket size; absent means `60s`. */
   granularity?: UsageGranularity
+  /** Exact `(provider, model)` pairs to keep; absent or empty means every provider/model. */
+  filter?: Array<{ provider: string; model: string }>
 }

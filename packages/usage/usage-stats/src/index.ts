@@ -20,6 +20,7 @@ import type {
   UsageBucket,
   UsageDateRow,
   UsageGranularity,
+  UsageProviderRow,
   UsageQueryOptions,
   UsageSeriesPoint,
   UsageStatsResult,
@@ -28,8 +29,8 @@ import type {
 
 export { usageBucketSchema, usageStatsDomainSpec, zeroBucket } from './spec.ts'
 export type {
-  UsageBucket, UsageDateRow, UsageGranularity, UsageQueryOptions, UsageSeriesPoint,
-  UsageStatsResult, UsageTotals,
+  UsageBucket, UsageDateRow, UsageGranularity, UsageProviderRow, UsageQueryOptions,
+  UsageSeriesPoint, UsageStatsResult, UsageTotals,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -53,6 +54,8 @@ const DAY_MS = 86_400_000
 interface LastSample {
   turn: number
   step: number
+  provider: string
+  model: string
   buckets: UsageBucket
   second: number
 }
@@ -173,6 +176,27 @@ function dayStartMsOf(date: string): number {
   return Date.parse(`${date}T00:00:00.000Z`)
 }
 
+/** Encode a composite `seconds` key: `[provider, model, epochSecond]` as JSON — the
+ *  array shape cannot collide with any provider/model string, so it is separator-proof. */
+function secondsKey(provider: string, model: string, second: number): string {
+  return JSON.stringify([provider, model, second])
+}
+
+/** Encode a composite `days` key: `[provider, model, utcDate]` as JSON. */
+function daysKey(provider: string, model: string, date: string): string {
+  return JSON.stringify([provider, model, date])
+}
+
+/** The `(provider, model)` pair identity, used to match a filter entry. */
+function routeKey(provider: string, model: string): string {
+  return JSON.stringify([provider, model])
+}
+
+/** Parse a composite table key back into `[provider, model, slot]` (`slot`: second or date). */
+function decodeKey(key: string): [string, string, string | number] {
+  return JSON.parse(key) as [string, string, string | number]
+}
+
 /**
  * Host-side token-usage time-series collector. Opens the `usage_stats` domain
  * at init, seeds its in-memory accumulator from the stored medium, folds live
@@ -194,6 +218,9 @@ export class UsageStats extends Service {
 
   /** Per-session last sample, so a finalized message replaces its chunk instead of doubling. */
   private readonly lastBySession = new WeakMap<Session, LastSample>()
+
+  /** Per-session current route (folded from `request/context`), so chunks carry an attribution. */
+  private readonly routeBySession = new WeakMap<Session, { provider: string; model: string }>()
 
   constructor(ctx: Context) {
     super(ctx, 'usageStats')
@@ -217,11 +244,14 @@ export class UsageStats extends Service {
 
   /**
    * Query the collected usage over a window. `totals` is range-scoped (the
-   * whole-history cumulative counter serves the `from`-absent fast path);
+   * whole-history cumulative counter serves the `from`-absent fast path, but
+   * only when no `filter` is present — a filtered view must sum the table);
    * `series` rolls the second-granularity wall-clock series up to `granularity`
    * (or serves the per-date table at `day`); `byDate` is always the per-date
-   * aggregate filtered to the window. Synchronous from memory.
-   * @param options - window bounds and series granularity.
+   * aggregate filtered to the window. `providers` is the full distinct
+   * provider/model breakdown (never filtered, so the dropdown stays complete).
+   * Synchronous from memory.
+   * @param options - window bounds, series granularity, and `(provider, model)` filter.
    * @returns the stable JSON result.
    */
   query(options: UsageQueryOptions = {}): UsageStatsResult {
@@ -233,11 +263,16 @@ export class UsageStats extends Service {
     const table = dayMode ? this.days : this.seconds
     const bucketMs = granularity === 'day' ? DAY_MS : GRANULARITY_SECONDS[granularity] * 1_000
     const allTime = from <= 0 && to >= now
+    const filter = options.filter ?? []
+    const filtered = filter.length > 0
+    const wanted = filtered ? new Set(filter.map(({ provider, model }) => routeKey(provider, model))) : undefined
 
     const series = new Map<number, number>()
     let totals = zeroBucket()
     for (const [key, bucket] of table) {
-      const at = dayMode ? dayStartMsOf(key) : Number(key) * 1_000
+      const [provider, model, slot] = decodeKey(key)
+      if (wanted !== undefined && !wanted.has(routeKey(provider, model))) continue
+      const at = dayMode ? dayStartMsOf(slot as string) : (slot as number) * 1_000
       if (at < from || at >= to) continue
       const pointAt = dayMode ? at : Math.floor(at / bucketMs) * bucketMs
       series.set(pointAt, (series.get(pointAt) ?? 0) + tokensOf(bucket))
@@ -247,22 +282,36 @@ export class UsageStats extends Service {
     return {
       // A whole-history query reads the durable all-time counter: O(1) for the
       // "all" view that would otherwise sum the whole second series.
-      totals: finishTotals(allTime ? this.totals : totals),
+      totals: finishTotals(allTime && !filtered ? this.totals : totals),
       series: [...series.entries()]
         .sort((left, right) => left[0] - right[0])
         .map(([at, tokens]): UsageSeriesPoint => ({ at, tokens })),
-      byDate: this.byDateRows(from, to),
+      byDate: this.byDateRows(from, to, wanted),
+      providers: this.providerRows(),
     }
   }
 
-  /** Fold one live event: replace-or-add its usage at its wall-clock second. */
+  /** Fold one live event: replace-or-add its usage at its wall-clock second, attributed to a route. */
   private fold(session: Session, event: SessionEvent): void {
+    // Track the current route before any chunk lands (chunks carry no provenance).
+    // `request/header` fires every request (before dispatch) so it is the reliable
+    // source; `request/context` only fires on route change, so a resumed session
+    // with an unchanged route would otherwise fall back to an empty attribution.
+    if (event.type === 'request/header') {
+      this.routeBySession.set(session, { provider: event.data.header.config.provider, model: event.data.header.config.model })
+      return
+    }
+    if (event.type === 'request/context') {
+      this.routeBySession.set(session, { provider: event.data.provider, model: event.data.model })
+      return
+    }
     const sample = usageSampleOf(event)
     if (sample === undefined) return
+    const { provider, model } = this.attributionOf(session, event)
     const second = Math.floor(event.time / 1_000)
     const last = this.lastBySession.get(session)
     const previous = last !== undefined && last.turn === sample.turn && last.step === sample.step
-      ? { buckets: last.buckets, second: last.second }
+      ? { buckets: last.buckets, second: last.second, provider: last.provider, model: last.model }
       : undefined
 
     const dirtySeconds = new Set<string>()
@@ -271,16 +320,22 @@ export class UsageStats extends Service {
     // equal sample restates it without moving the buckets.
     if (previous === undefined || !bucketsEqual(previous.buckets, sample.buckets)) {
       if (previous !== undefined) {
-        this.applyDelta(negateBuckets(previous.buckets), previous.second, dirtySeconds, dirtyDays)
+        this.applyDelta(
+          negateBuckets(previous.buckets), previous.provider, previous.model, previous.second, dirtySeconds, dirtyDays,
+        )
       }
-      this.applyDelta(sample.buckets, second, dirtySeconds, dirtyDays)
+      this.applyDelta(sample.buckets, provider, model, second, dirtySeconds, dirtyDays)
     }
     // A request is counted once per finalized message, independent of whether
     // its usage restated the chunk's (the two can land in the same second).
     if (sample.final) {
-      this.applyDelta({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 1 }, second, dirtySeconds, dirtyDays)
+      this.applyDelta(
+        { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 1 }, provider, model, second, dirtySeconds, dirtyDays,
+      )
     }
-    this.lastBySession.set(session, { turn: sample.turn, step: sample.step, buckets: sample.buckets, second })
+    this.lastBySession.set(session, {
+      turn: sample.turn, step: sample.step, provider, model, buckets: sample.buckets, second,
+    })
 
     if (dirtySeconds.size === 0) return
     void this.flush(dirtySeconds, dirtyDays).catch((error: unknown) => {
@@ -288,24 +343,41 @@ export class UsageStats extends Service {
     })
   }
 
+  /**
+   * The route a usage sample is attributed to: the message's authoritative
+   * provenance for a finalized message, else the session's tracked route (the
+   * `request/context` fold). Falls back to an empty route only when neither is
+   * known, which a model-produced message never hits.
+   */
+  private attributionOf(session: Session, event: SessionEvent): { provider: string; model: string } {
+    if (event.type === 'assistant/message') {
+      const { provider, model } = event.data.message.source
+      if (provider !== undefined && model !== undefined) return { provider, model }
+    }
+    return this.routeBySession.get(session) ?? { provider: '', model: '' }
+  }
+
   /** Apply one signed bucket delta to the second, day, and cumulative counters. */
   private applyDelta(
     delta: UsageBucket,
+    provider: string,
+    model: string,
     second: number,
     dirtySeconds: Set<string>,
     dirtyDays: Set<string>,
   ): void {
-    const key = String(second)
+    const key = secondsKey(provider, model, second)
     const nextSecond = clampBucket(addBuckets(this.seconds.get(key) ?? zeroBucket(), delta))
     if (isZeroBucket(nextSecond)) this.seconds.delete(key)
     else this.seconds.set(key, nextSecond)
     dirtySeconds.add(key)
 
     const date = utcDateOf(second)
-    const nextDay = clampBucket(addBuckets(this.days.get(date) ?? zeroBucket(), delta))
-    if (isZeroBucket(nextDay)) this.days.delete(date)
-    else this.days.set(date, nextDay)
-    dirtyDays.add(date)
+    const dayKey = daysKey(provider, model, date)
+    const nextDay = clampBucket(addBuckets(this.days.get(dayKey) ?? zeroBucket(), delta))
+    if (isZeroBucket(nextDay)) this.days.delete(dayKey)
+    else this.days.set(dayKey, nextDay)
+    dirtyDays.add(dayKey)
 
     this.totals = clampBucket(addBuckets(this.totals, delta))
   }
@@ -318,24 +390,43 @@ export class UsageStats extends Service {
       const bucket = this.seconds.get(key)
       writes.push(bucket === undefined ? tables.seconds.delete(key) : tables.seconds.put(key, bucket))
     }
-    for (const date of dirtyDays) {
-      const bucket = this.days.get(date)
-      writes.push(bucket === undefined ? tables.days.delete(date) : tables.days.put(date, bucket))
+    for (const key of dirtyDays) {
+      const bucket = this.days.get(key)
+      writes.push(bucket === undefined ? tables.days.delete(key) : tables.days.put(key, bucket))
     }
     writes.push(tables.totals.set(this.totals))
     await Promise.all(writes)
   }
 
-  /** The per-date rows in the window, oldest first. */
-  private byDateRows(from: number, to: number): UsageDateRow[] {
-    const rows: UsageDateRow[] = []
-    for (const [date, bucket] of this.days) {
+  /** The per-date rows in the window, oldest first, summing every matching provider/model. */
+  private byDateRows(from: number, to: number, wanted: Set<string> | undefined): UsageDateRow[] {
+    const byDate = new Map<string, UsageBucket>()
+    for (const [key, bucket] of this.days) {
+      const [provider, model, date] = decodeKey(key) as [string, string, string]
+      if (wanted !== undefined && !wanted.has(routeKey(provider, model))) continue
       const at = dayStartMsOf(date)
       if (at < from || at >= to) continue
-      rows.push({ date, tokens: tokensOf(bucket), requests: bucket.requests })
+      byDate.set(date, addBuckets(byDate.get(date) ?? zeroBucket(), bucket))
     }
-    rows.sort((left, right) => (left.date < right.date ? -1 : left.date > right.date ? 1 : 0))
-    return rows
+    return [...byDate.entries()]
+      .map(([date, bucket]): UsageDateRow => ({ date, tokens: tokensOf(bucket), requests: bucket.requests }))
+      .sort((left, right) => (left.date < right.date ? -1 : left.date > right.date ? 1 : 0))
+  }
+
+  /** Distinct providers and their distinct models, derived from the accumulated bucket keys. */
+  private providerRows(): UsageProviderRow[] {
+    const modelsByProvider = new Map<string, Set<string>>()
+    for (const table of [this.seconds, this.days]) {
+      for (const key of table.keys()) {
+        const [provider, model] = decodeKey(key)
+        const models = modelsByProvider.get(provider)
+        if (models === undefined) modelsByProvider.set(provider, new Set([model]))
+        else models.add(model)
+      }
+    }
+    return [...modelsByProvider.entries()]
+      .map(([provider, models]): UsageProviderRow => ({ provider, models: [...models].sort() }))
+      .sort((left, right) => (left.provider < right.provider ? -1 : left.provider > right.provider ? 1 : 0))
   }
 
   private requireTables(): {

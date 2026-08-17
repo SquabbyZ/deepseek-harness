@@ -36,13 +36,14 @@ export const zeroBucket = (): UsageBucket => ({
 /**
  * The usage-stats domain spec. The global slot holds the all-time cumulative
  * counters (the `totals` fast path for the whole-history view); `seconds` keys
- * are epoch-second strings, `days` keys are UTC `YYYY-MM-DD` strings. Both
- * tables store the same {@link UsageBucket} record, so the query can serve
- * range-scoped totals from either resolution.
+ * are JSON arrays `[provider, model, epochSecond]` and `days` keys are JSON
+ * arrays `[provider, model, utcDate]`, so a bucket is attributed to the route
+ * that produced it. Both tables store the same {@link UsageBucket} record, so
+ * the query can serve range-scoped totals from either resolution.
  */
 export const usageStatsDomainSpec = defineDomain({
   name: 'usage_stats',
-  version: 1,
+  version: 2,
   global: {
     schema: usageBucketSchema,
     initial: zeroBucket(),

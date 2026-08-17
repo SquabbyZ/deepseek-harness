@@ -2968,6 +2968,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         totals: { consumption: 0, requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cacheHitRate: null },
         series: [],
         byDate: [],
+        providers: [],
       }),
     },
     respond(message: ClientResponse): Promise<RpcReceipt> {

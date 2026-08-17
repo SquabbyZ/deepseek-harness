@@ -43,18 +43,25 @@ const startStep = (session: Session, turn: number, step: number): void => {
   session.append('step/start', { turn, step })
 }
 
+/** Set the session's current route, so the following chunks carry a provider/model. */
+const route = (session: Session, provider: string, model: string): void => {
+  session.append('request/context', { provider, model })
+}
+
 /** Append one usage chunk and return its seq (the message's sourceEventSeqs). */
 function usageChunk(session: Session, usage: TokenUsage, turn: number, step: number): number {
   return session.append('assistant/chunk', { turn, step, chunk: { type: 'usage', usage } }).seq
 }
 
-/** Append the finalized assistant message carrying the step's final usage. */
+/** Append the finalized assistant message carrying the step's final usage and provenance. */
 function finalUsage(
   session: Session,
   usage: TokenUsage,
   turn: number,
   step: number,
   sourceSeqs: number[],
+  provider = 'mock',
+  model = 'mock',
 ): void {
   session.append('assistant/message', {
     turn,
@@ -62,7 +69,7 @@ function finalUsage(
     message: createMessage({
       role: 'assistant',
       content: [],
-      source: { kind: 'model', provider: 'mock', model: 'mock' },
+      source: { kind: 'model', provider, model },
     }),
     usage,
   }, { surfaceOp: 'append', sourceEventSeqs: sourceSeqs })
@@ -77,6 +84,7 @@ describe('UsageStats fold', () => {
       },
       series: [],
       byDate: [],
+      providers: [],
     })
   })
 
@@ -85,6 +93,7 @@ describe('UsageStats fold', () => {
     const { ctx } = await harness()
     const session = ctx.sessions.create(SessionId('final'))
     startStep(session, 1, 1)
+    route(session, 'mock', 'mock')
     const source = usageChunk(session, {
       inputTokens: 10, outputTokens: 4, cacheReadTokens: 7, cacheWriteTokens: 2,
     }, 1, 1)
@@ -103,6 +112,7 @@ describe('UsageStats fold', () => {
     const { ctx } = await harness()
     const session = ctx.sessions.create(SessionId('replace'))
     startStep(session, 1, 1)
+    route(session, 'mock', 'mock')
     const source = usageChunk(session, { inputTokens: 10, outputTokens: 2, cacheReadTokens: 3 }, 1, 1)
     vi.setSystemTime(new Date('2026-08-16T10:00:07.500Z'))
     finalUsage(session, {
@@ -124,6 +134,7 @@ describe('UsageStats fold', () => {
     const { ctx } = await harness()
     const session = ctx.sessions.create(SessionId('chunk-only'))
     startStep(session, 1, 1)
+    route(session, 'mock', 'mock')
     usageChunk(session, { inputTokens: 9, outputTokens: 1 }, 1, 1)
 
     expect(ctx.usageStats.query().totals).toEqual({
@@ -136,6 +147,7 @@ describe('UsageStats fold', () => {
     const { ctx } = await harness()
     const session = ctx.sessions.create(SessionId('two-steps'))
     startStep(session, 1, 1)
+    route(session, 'mock', 'mock')
     const first = usageChunk(session, { inputTokens: 10, outputTokens: 6, cacheReadTokens: 2 }, 1, 1)
     finalUsage(session, { inputTokens: 10, outputTokens: 6, cacheReadTokens: 2 }, 1, 1, [first])
     startStep(session, 1, 2)
@@ -158,6 +170,7 @@ describe('UsageStats query', () => {
     const { ctx } = await harness()
     const session = ctx.sessions.create(SessionId('rollup'))
     startStep(session, 1, 1)
+    route(session, 'mock', 'mock')
     const first = usageChunk(session, { inputTokens: 5, outputTokens: 0 }, 1, 1)
     finalUsage(session, { inputTokens: 5, outputTokens: 0 }, 1, 1, [first])
     startStep(session, 1, 2)
@@ -178,6 +191,7 @@ describe('UsageStats query', () => {
     const { ctx } = await harness()
     const session = ctx.sessions.create(SessionId('window'))
     startStep(session, 1, 1)
+    route(session, 'mock', 'mock')
     const first = usageChunk(session, { inputTokens: 5, outputTokens: 1 }, 1, 1)
     finalUsage(session, { inputTokens: 5, outputTokens: 1 }, 1, 1, [first])
 
@@ -194,6 +208,7 @@ describe('UsageStats query', () => {
     const firstHarness = await harness(pool)
     const session = firstHarness.ctx.sessions.create(SessionId('persist'))
     startStep(session, 1, 1)
+    route(session, 'mock', 'mock')
     const source = usageChunk(session, {
       inputTokens: 10, outputTokens: 4, cacheReadTokens: 7, cacheWriteTokens: 2,
     }, 1, 1)
@@ -209,5 +224,62 @@ describe('UsageStats query', () => {
       consumption: 23, requests: 1, input: 10, output: 4, cacheRead: 7, cacheWrite: 2, cacheHitRate: 41,
     })
     expect(secondHarness.ctx.usageStats.query().byDate).toEqual([{ date: '2026-08-16', tokens: 23, requests: 1 }])
+  })
+})
+
+describe('UsageStats provider attribution', () => {
+  it('attributes usage to the message provenance and breaks providers down', async () => {
+    vi.setSystemTime(new Date('2026-08-16T10:00:05.500Z'))
+    const { ctx } = await harness()
+    const session = ctx.sessions.create(SessionId('providers'))
+    startStep(session, 1, 1)
+    route(session, 'openai', 'gpt-4')
+    const first = usageChunk(session, { inputTokens: 10, outputTokens: 5 }, 1, 1)
+    finalUsage(session, { inputTokens: 10, outputTokens: 5 }, 1, 1, [first], 'openai', 'gpt-4')
+
+    startStep(session, 1, 2)
+    vi.setSystemTime(new Date('2026-08-16T10:00:30.500Z'))
+    route(session, 'anthropic', 'claude')
+    const second = usageChunk(session, { inputTokens: 20, outputTokens: 7 }, 1, 2)
+    finalUsage(session, { inputTokens: 20, outputTokens: 7 }, 1, 2, [second], 'anthropic', 'claude')
+
+    const result = ctx.usageStats.query()
+    expect(result.totals.consumption).toBe(42)
+    // One per-date row sums across both providers' same-day buckets.
+    expect(result.byDate).toEqual([{ date: '2026-08-16', tokens: 42, requests: 2 }])
+    expect(result.providers).toEqual([
+      { provider: 'anthropic', models: ['claude'] },
+      { provider: 'openai', models: ['gpt-4'] },
+    ])
+  })
+
+  it('filters totals, series, and byDate to a provider/model pair without the fast path', async () => {
+    vi.setSystemTime(new Date('2026-08-16T10:00:05.500Z'))
+    const { ctx } = await harness()
+    const session = ctx.sessions.create(SessionId('filter'))
+    startStep(session, 1, 1)
+    route(session, 'openai', 'gpt-4')
+    const first = usageChunk(session, { inputTokens: 10, outputTokens: 5 }, 1, 1)
+    finalUsage(session, { inputTokens: 10, outputTokens: 5 }, 1, 1, [first], 'openai', 'gpt-4')
+
+    startStep(session, 1, 2)
+    vi.setSystemTime(new Date('2026-08-16T10:00:30.500Z'))
+    route(session, 'anthropic', 'claude')
+    const second = usageChunk(session, { inputTokens: 20, outputTokens: 7 }, 1, 2)
+    finalUsage(session, { inputTokens: 20, outputTokens: 7 }, 1, 2, [second], 'anthropic', 'claude')
+
+    // A filtered whole-history query must NOT read the all-time counter (42,
+    // mixed providers) — it sums only the matching table rows (15).
+    const filtered = ctx.usageStats.query({ filter: [{ provider: 'openai', model: 'gpt-4' }] })
+    expect(filtered.totals).toEqual({
+      consumption: 15, requests: 1, input: 10, output: 5, cacheRead: 0, cacheWrite: 0, cacheHitRate: 0,
+    })
+    expect(filtered.series.map(point => point.tokens)).toEqual([15])
+    expect(filtered.byDate).toEqual([{ date: '2026-08-16', tokens: 15, requests: 1 }])
+    // The breakdown is never filtered — the dropdown stays complete.
+    expect(filtered.providers).toEqual([
+      { provider: 'anthropic', models: ['claude'] },
+      { provider: 'openai', models: ['gpt-4'] },
+    ])
   })
 })

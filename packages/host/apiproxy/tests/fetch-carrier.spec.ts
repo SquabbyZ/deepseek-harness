@@ -304,6 +304,7 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
               },
               series: [],
               byDate: [],
+              providers: [],
             },
           },
         }

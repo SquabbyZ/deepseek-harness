@@ -64,7 +64,8 @@ export type { SettingsApi, SettingsNamespaceView, SettingsPathOpView, SettingsSe
 export type { CredentialsApi, CredentialView } from './credentials.ts'
 export type { ConfigurableProviderView, DiscoveredModelView, LlmApi } from './llm.ts'
 export type {
-  UsageApi, UsageDateRow, UsageGranularity, UsageQueryOptions, UsageSeriesPoint, UsageStatsResult, UsageTotals,
+  UsageApi, UsageDateRow, UsageGranularity, UsageProviderRow, UsageQueryOptions, UsageSeriesPoint,
+  UsageStatsResult, UsageTotals,
 } from './usage.ts'
 export type { DownloadsApi } from './downloads.ts'
 export type { ApprovalResponsePayload } from './approvals.ts'

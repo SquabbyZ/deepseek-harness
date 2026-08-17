@@ -18,6 +18,8 @@ export interface UsageQueryOptions {
   to?: number
   /** Series bucket size; absent means `60s`. */
   granularity?: UsageGranularity
+  /** Exact `(provider, model)` pairs to keep; absent or empty means every provider/model. */
+  filter?: Array<{ provider: string; model: string }>
 }
 
 /** Range-scoped totals with the derived cache-hit rate. */
@@ -49,11 +51,18 @@ export interface UsageDateRow {
   requests: number
 }
 
+/** One distinct provider and the models seen under it, for the filter dropdown. */
+export interface UsageProviderRow {
+  provider: string
+  models: string[]
+}
+
 /** The stable JSON result of the usage query. */
 export interface UsageStatsResult {
   totals: UsageTotals
   series: UsageSeriesPoint[]
   byDate: UsageDateRow[]
+  providers: UsageProviderRow[]
 }
 
 /** Usage-domain read-only query. */
