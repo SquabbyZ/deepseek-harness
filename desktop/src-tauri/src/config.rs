@@ -35,7 +35,7 @@ pub fn product_name() -> String {
 }
 
 /// The OS home directory (Windows `%USERPROFILE%`, Unix `$HOME`).
-fn home_dir() -> Option<std::path::PathBuf> {
+pub fn home_dir() -> Option<std::path::PathBuf> {
     if cfg!(windows) {
         std::env::var("USERPROFILE").ok().map(std::path::PathBuf::from)
     } else {

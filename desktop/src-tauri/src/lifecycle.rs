@@ -66,7 +66,8 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<SidecarHandle, String> {
     let node = normalize_path(&runtime.join(if cfg!(windows) { "node.exe" } else { "node" }));
     let entry = normalize_path(&runtime.join("dsh").join("lib").join("bin.js"));
 
-    let mut child = StdCommand::new(&node)
+    let mut command = StdCommand::new(&node);
+    command
         .arg(&entry)
         .arg("web")
         .arg("--port")
@@ -75,9 +76,27 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<SidecarHandle, String> {
         .env("DSH_GITHUB_CLIENT_SECRET", crate::config::github_client_secret())
         .env("DSH_PRODUCT_NAME", crate::config::product_name())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| e.to_string())?;
+        .stderr(Stdio::piped());
+    // Windows: `node.exe` is a console-subsystem process, so spawning it from a
+    // GUI app (no console) makes Windows allocate a fresh, empty console window
+    // ("Windows PowerShell" under Windows Terminal). CREATE_NO_WINDOW keeps the
+    // sidecar headless — its stdout/stderr are piped above and forwarded, so
+    // there is nothing for the console to show anyway.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    // Root the agent's working directory at the user's home, not the install
+    // directory. The sidecar otherwise inherits the shortcut's working dir
+    // (`C:\Program Files\DeepSeek Harness` on Windows), which is read-only and
+    // far from the user's files — the agent's shell/tool execution would start
+    // there and "cannot reach the host environment". Home is the sane default;
+    // the operator narrows it via the directory picker after launch.
+    if let Some(home) = crate::config::home_dir() {
+        command.current_dir(&home);
+    }
+    let mut child = command.spawn().map_err(|e| e.to_string())?;
 
     // Forward sidecar stdout/stderr into the "dsh-log" event.
     if let Some(stdout) = child.stdout.take() {
@@ -139,9 +158,17 @@ fn supervise(app: AppHandle, child: Arc<Mutex<Child>>) {
 async fn wait_healthy(port: u16, attempts: usize) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+        let mut last: Option<usize> = None;
         for _ in 0..attempts {
-            if http_status_is_200(addr) {
-                return Ok(());
+            if let Some(len) = boot_manifest_len(addr) {
+                // Two equal consecutive lengths mean the manifest has stopped
+                // being re-composed — the client plugin set is complete.
+                if last == Some(len) {
+                    return Ok(());
+                }
+                last = Some(len);
+            } else {
+                last = None;
             }
             std::thread::sleep(Duration::from_millis(250));
         }
@@ -151,41 +178,51 @@ async fn wait_healthy(port: u16, attempts: usize) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Minimal raw-HTTP `GET /` over a [`TcpStream`]; true only on an HTTP 200 status
-/// line, so a foreign service that happens to listen is not mistaken for ours.
-fn http_status_is_200(addr: std::net::SocketAddr) -> bool {
-    let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(250)) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
+/// The byte length of the injected client boot manifest, once `GET /` answers
+/// 200 and the whole `window.__DSH_BOOT__` script has arrived; `None` while the
+/// sidecar is still booting.
+///
+/// The webserver binds before the `client-modules` plugin composes the manifest,
+/// and the manifest is re-composed as the remaining client plugins register, so
+/// its length keeps changing until the boot settles. `wait_healthy` treats two
+/// equal consecutive lengths as settled — a bare 200 (or a manifest still growing)
+/// would let the shell navigate early and the web UI's first boot would then fail
+/// with "N entries did not activate" (a reload succeeds).
+fn boot_manifest_len(addr: std::net::SocketAddr) -> Option<usize> {
+    let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(250)).ok()?;
     let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
     let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
 
     let request = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
     if stream.write_all(request.as_bytes()).is_err() {
-        return false;
+        return None;
     }
 
-    let mut buf = Vec::with_capacity(1024);
-    let mut chunk = [0u8; 512];
+    let mut buf = Vec::with_capacity(16 * 1024);
+    let mut chunk = [0u8; 1024];
     loop {
         match stream.read(&mut chunk) {
             Ok(0) => break,
             Ok(n) => {
                 buf.extend_from_slice(&chunk[..n]);
-                if buf.windows(4).any(|w| w == b"\r\n\r\n") {
-                    break;
+                let text = String::from_utf8_lossy(&buf);
+                let status_ok = text.starts_with("HTTP/1.1 200") || text.starts_with("HTTP/1.0 200");
+                if !status_ok {
+                    return None;
+                }
+                if let Some(start) = text.find("window.__DSH_BOOT__") {
+                    if let Some(end) = text[start..].find("</script>") {
+                        return Some(start + end);
+                    }
+                }
+                if buf.len() >= 16 * 1024 {
+                    return None;
                 }
             }
             Err(_) => break,
         }
     }
-
-    let head = String::from_utf8_lossy(&buf);
-    head.lines()
-        .next()
-        .map(|line| line.starts_with("HTTP/1.1 200") || line.starts_with("HTTP/1.0 200"))
-        .unwrap_or(false)
+    None
 }
 
 #[cfg(test)]
