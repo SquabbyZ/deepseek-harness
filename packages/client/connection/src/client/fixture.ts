@@ -2944,6 +2944,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         fixtureCredentials.delete(request.payload.ref)
         return ok(request, {})
       },
+      // Fixture reveal: nothing real, but unconfigured references return null
+      // so the Models editor can render the same "no stored value" branch it
+      // would in production.
+      reveal: request => ok(request, {
+        value: fixtureCredentials.has(request.payload.ref) ? 'fixture-key' : null,
+      }),
     },
     llm: {
       providers: request => ok(request, {

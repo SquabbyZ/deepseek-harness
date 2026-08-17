@@ -41,4 +41,15 @@ export interface CredentialsApi {
    * as `set`. Unsetting an absent reference succeeds (idempotent).
    */
   unset(request: RpcRequest<{ ref: string }>): Promise<RpcResponse<{}>>
+
+  /**
+   * Reveal one stored credential's current value. This is the deliberate
+   * counterpart to {@link describe}: surfaces that need to display or copy a
+   * configured key ask here, on demand. The carrier remains the same
+   * loopback-only restriction as `set`, so a remote browser cannot call it;
+   * the secret crosses the wire once, inside the response envelope, and the
+   * UI is expected to mask it again (password input + show toggle) when not
+   * the user's immediate focus.
+   */
+  reveal(request: RpcRequest<{ ref: string }>): Promise<RpcResponse<{ value: string | null }>>
 }

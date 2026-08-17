@@ -87,6 +87,7 @@ import type {} from '@deepseek-ai/dsh-network'
 import { SettingsConflictError, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsDescriptor, SettingsNamespace, SettingsPathOp } from '@deepseek-ai/dsh-settings'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import type { ResolvedCredential } from '@deepseek-ai/dsh-credentials'
 // Value edge: the rename impl narrows the title service's validation failure; the import also resolves `ctx.get('sessionTitle')`.
 import { SessionTitleInvalidError } from '@deepseek-ai/dsh-session-title'
 import type { CallId } from '@deepseek-ai/dsh-llm/brand'
@@ -3431,6 +3432,25 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           })
         }
         return ok(request, {})
+      },
+
+      async reveal(request) {
+        const credentials = ctx.get('credentials')
+        if (credentials === undefined) return err(request, credentialsAbsent())
+        const { ref } = request.payload
+        let resolved: ResolvedCredential | undefined
+        try {
+          resolved = await credentials.resolve(credentialRef(ref))
+        } catch (error: unknown) {
+          return err(request, {
+            code: 'credential-rejected',
+            message: error instanceof Error ? error.message : String(error),
+            details: { ref },
+          })
+        }
+        // An empty stored value is absent everywhere; never echo an empty
+        // string as if it were a configured secret.
+        return ok(request, { value: resolved?.value ?? null })
       },
     },
 

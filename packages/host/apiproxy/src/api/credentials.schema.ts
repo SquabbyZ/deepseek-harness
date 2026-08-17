@@ -46,3 +46,13 @@ export const credentialsUnsetRequestSchema = z.object({
 
 /** credentials.unset response value. */
 export const credentialsUnsetValueSchema = z.object({}) satisfies z.ZodType<Wire<ResponseValue<'credentials.unset'>>>
+
+/** credentials.reveal request payload. */
+export const credentialsRevealRequestSchema = z.object({
+  ref: credentialRefNameSchema,
+}) satisfies z.ZodType<Wire<RequestPayload<'credentials.reveal'>>>
+
+/** credentials.reveal response value: `null` when the reference is not configured. */
+export const credentialsRevealValueSchema = z.object({
+  value: z.string().nullable(),
+}) satisfies z.ZodType<Wire<ResponseValue<'credentials.reveal'>>>
