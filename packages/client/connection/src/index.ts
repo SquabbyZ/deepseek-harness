@@ -119,6 +119,26 @@ const PRIVILEGED_METHODS = new Set([
 ])
 
 /**
+ * Inject `window.__DSH_API_BASE__` — the sidecar's own loopback origin — ahead
+ * of the shell bundle. The desktop shell (Tauri) serves the frontend from a
+ * custom-protocol origin (`tauri://localhost` / `*.tauri.localhost`) that does
+ * not name this sidecar, so the browser's `location.origin` cannot reach `/api`
+ * or the WebSocket downlinks; the client carrier (`resolveBase`) prefers this
+ * injected origin for exactly that case. A normal browser (same-origin or LAN)
+ * has a reachable `location.origin` and ignores the injected value.
+ * @param html - the index.html source.
+ * @param host - the bound host literal (`127.0.0.1` loopback, `0.0.0.0` all-interfaces).
+ * @param port - the bound listening port.
+ * @returns the html with the origin script injected.
+ */
+function injectApiBase(html: string, host: string, port: number): string {
+  const script = `<script>window.__DSH_API_BASE__ = ${JSON.stringify(`http://${host}:${port}`)}</script>`
+  const head = html.indexOf('<head>')
+  if (head !== -1) return `${html.slice(0, head + 6)}${script}${html.slice(head + 6)}`
+  return `${script}${html}`
+}
+
+/**
  * Mounts the API gateway under the browser transport prefix. Every request on
  * the prefix passes the browser-trust fence first (DNS-rebinding and
  * cross-site defense — [api-request-trust](./api-request-trust.ts));
@@ -162,6 +182,30 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
     kind: 'prefix',
     path: API_PATH,
     handler: async (req, res) => {
+      // CORS for the desktop shell: Tauri serves its frontend from a
+      // custom-protocol origin and fetches the loopback sidecar cross-origin, so
+      // the browser preflights JSON POSTs and must read an allow header on every
+      // response. Echo the request origin — the trust fence below still gates
+      // the request itself, so a foreign page gets a 403 (no data) even though
+      // it can read that 403. Headers are set via setHeader so bridge()'s
+      // writeHead merges them onto the real response.
+      const requestOrigin = req.headers.origin
+      if (typeof requestOrigin === 'string') {
+        res.setHeader('Access-Control-Allow-Origin', requestOrigin)
+        res.setHeader('Vary', 'Origin')
+        // WebView2 enforces Private Network Access for cross-origin requests
+        // into the loopback address space; ack it on the preflight and the
+        // response alike.
+        res.setHeader('Access-Control-Allow-Private-Network', 'true')
+      }
+      if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        res.setHeader('Access-Control-Allow-Headers', 'content-type')
+        res.setHeader('Access-Control-Max-Age', '600')
+        res.writeHead(204)
+        res.end()
+        return
+      }
       if (!isTrustedApiRequest(req, trustedHosts)) {
         res.writeHead(403)
         res.end('forbidden')
@@ -171,6 +215,12 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
     },
   }
   ctx.effect(() => ctx.webServer.register(route), 'client-connection: /api route')
+  // Inject the sidecar's own origin so the desktop shell's custom-protocol page
+  // can still reach /api and the downlinks (see injectApiBase).
+  ctx.effect(
+    () => ctx.webServer.tapIndex(html => injectApiBase(html, ctx.webServer.host, ctx.webServer.port)),
+    'client-connection: api base injection',
+  )
   ctx.inject(['apiProxy'], (apiCtx) => {
     assertImageBodyCapacity(apiCtx, maxRequestBodyBytes)
     const downlinks = new WebSocketDownlinks(apiCtx.apiProxy)

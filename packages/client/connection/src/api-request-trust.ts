@@ -71,6 +71,29 @@ function canonicalAuthority(entry: string, entryUrl: URL): string {
 }
 
 /**
+ * Whether an `Origin` names the desktop shell's own custom-protocol origin.
+ *
+ * Tauri serves the desktop frontend from `tauri://localhost` (macOS/Linux) or
+ * `http(s)://tauri.localhost` (Windows/WebView2), so its fetches to the
+ * loopback sidecar arrive cross-origin with that origin. It is the desktop's
+ * own window, not a foreign page, so the fence trusts it before the
+ * cross-site / origin-match checks — while the Host fence above still binds the
+ * socket to loopback. `.localhost` is the RFC 6761 reserved TLD (always
+ * loopback), so the hostname match cannot be hijacked by a remote domain.
+ * @param origin - the raw `Origin` header value.
+ * @returns true when the origin is one of Tauri's reserved origins.
+ */
+function isTauriOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin)
+    if (url.protocol === 'tauri:' && url.hostname === 'localhost') return true
+    return url.hostname === 'tauri.localhost'
+  } catch {
+    return false
+  }
+}
+
+/**
  * Whether the request authority matches a `trustedHosts` entry. An entry with
  * an explicit port matches that exact authority; a port-less entry matches the
  * hostname on any port (the shape the CLI derives for IP-literal LAN serving,
@@ -106,6 +129,11 @@ export function isTrustedApiRequest(request: ApiTrustRequest, trustedHosts: read
   const hostUrl = parseAuthority(host)
   if (hostUrl === undefined) return false
   if (!isLoopbackHostname(hostUrl.hostname) && !isTrustedAuthority(hostUrl, trustedHosts)) return false
+  // The desktop shell's own origin is trusted before the cross-site / origin
+  // fences below: Tauri fetches the loopback sidecar cross-origin, and its
+  // custom-protocol origin is not the loopback authority the request targets.
+  const origin = header(request.headers, 'origin')
+  if (origin !== undefined && isTauriOrigin(origin)) return true
   // Cross-site fence: modern browsers label the initiator relationship on
   // every fetch; an explicit cross-site marker is refused regardless of Origin.
   if (header(request.headers, 'sec-fetch-site') === 'cross-site') return false
@@ -113,7 +141,6 @@ export function isTrustedApiRequest(request: ApiTrustRequest, trustedHosts: read
   // authority (compared through the same normalization as the Host). Absent
   // Origin is fine — the Host fence above already bound the request. The
   // literal "null" (sandboxed iframes, file: pages) is an opaque origin, refused.
-  const origin = header(request.headers, 'origin')
   if (origin === undefined) return true
   try {
     return new URL(origin).host === hostUrl.host

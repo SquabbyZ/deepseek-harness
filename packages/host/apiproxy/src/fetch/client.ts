@@ -296,8 +296,20 @@ export abstract class AbstractApiClient implements IApiClient {
 
   /** Browser = same-origin (a fake authority would fail DNS on real requests); no-location env (Node) = fake authority. */
   protected resolveBase(): string {
-    const loc = (globalThis as { location?: { origin?: string } }).location
-    return loc?.origin !== undefined && loc.origin !== 'null' ? loc.origin : INTERNAL_BASE
+    const g = globalThis as { location?: { origin?: string }; __DSH_API_BASE__?: string }
+    const origin = g.location?.origin
+    // Tauri's desktop shell serves the frontend from a custom-protocol origin
+    // (`tauri://localhost` / `*.tauri.localhost`) that does not name the sidecar,
+    // so `location.origin` cannot reach the loopback API. The sidecar injects its
+    // own origin into the served HTML; prefer it for that origin. A normal
+    // browser (same-origin or LAN) has a reachable `location.origin` and never
+    // takes this branch.
+    const tauri = origin !== undefined
+      && (origin.startsWith('tauri:') || origin.includes('tauri.localhost'))
+    if (tauri && typeof g.__DSH_API_BASE__ === 'string' && g.__DSH_API_BASE__ !== '') {
+      return g.__DSH_API_BASE__
+    }
+    return origin !== undefined && origin !== 'null' ? origin : INTERNAL_BASE
   }
 
   protected mintRpcId(): RpcId {

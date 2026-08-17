@@ -58,6 +58,16 @@ describe('isTrustedApiRequest', () => {
     expect(isTrustedApiRequest(request({ host: '127.0.0.1:3080', origin: 'null' }), [])).toBe(false)
   })
 
+  it('trusts the desktop shell’s own custom-protocol origin even though its fetch is cross-origin', () => {
+    for (const origin of ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost']) {
+      expect(isTrustedApiRequest(request({ host: '127.0.0.1:3080', origin, 'sec-fetch-site': 'cross-site' }), [])).toBe(true)
+    }
+    // The scheme alone is not enough: a tauri:// host must still be localhost,
+    // and a foreign .localhost subdomain must not be confused with Tauri's.
+    expect(isTrustedApiRequest(request({ host: '127.0.0.1:3080', origin: 'tauri://evil.example', 'sec-fetch-site': 'cross-site' }), [])).toBe(false)
+    expect(isTrustedApiRequest(request({ host: '127.0.0.1:3080', origin: 'https://evil.localhost', 'sec-fetch-site': 'cross-site' }), [])).toBe(false)
+  })
+
   it('accepts a same-origin browser request, with or without an Origin header', () => {
     expect(isTrustedApiRequest(request({
       host: 'localhost:3080',

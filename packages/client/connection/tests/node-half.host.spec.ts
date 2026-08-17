@@ -56,11 +56,16 @@ function fakeRawPost(headers: Record<string, string>, url: string, body: string)
 }
 
 /** Response recorder compatible with both the fence's short-circuit and the bridge. */
-function fakeResponse(): { response: ServerResponse; state: { status?: number; body?: unknown } } {
-  const state: { status?: number; body?: unknown } = {}
+function fakeResponse(): { response: ServerResponse; state: { status?: number; body?: unknown; headers?: Record<string, string> } } {
+  const state: { status?: number; body?: unknown; headers?: Record<string, string> } = {}
   const chunks: Buffer[] = []
   const response = Object.assign(new EventEmitter(), {
     writableEnded: false,
+    setHeader(name: string, value: string | number | readonly string[]) {
+      state.headers ??= {}
+      state.headers[name] = Array.isArray(value) ? value.join(', ') : String(value)
+      return this
+    },
     writeHead(value: number) { state.status = value; return this },
     write(value: string | Uint8Array) { chunks.push(Buffer.from(value)); return true },
     end(this: { writableEnded: boolean }, value?: unknown) {
@@ -210,6 +215,33 @@ describe('connection node half', () => {
       host: 'harness.example:3080', origin: 'http://harness.example:3080', 'sec-fetch-site': 'same-origin',
     }), declared.response)
     expect(declared.state.status).toBe(404)
+    await dispose()
+  })
+
+  it('answers the CORS preflight and stamps responses with the Tauri allow header', async () => {
+    const { routes, dispose } = await mounted()
+    // The desktop shell's cross-origin JSON POST preflights: OPTIONS must answer
+    // 204 with the allow headers before the trust fence runs.
+    const preflight = fakeResponse()
+    const preflightReq = Object.assign(
+      fakeRequest({ host: '127.0.0.1:3080', origin: 'https://tauri.localhost' }),
+      { method: 'OPTIONS' },
+    )
+    await routes[0]!.handler(preflightReq, preflight.response)
+    expect(preflight.state.status).toBe(204)
+    expect(preflight.state.headers?.['Access-Control-Allow-Origin']).toBe('https://tauri.localhost')
+    expect(preflight.state.headers?.['Access-Control-Allow-Methods']).toBe('POST, GET, OPTIONS')
+
+    // A Tauri-origin request passes the fence (404 from the empty proxy proves
+    // the bridge ran) and carries the echoed allow header so the browser may
+    // read the response cross-origin.
+    const tauri = fakeResponse()
+    await routes[0]!.handler(
+      fakeRequest({ host: '127.0.0.1:3080', origin: 'https://tauri.localhost', 'sec-fetch-site': 'cross-site' }),
+      tauri.response,
+    )
+    expect(tauri.state.status).toBe(404)
+    expect(tauri.state.headers?.['Access-Control-Allow-Origin']).toBe('https://tauri.localhost')
     await dispose()
   })
 
