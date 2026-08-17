@@ -15,7 +15,7 @@
  * @module @deepseek-ai/dsh/bin/lazy-sdk
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -72,40 +72,52 @@ export function ensureSdk(specifier: string): Promise<string> {
 
 async function doEnsure(specifier: string, pkg: string): Promise<string> {
   const dir = join(sdkRoot(), ...pkg.split('/'))
-  let entry = resolveEntry(dir, specifier)
-  if (entry === undefined) {
-    await download(pkg, dir)
-    entry = resolveEntry(dir, specifier)
-    if (entry === undefined) throw new Error(`lazy SDK "${pkg}" downloaded but has no resolvable entry`)
-  }
+  await download(pkg, dir)
+  const entry = resolveEntry(dir, specifier)
+  if (entry === undefined) throw new Error(`lazy SDK "${pkg}" downloaded but has no resolvable entry`)
   return pathToFileURL(entry).href
 }
 
 /**
- * Fetch the package's latest tarball, extract it, and recursively fetch its
- * runtime dependencies — a minimal `npm install` so the downloaded SDK's own
- * bare imports (`zod`, `ws`, `bowser`, …) resolve against the cache rather than
- * the read-only bundled node_modules. Lazy SDKs are skipped: the loader downloads
- * each on its own import, and peers are skipped (the SDK tolerates their absence).
+ * Ensure one package is present and recursively fetch its runtime dependencies —
+ * a minimal `npm install` so the downloaded SDK's own bare imports (`zod`, `ws`,
+ * `bowser`, `standardwebhooks`, …) resolve against the cache rather than the
+ * read-only bundled node_modules. Already-extracted packages are not re-fetched,
+ * but their dependency closure is still walked, so a previously-partial download
+ * (a dependency that failed before the operator's proxy was configured) is
+ * repaired on the next import. Lazy SDKs are skipped: the loader downloads each
+ * on its own import, and peers are skipped (the SDK tolerates their absence).
  */
 async function download(pkg: string, dir: string): Promise<void> {
   if (downloaded.has(pkg)) return
   downloaded.add(pkg)
-  const meta = (await (await fetch(`https://registry.npmjs.org/${pkg}`)).json()) as {
-    'dist-tags'?: { latest?: string }
-    versions?: Record<string, { dist?: { tarball?: string }; dependencies?: Record<string, string> }>
+  if (!existsSync(join(dir, 'package.json'))) {
+    try {
+      const meta = (await (await fetch(`https://registry.npmjs.org/${pkg}`)).json()) as {
+        'dist-tags'?: { latest?: string }
+        versions?: Record<string, { dist?: { tarball?: string } }>
+      }
+      const version = meta['dist-tags']?.latest
+      const tarball = version === undefined ? undefined : meta.versions?.[version]?.dist?.tarball
+      if (version === undefined || tarball === undefined) {
+        throw new Error(`lazy SDK "${pkg}": cannot resolve a tarball from the npm registry`)
+      }
+      const body = Buffer.from(await (await fetch(tarball)).arrayBuffer())
+      extractTar(gunzipSync(body), dir)
+      console.error(`[dsh] downloaded provider SDK dependency ${pkg}@${version}`)
+    } catch (error) {
+      // A fetch can fail (a flaky network, e.g. before the proxy). Leaving the
+      // already-extracted tree on disk would make a later import short-circuit to
+      // a tree whose dependencies are missing ("Cannot find package '…'"). Remove
+      // the partial tree and un-mark the package so the next import re-downloads.
+      downloaded.delete(pkg)
+      rmSync(dir, { recursive: true, force: true })
+      throw error
+    }
   }
-  const version = meta['dist-tags']?.latest
-  const tarball = version === undefined ? undefined : meta.versions?.[version]?.dist?.tarball
-  if (version === undefined || tarball === undefined) {
-    throw new Error(`lazy SDK "${pkg}": cannot resolve a tarball from the npm registry`)
-  }
-  const body = Buffer.from(await (await fetch(tarball)).arrayBuffer())
-  extractTar(gunzipSync(body), dir)
-  console.error(`[dsh] downloaded provider SDK dependency ${pkg}@${version}`)
-
-  const dependencies = meta.versions?.[version]?.dependencies ?? {}
-  for (const [dep] of Object.entries(dependencies)) {
+  let manifest: { dependencies?: Record<string, string> }
+  try { manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) } catch { return }
+  for (const [dep] of Object.entries(manifest.dependencies ?? {})) {
     if (isLazySdk(dep)) continue
     await download(dep, join(sdkRoot(), ...dep.split('/')))
   }

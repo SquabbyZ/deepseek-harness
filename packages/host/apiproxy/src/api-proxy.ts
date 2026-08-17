@@ -79,6 +79,8 @@ import type {} from '@deepseek-ai/dsh-commands'
 // rebuild the api-remotes cycle this direction exists to avoid.
 import type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
 import type {} from '@deepseek-ai/dsh-skill'
+// Type-only: resolves `ctx.get('network')` to the outbound-proxy handle.
+import type {} from '@deepseek-ai/dsh-network'
 // The settings/credentials seams: brand guards run at this wire boundary; the
 // service reads stay optional (`ctx.get`) so a composition without either
 // provider still serves every other domain.
@@ -128,7 +130,7 @@ const DEFAULT_MAX_MESSAGES = 50
  * is deferred work.
  */
 const WEB_SETTINGS_NAMESPACES = [
-  'agent-loop', 'compaction', 'shell', 'locale', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
+  'agent-loop', 'compaction', 'shell', 'locale', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek', 'proxy',
 ] as const
 
 /** Provider work budget: at most 100 calls and 2,000 inspected hits. */
@@ -3052,6 +3054,18 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       async openPath(request, signal) {
         return openPath(request, request.payload.path, signal)
+      },
+
+      async testProxy(request, signal) {
+        const network = ctx.get('network')
+        if (network === undefined) {
+          return err(request, {
+            code: 'internal',
+            message: 'outbound proxy is not available in this deployment',
+            details: {},
+          })
+        }
+        return ok(request, await network.testProxy(request.payload.url, signal))
       },
     },
 

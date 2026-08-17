@@ -118,6 +118,9 @@ export class FakeApiClient implements IApiClient {
   onOpenPath: (payload: unknown) => Promise<RpcResponse<{ opened: true }>> =
     () => Promise.resolve(ok({ opened: true as const }))
 
+  onTestProxy: (payload: unknown) => Promise<RpcResponse<{ ok: boolean; latencyMs?: number; error?: string }>> =
+    () => Promise.resolve(ok({ ok: true, latencyMs: 1 }))
+
   onListDirectory: (payload: unknown) => Promise<RpcResponse<{
     path: string
     home: string
@@ -180,6 +183,7 @@ export class FakeApiClient implements IApiClient {
     listDirectory: (payload: unknown) => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: (payload: unknown) => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: (payload: unknown) => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    testProxy: (payload: unknown) => this.record('host.testProxy', payload, this.onTestProxy(payload)),
   }
 
   // The archive-set field defaults at the binding below so list stubs keep

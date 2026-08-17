@@ -93,4 +93,14 @@ export interface HostApi {
     request: RpcRequest<{ path: string }>,
     signal: AbortSignal,
   ): Promise<RpcResponse<{ opened: true }>>
+
+  /**
+   * Probe one proxy URL: the host fetches a fixed connectivity endpoint through
+   * it and reports whether it reached the internet. `ok` is false (with an
+   * `error`) when the proxy is unreachable, malformed, or times out.
+   */
+  testProxy(
+    request: RpcRequest<{ url: string }>,
+    signal: AbortSignal,
+  ): Promise<RpcResponse<{ ok: boolean; latencyMs?: number; error?: string }>>
 }

@@ -45,6 +45,9 @@
       "path": "../../core/agent-default-model"
     },
     {
+      "path": "../../core/network"
+    },
+    {
       "path": "../../preset/agent-presets"
     },
     {

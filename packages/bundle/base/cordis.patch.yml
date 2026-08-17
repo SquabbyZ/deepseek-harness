@@ -77,6 +77,12 @@
     - id: settings
       name: '@deepseek-ai/dsh-settings-file'
 
+    # Outbound HTTP proxy: a persisted `proxy.url` installs a process-global
+    # undici dispatcher so every outbound fetch (LLM, web search, downloads)
+    # routes through it; the 代理 settings page writes it.
+    - id: network
+      name: '@deepseek-ai/dsh-network'
+
     # Credential sources: inherited environment over the managed
     # `$DSH_HOME/.credentials.yaml`, with project and user `.env` fallbacks.
     # Adapters resolve references per request; the Models page writes only the

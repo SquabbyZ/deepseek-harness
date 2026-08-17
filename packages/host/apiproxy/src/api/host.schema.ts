@@ -72,3 +72,15 @@ export const hostOpenPathRequestSchema = z.object({
 export const hostOpenPathValueSchema = z.object({
   opened: z.literal(true),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.openPath'>>>
+
+/** host.testProxy request payload: a proxy URL to probe. */
+export const hostTestProxyRequestSchema = z.object({
+  url: z.string().min(1),
+}) satisfies z.ZodType<Wire<RequestPayload<'host.testProxy'>>>
+
+/** host.testProxy response value: whether the proxy reached the internet. */
+export const hostTestProxyValueSchema = z.object({
+  ok: z.boolean(),
+  latencyMs: z.number().optional(),
+  error: z.string().optional(),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.testProxy'>>>

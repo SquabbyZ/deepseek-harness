@@ -84,6 +84,9 @@ export class FakeApiClient implements IApiClient {
   onOpenPath: (payload: unknown) => Promise<RpcResponse<{ opened: true }>> =
     () => Promise.resolve(ok({ opened: true as const }))
 
+  onTestProxy: (payload: unknown) => Promise<RpcResponse<{ ok: boolean; latencyMs?: number; error?: string }>> =
+    () => Promise.resolve(ok({ ok: true, latencyMs: 1 }))
+
   onListDirectory: (payload: unknown) => Promise<RpcResponse<{
     path: string
     home: string
@@ -146,6 +149,7 @@ export class FakeApiClient implements IApiClient {
     listDirectory: payload => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: payload => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: payload => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    testProxy: payload => this.record('host.testProxy', payload, this.onTestProxy(payload)),
   }
 
   readonly workspace: IApiClient['workspace'] = {
