@@ -43,11 +43,7 @@ function mount({
   )
   const useSessions = ((select: (state: unknown) => unknown) => select(onboardingActive
     ? { phase: 'ready', current: undefined, byId: {} }
-    : {
-      phase: 'ready',
-      current: 'active-session',
-      byId: { 'active-session': { blank: false } },
-    })) as never
+    : { phase: 'loading', current: undefined, byId: {} })) as never
   const unusedHook = (() => { throw new Error('unused by SettingsRoot') }) as never
   const props: SettingsRootComponentProps = {
     useSessions,
