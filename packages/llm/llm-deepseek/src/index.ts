@@ -336,7 +336,20 @@ export function apply(ctx: Context, config: Config): void {
 
   let userId: AnonymousUserId | undefined
   const resolveUserId = (): AnonymousUserId => userId ??= getOrCreateAnonymousUserId()
-  const adapter = new DeepSeekAdapter({ options, resolveApiKey, resolveUserId })
+  const adapter = new DeepSeekAdapter({
+    options,
+    resolveApiKey,
+    resolveUserId,
+    imageText: async (attachment) => {
+      const attachments = ctx.get('attachments')
+      const mediaIntake = ctx.get('mediaIntake')
+      if (attachments === undefined || mediaIntake === undefined) {
+        throw new LlmError('Image OCR requires the attachment and media-intake services.', 'UNSUPPORTED_CONTENT')
+      }
+      const stored = await attachments.readImage(attachment)
+      return mediaIntake.recognizeImage(stored.data)
+    },
+  })
 
   // The route is configurable from the moment the plugin mounts — dormant or
   // not — so configuration surfaces can offer it before any profile exists.

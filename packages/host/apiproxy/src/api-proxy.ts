@@ -199,27 +199,6 @@ async function durablePromptContent(ctx: Context, content: readonly PromptConten
 }
 
 /**
- * Reduce image parts to their OCR-extracted text for a text-only model. The
- * marker keeps the model aware that the text came from an image rather than a
- * typed message, without leaking internal storage details.
- */
-async function ocrPromptContent(ctx: Context, content: readonly PromptContentPart[]): Promise<PromptContentPart[]> {
-  const out: PromptContentPart[] = []
-  for (const part of content) {
-    if (part.type !== 'image') {
-      out.push(part)
-      continue
-    }
-    const text = (await ctx.mediaIntake.recognizeImage(decodeBase64(part.data))).trim()
-    if (text.length === 0) {
-      throw new AttachmentError('The image contains no readable text, and this model cannot process images directly.', 'IMAGE_NO_TEXT')
-    }
-    out.push({ type: 'text', text: `[Image text]\n${text}` })
-  }
-  return out
-}
-
-/**
  * Convert one file part into a durable document block. Documents are never a
  * model input modality, so every file is converted before admission regardless
  * of model capability. The filename is a label, not a storage path, and is
@@ -2542,18 +2521,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           documentBlocks = await Promise.all(fileParts.map(part => fileToDocument(ctx, part)))
           remainingContent = content.filter(part => part.type !== 'file')
         }
-        // A text-only model cannot see an image, so reduce each image to its
-        // extracted text before the message is admitted. Vision-capable models
-        // keep the durable image path unchanged.
-        let ocrApplied = false
-        if (hasImage) {
-          const current = selectionFor(agent).current
-          const modelInfo = await ctx.llm.resolveModelInfo(current.provider, current.model)
-          if (modelInfo.inputModalities !== undefined && !modelInfo.inputModalities.includes('image')) {
-            remainingContent = await ocrPromptContent(ctx, remainingContent)
-            ocrApplied = true
-          }
-        }
+        // Images are stored durably regardless of model capability, so the
+        // transcript always shows the image the user sent. A text-only adapter
+        // reduces the image to OCR text at serialization (post-admission), which
+        // keeps admission fast and the extracted text out of the user's view.
         const admit = async (): Promise<RpcResponse<{ accepted: true }>> => {
           try {
             const textImageBlocks = await durablePromptContent(ctx, remainingContent)
@@ -2577,7 +2548,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           }
           return ok(request, { accepted: true as const })
         }
-        return ocrApplied ? admit() : (hasImage ? serializeImageAdmission(agent, admit) : admit())
+        return hasImage ? serializeImageAdmission(agent, admit) : admit()
       },
 
       async attachment(request) {

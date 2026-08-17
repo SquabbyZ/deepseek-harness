@@ -39,10 +39,12 @@ import {
   ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
 import type {
+  ContentBlock,
   GenerateOptions,
   LlmModelInfo,
   LlmProviderInfo,
   LlmResolvedModelInfo,
+  Message,
   ReasoningEffortId as ReasoningEffortIdType,
   ResolvedRetryPolicy,
   StreamChunk,
@@ -76,6 +78,36 @@ export interface PiAiAdapterOptions {
   resolveApiKey: (provider: string, profile: ResolvedPiAiProviderProfile) => Promise<string | undefined>
   /** Resolve the optional durable attachment service at request time. */
   resolveAttachments?: () => AttachmentStore | undefined
+  /** Resolve the optional image→text reducer at request time (for text-only models). */
+  resolveImageText?: () => ((attachment: Extract<ContentBlock, { type: 'image' }>['attachment']) => Promise<string>) | undefined
+}
+
+/** Reduce image blocks to OCR text for a text-only pi-ai model. */
+async function reduceImages(
+  messages: readonly Message[],
+  imageText: (attachment: Extract<ContentBlock, { type: 'image' }>['attachment']) => Promise<string>,
+): Promise<Message[]> {
+  const reduced: Message[] = []
+  for (const message of messages) {
+    if (!contentHasImage(message.content)) {
+      reduced.push(message)
+      continue
+    }
+    const content: ContentBlock[] = []
+    for (const block of message.content) {
+      if (block.type !== 'image') {
+        content.push(block)
+        continue
+      }
+      const text = (await imageText(block.attachment)).trim()
+      if (text.length === 0) {
+        throw new LlmError('The image contains no readable text, and this model cannot process images directly.', 'IMAGE_NO_TEXT')
+      }
+      content.push({ type: 'text', text: `[Image text]\n${text}` })
+    }
+    reduced.push({ ...message, content })
+  }
+  return reduced
 }
 
 /** Copy profile stream knobs into pi-ai's common option vocabulary. */
@@ -300,16 +332,25 @@ export class PiAiAdapter extends LlmAdapter {
 
     try {
       const containsImage = options.messages.some(message => contentHasImage(message.content))
-      if (containsImage && !model.input.includes('image')) {
-        throw new LlmError(`pi-ai model "${model.id}" does not support image input`, 'UNSUPPORTED_CONTENT')
+      const vision = model.input.includes('image')
+      // A text-only model cannot see an image: reduce it to OCR text before
+      // building the pi-ai context, so the durable transcript still shows the
+      // image while the request carries only the extracted text.
+      let messages = options.messages
+      if (containsImage && !vision) {
+        const imageText = this.config.resolveImageText?.()
+        if (imageText === undefined) {
+          throw new LlmError(`pi-ai model "${model.id}" does not support image input`, 'UNSUPPORTED_CONTENT')
+        }
+        messages = await reduceImages(messages, imageText)
       }
-      const attachments = containsImage ? this.config.resolveAttachments?.() : undefined
-      if (containsImage && attachments === undefined) {
+      const attachments = containsImage && vision ? this.config.resolveAttachments?.() : undefined
+      if (containsImage && vision && attachments === undefined) {
         throw new LlmError('pi-ai image input requires the durable attachment service', 'UNSUPPORTED_CONTENT')
       }
       const context = attachments === undefined
-        ? toPiContext(options)
-        : await toPiContext(options, attachments)
+        ? toPiContext({ ...options, messages })
+        : await toPiContext({ ...options, messages }, attachments)
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },

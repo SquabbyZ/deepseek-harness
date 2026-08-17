@@ -8,12 +8,14 @@
  * @module dsh-llm-deepseek/adapter
  */
 
-import { attributionHeaders, CONTEXT_WINDOW_EXCEEDED_CODE, isContextWindowExceededError, isQuotaExceededError, LlmAdapter, LlmError, ProviderRequestId, QUOTA_EXCEEDED_CODE, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import { attributionHeaders, CONTEXT_WINDOW_EXCEEDED_CODE, contentHasImage, isContextWindowExceededError, isQuotaExceededError, LlmAdapter, LlmError, ProviderRequestId, QUOTA_EXCEEDED_CODE, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type {
+  ContentBlock,
   GenerateOptions,
   LlmModelInfo,
   LlmProviderInfo,
   LlmResolvedModelInfo,
+  Message,
   ResolvedRetryPolicy,
   StreamChunk,
 } from '@deepseek-ai/dsh-llm'
@@ -83,6 +85,8 @@ export interface DeepSeekAdapterOptions {
   resolveApiKey: (connection: DeepSeekConnectionOptions) => Promise<string>
   /** Resolve the harness-home anonymous id shared with telemetry and feedback. */
   resolveUserId: () => AnonymousUserId
+  /** Reduce an image block to its OCR text for this text-only route; absent in compositions without media intake. */
+  imageText?: (attachment: Extract<ContentBlock, { type: 'image' }>['attachment']) => Promise<string>
 }
 
 /** Default maximum idle interval while an adapter stream read is outstanding. */
@@ -268,6 +272,35 @@ export class DeepSeekAdapter extends LlmAdapter {
     }
   }
 
+  /** Reduce image blocks to their OCR text for this text-only route. */
+  private async reduceImages(messages: readonly Message[]): Promise<Message[]> {
+    const imageText = this.config.imageText
+    const reduced: Message[] = []
+    for (const message of messages) {
+      if (!contentHasImage(message.content)) {
+        reduced.push(message)
+        continue
+      }
+      if (imageText === undefined) {
+        throw new LlmError('The DeepSeek chat-completions adapter does not support image content.', 'UNSUPPORTED_CONTENT')
+      }
+      const content: ContentBlock[] = []
+      for (const block of message.content) {
+        if (block.type !== 'image') {
+          content.push(block)
+          continue
+        }
+        const text = (await imageText(block.attachment)).trim()
+        if (text.length === 0) {
+          throw new LlmError('The image contains no readable text, and this model cannot process images directly.', 'IMAGE_NO_TEXT')
+        }
+        content.push({ type: 'text', text: `[Image text]\n${text}` })
+      }
+      reduced.push({ ...message, content })
+    }
+    return reduced
+  }
+
   private async * request(
     options: GenerateOptions,
     signal: AbortSignal,
@@ -276,7 +309,8 @@ export class DeepSeekAdapter extends LlmAdapter {
     userId: AnonymousUserId,
     onComment: () => void,
   ): AsyncIterable<StreamChunk> {
-    const body = serializeRequest(options, connection.defaults)
+    const messages = await this.reduceImages(options.messages)
+    const body = serializeRequest({ ...options, messages }, connection.defaults)
     // Prepared outside the try so the TRANSPORT label below covers exactly the
     // transport boundary, never a serialization failure.
     const payload = JSON.stringify(body)

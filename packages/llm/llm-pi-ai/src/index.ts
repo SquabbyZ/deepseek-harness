@@ -219,6 +219,15 @@ export function apply(ctx: Context, config: Config): void {
     profiles,
     resolveApiKey,
     resolveAttachments: () => ctx.get('attachments'),
+    resolveImageText: () => {
+      const attachments = ctx.get('attachments')
+      const mediaIntake = ctx.get('mediaIntake')
+      if (attachments === undefined || mediaIntake === undefined) return undefined
+      return async (attachment) => {
+        const stored = await attachments.readImage(attachment)
+        return mediaIntake.recognizeImage(stored.data)
+      }
+    },
   })
   // The full installed catalog is configurable from the moment the plugin
   // mounts — dormant or not — so configuration surfaces can offer every
