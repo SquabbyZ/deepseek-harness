@@ -9,9 +9,17 @@
 /* v8 ignore file -- built-bin acceptance exercises this self-executing dispatch. */
 
 import { readFileSync } from 'node:fs'
+import { register } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { loadLayeredEnv } from '@deepseek-ai/dsh-app-boot'
 import { parseDshArgs } from './args.ts'
+
+// On-demand provider-SDK download: pi-ai lazily imports each provider's SDK by
+// bare name. Those packages are pruned from the desktop runtime, so this async
+// loader (see ./lazy-sdk-loader.ts) fetches the SDK into ~/.dsh/sdks before the
+// default loader would throw ERR_MODULE_NOT_FOUND. `registerHooks` cannot do
+// this (sync-only); `register` loads the async loader file beside bin.js.
+register('./lazy-sdk-loader.js', import.meta.url)
 
 // Both the source tree (apps/cli/src) and the bundled bin (apps/cli/lib) sit
 // one directory under apps/cli, so the checked-in manifest resolves with the

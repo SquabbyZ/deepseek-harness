@@ -15,7 +15,7 @@
  * `scripts/verify-runtime-closure.ts --manifest desktop/sidecar-runtime/package.json`
  * gates that closure.
  */
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import {
   copyFileSync,
   cpSync,
@@ -149,6 +149,44 @@ function restoreLegacyHoists(dshDir) {
   }
 }
 
+/**
+ * Strip TypeScript sources, declarations, and source maps from the deploy.
+ *
+ * `pnpm deploy` ships each package's full published files: `.ts`/`.mts`/`.cts`
+ * source, `.d.ts` declarations, and `.map` source maps ride along because the
+ * packages (workspace and third-party alike) do not exclude them from their
+ * tarballs. None are ever loaded at runtime — the web profile registers no
+ * source-map-support and Node resolves every import to `.js`/`.mjs`/`.cjs`/
+ * `.json` — so they are ~27k of the ~50k bundled files as pure dead weight.
+ * Windows MSI installs pay per file (a transaction + registry entry each), so
+ * dropping them is the single largest lever on both bundle size and install
+ * time. `.md` files are deliberately kept: `LICENSE*` carries redistribution
+ * obligations and `SKILL.md` is shipped content, not a build artifact.
+ */
+function pruneDevArtifacts(dshDir) {
+  let removed = 0
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(path)
+        continue
+      }
+      if (!entry.isFile()) continue
+      if (entry.name.endsWith('.ts')
+        || entry.name.endsWith('.mts')
+        || entry.name.endsWith('.cts')
+        || entry.name.endsWith('.map')
+        || entry.name.endsWith('.tsbuildinfo')) {
+        rmSync(path, { force: true })
+        removed++
+      }
+    }
+  }
+  walk(dshDir)
+  console.log(`  pruned ${removed} TypeScript/source-map files`)
+}
+
 // 1. Build the dsh library so every package has its lib/ output.
 run('pnpm run build:lib')
 
@@ -190,10 +228,22 @@ hoistLazyMistral(dshDir)
 cpSync(join(dshApp, 'lib'), join(dshDir, 'lib'), { recursive: true })
 cpSync(join(dshApp, 'config'), join(dshDir, 'config'), { recursive: true })
 
-// 5. Copy the Node runtime binary.
+// 5. Strip the TypeScript/source-map dead weight (~27k files Node never loads)
+//    so the MSI is not slowed by per-file installer overhead.
+pruneDevArtifacts(dshDir)
+
+// 5b. Strip browser-only packages: the node runtime never imports the frontend
+//    framework family (react/recharts/date-fns/lucide/… — the browser gets them
+//    from the Vite shell + the bundled client.js), so their full published
+//    copies are dead weight. See scripts/prune-browser-only.mjs.
+execFileSync(process.execPath, [
+  join(root, 'scripts', 'prune-browser-only.mjs'), dshDir,
+], { stdio: 'inherit' })
+
+// 6. Copy the Node runtime binary.
 copyFileSync(process.execPath, join(runtime, isWin ? 'node.exe' : 'node'))
 
-// 6. Restore the workspace node_modules. The deploy's --config.node-linker=hoisted
+// 7. Restore the workspace node_modules. The deploy's --config.node-linker=hoisted
 //    leaves pnpm's deps-status check out of sync, so the NEXT `pnpm run` would
 //    trigger an internal `install --production` that purges dev deps
 //    (lefthook/typescript/react/…). A full reinstall undoes that purge so the
