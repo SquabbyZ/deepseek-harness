@@ -69,7 +69,7 @@ describe('ModelSelect reasoning effort', () => {
     fireEvent.click(trigger)
     fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
     expect(screen.getAllByRole('menuitemradio').map(item => item.textContent))
-      .toEqual(['Off', '高', '最大Largest budget'])
+      .toEqual(['关闭', '高', '最大Largest budget'])
 
     fireEvent.click(screen.getByRole('menuitemradio', { name: /最大/ }))
     await waitFor(() => {

@@ -55,7 +55,7 @@ const CELL = 'flex h-10 w-full cursor-pointer items-center gap-2 rounded-[10px] 
 
 /** Effort ids with a localized product label; custom adapter efforts fall back. */
 const EFFORT_LABEL_KEYS: ReadonlySet<string> = new Set([
-  'effort.low', 'effort.medium', 'effort.high', 'effort.xhigh', 'effort.max',
+  'effort.off', 'effort.minimal', 'effort.low', 'effort.medium', 'effort.high', 'effort.xhigh', 'effort.max',
 ])
 
 /** Localize a reasoning effort label, falling back to the adapter-supplied name. */
