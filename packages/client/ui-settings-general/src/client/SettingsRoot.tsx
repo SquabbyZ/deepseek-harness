@@ -135,9 +135,13 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   // seats re-render through their own outlets' subscriptions.
   const rows = useSections(s => s)
   const onboardingSteps = useOnboardingSteps(s => s)
-  const onboardingActive = useSessions(state =>
-    state.phase === 'ready'
-    && (state.current === undefined || state.byId[state.current]?.blank === true))
+  // The gate fires while sessions are ready; the registered step decides whether
+  // to render from its own readiness projection (no usable provider → show,
+  // anything else → return null and auto-complete). The previous "blank
+  // session" gate silently suppressed the configure step on any desktop
+  // install that already carried a non-blank session, leaving users without a
+  // way to recover when no provider was actually configured.
+  const onboardingActive = useSessions(state => state.phase === 'ready')
   const onboardingStep = onboardingActive
     ? onboardingSteps.find(step => !completedOnboarding.has(step.id))
     : undefined
