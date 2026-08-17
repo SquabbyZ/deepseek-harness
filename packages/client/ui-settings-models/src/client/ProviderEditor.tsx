@@ -27,7 +27,10 @@ import type { CredentialView, IApiClient, SettingsNamespaceView, SettingsPathOpV
 import {
   deletePath, getPath, hasPath, nodeAtPath, rehydrateSchema, setPath, validateDraft,
 } from '@deepseek-ai/dsh-client-schema-form'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, ShadcnInput } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconCopyOutline16, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  ShadcnButton, ShadcnInput,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels,
 } from './DeepSeekModelsEditor.tsx'
@@ -167,6 +170,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const [keyState, setKeyState] = useState<CredentialView | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | undefined>(undefined)
+  // The show / copy buttons work against two sources, in priority order:
+  // a typed value the user has not yet saved, then the value resolved from
+  // the credential store when no typed value is pending. Either source keeps
+  // the input in sync with `keyDraft` so unmasking the field does not also
+  // drop the unsaved edit. Both timers auto-clear their state so a hidden or
+  // copied secret does not linger in DOM memory.
+  const [keyRevealed, setKeyRevealed] = useState<string | undefined>(undefined)
+  const [keyVisible, setKeyVisible] = useState(false)
+  const [copyFlash, setCopyFlash] = useState<'idle' | 'done' | 'failed'>('idle')
   // A settings success advances both retry baselines immediately. Keeping the
   // derived fields in the draft prevents a pushed namespace refresh from
   // turning them into deletions when the following credential write is retried.
@@ -217,6 +229,52 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     // both adapters would accept that non-empty string as a real value.
     const value = next === undefined || next.trim().length === 0 ? undefined : next
     setDraft(current => value === undefined ? deletePath(current, [key]) : setPath(current, [key], value))
+  }
+  // The value the show/copy buttons read: a freshly typed draft first, the
+  // resolved stored value second. Empty draft + empty reveal = no key to act
+  // on; the buttons disable themselves.
+  const keyForActions = keyDraft.trim().length > 0 ? keyDraft : (keyRevealed ?? '')
+  const hasKeyForActions = keyForActions.length > 0
+  const toggleKeyVisible = (): void => {
+    if (keyVisible) {
+      setKeyVisible(false)
+      return
+    }
+    if (keyDraft.trim().length > 0) {
+      setKeyVisible(true)
+      return
+    }
+    // No typed value: ask the host to resolve the stored one, then flip the
+    // input type. The RPC is the only path that can echo back a configured
+    // key — describe intentionally does not return the value.
+    void api.credentials.reveal({ ref: keyRef }).then(
+      (response) => {
+        if (!response.result.ok) {
+          setFailure('keyRevealFailed')
+          return
+        }
+        if (response.result.value.value !== null) {
+          setKeyRevealed(response.result.value.value)
+          setKeyVisible(true)
+        }
+      },
+      () => { setFailure('keyRevealFailed') },
+    )
+  }
+  const copyKey = (): void => {
+    if (!hasKeyForActions) return
+    void navigator.clipboard.writeText(keyForActions).then(
+      () => {
+        setCopyFlash('done')
+        setTimeout(() => { setCopyFlash('idle') }, 1500)
+        // Auto-clear the clipboard after 30s so the secret does not outlive
+        // the user's intent to paste it.
+        setTimeout(() => {
+          void navigator.clipboard.writeText('').catch(() => undefined)
+        }, 30_000)
+      },
+      () => { setCopyFlash('failed') },
+    )
   }
 
   // The model list is validated by the same per-row checker for both families,
@@ -383,19 +441,48 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       <>
         <div className={FIELD}>
           <span className={FIELD_LABEL}>{t('keyInput')}</span>
-          <ShadcnInput
-            className={INPUT}
-            type="password"
-            autoComplete="off"
-            value={keyDraft}
-            placeholder={keyPlaceholder}
-            aria-label={t('keyInput')}
-            aria-invalid={shownKeyFailure !== undefined}
-            required={props.credentialRequired === true}
-            autoFocus={props.autoFocusCredential === true}
-            disabled={disabled || keyLocked}
-            onChange={(event) => { setKeyDraft(event.target.value) }}
-          />
+          <div className="flex items-stretch gap-1.5">
+            <ShadcnInput
+              className={INPUT + ' flex-1'}
+              type={keyVisible ? 'text' : 'password'}
+              autoComplete="off"
+              value={keyDraft}
+              placeholder={keyPlaceholder}
+              aria-label={t('keyInput')}
+              aria-invalid={shownKeyFailure !== undefined}
+              required={props.credentialRequired === true}
+              autoFocus={props.autoFocusCredential === true}
+              disabled={disabled || keyLocked}
+              onChange={(event) => {
+                setKeyDraft(event.target.value)
+                // A typed value makes the stored reveal moot: the user is now
+                // editing, not verifying. Drop the resolved value so a later
+                // unmask does not also reset their draft.
+                if (keyRevealed !== undefined) setKeyRevealed(undefined)
+              }}
+            />
+            <ShadcnButton
+              type="button"
+              variant="outline"
+              className="h-8 shrink-0 rounded-lg border-border px-2.5 text-xs leading-[22px]"
+              disabled={disabled || keyLocked || (!hasKeyForActions && keyState?.configured !== true)}
+              aria-label={keyVisible ? t('keyHide') : t('keyShow')}
+              onClick={toggleKeyVisible}
+            >
+              {keyVisible ? t('keyHide') : t('keyShow')}
+            </ShadcnButton>
+            <ShadcnButton
+              type="button"
+              variant="outline"
+              className="h-8 w-8 shrink-0 rounded-lg border-border p-0"
+              disabled={disabled || keyLocked || !hasKeyForActions}
+              aria-label={copyFlash === 'done' ? t('keyCopyDone') : copyFlash === 'failed' ? t('keyCopyFailed') : t('keyCopy')}
+              onClick={copyKey}
+              title={copyFlash === 'done' ? t('keyCopyDone') : copyFlash === 'failed' ? t('keyCopyFailed') : t('keyCopy')}
+            >
+              <IconCopyOutline16 size={14} />
+            </ShadcnButton>
+          </div>
           {shownKeyFailure === undefined ? null : <p className={ERROR}>{t(shownKeyFailure)}</p>}
         </div>
         {props.credentialOnly === true ? null : (
