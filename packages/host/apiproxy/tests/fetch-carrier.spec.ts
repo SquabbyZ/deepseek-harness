@@ -273,6 +273,9 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
       async unset(request) {
         return { rpcId: request.rpcId, result: { ok: true, value: {} } }
       },
+      async reveal(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { value: null } } }
+      },
     },
     llm: {
       async providers(request) {
