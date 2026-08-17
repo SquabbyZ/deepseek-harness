@@ -198,6 +198,7 @@ function scriptedFace(overrides: {
       }))),
       set,
       unset,
+      reveal: () => Promise.resolve(ok({ value: null })),
     },
   }
   return { face, update, replace, mutate, set, unset }

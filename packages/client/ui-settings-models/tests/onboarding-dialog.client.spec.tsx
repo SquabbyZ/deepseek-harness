@@ -127,6 +127,7 @@ function harness(options: {
         }))
         : Promise.resolve(fail(options.describeFailure)),
       set,
+      reveal: () => Promise.resolve(ok({ value: null })),
     },
   }
   const controller = new ModelsSettingsStore(face as never)

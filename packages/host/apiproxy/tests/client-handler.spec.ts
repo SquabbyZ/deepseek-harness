@@ -758,6 +758,7 @@ describe('config unary surface', () => {
         describe: record('credentials.describe', r => ok(r, { credentials: { OPENAI_API_KEY: { configured: true, source: 'file', writable: true } } })),
         set: record('credentials.set', r => ok(r, {})),
         unset: record('credentials.unset', r => ok(r, {})),
+        reveal: record('credentials.reveal', r => ok(r, { value: null })),
       },
       llm: {
         providers: record('llm.providers', r => ok(r, { providers: [providerRow] })),

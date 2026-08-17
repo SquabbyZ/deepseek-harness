@@ -64,6 +64,7 @@ function api(overrides: {
       },
       set: () => Promise.resolve(ok({})),
       unset: () => Promise.resolve(ok({})),
+      reveal: () => Promise.resolve(ok({ value: null })),
     },
   }
   return { face: face as never, seenRefs }

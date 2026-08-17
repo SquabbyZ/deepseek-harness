@@ -131,6 +131,7 @@ function scriptedFace(options: {
       }))),
       set,
       unset: vi.fn(),
+      reveal: () => Promise.resolve(ok({ value: null })),
     },
   }
   return { face, discover, mutate, set, namespace }
