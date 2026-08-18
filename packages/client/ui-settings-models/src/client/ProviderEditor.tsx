@@ -314,10 +314,28 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     const ns = namespace.ns
     // A pi-ai profile names the conventional reference only when this page is
     // about to store a key. Otherwise the provider keeps its native auth path.
-    const next = layout === 'pi-ai' && stringAt(draft, 'apiKeyEnv') === undefined
+    let next = layout === 'pi-ai' && stringAt(draft, 'apiKeyEnv') === undefined
       && stringAt(fallback, 'apiKeyEnv') === undefined && keyValue.length > 0
       ? setPath(draft, ['apiKeyEnv'], keyRef)
       : draft
+    // First save with inherited defaults on display: the editor shows the
+    // adapter's built-in model catalog (e.g. `deepseek-v4-flash`) even when
+    // the user has not edited anything, so the draft is empty. Saving the
+    // empty draft leaves settings.yaml untouched — the user sees the model
+    // list in the UI and concludes the model is configured, but the boot
+    // path still fails with "no model provider configured". Seed the draft
+    // with inherited defaults on the first save so the visible form state
+    // matches what lands in settings.yaml.
+    if ((committedOriginal === undefined || (typeof committedOriginal === 'object' && committedOriginal !== null && Object.keys(committedOriginal).length === 0))
+      && (layout === 'deepseek' || layout === 'pi-ai')
+      && props.credentialOnly !== true
+      && Object.keys(next).length === 0) {
+      const inherited = getPath(namespace.base, [...settingsPath, 'models'])
+        ?? nodeAtPath(root, [...settingsPath, 'models'])?.meta.default
+      if (Array.isArray(inherited) && inherited.length > 0) {
+        next = setPath(next, ['models'], inherited)
+      }
+    }
     if (props.credentialOnly !== true) {
       // The same checker gates the submit button, so a card cannot reach this
       // with a bad row; it stays because the schema check below would refuse

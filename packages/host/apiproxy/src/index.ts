@@ -99,12 +99,21 @@ export class ApiProxyService extends Service implements ApiProxy {
     const api = createApiProxy(ctx, {
       defaultModelSelection: () => {
         const selection = ctx.agentDefaultModel.currentSelection()
-        // No provider configured: the "configure first" posture. Agent creation
-        // must fail with this clear message, not a bare NO_ADAPTER downstream.
-        if (selection === undefined) {
+        if (selection !== undefined) return selection
+        // No default model selected yet, but the user may have configured
+        // at least one provider in `llm-deepseek` / `llm-pi-ai` with a model
+        // catalog. Without a fallback, the workspace picker rejects every
+        // selection with "no model provider configured" until the user
+        // opens a session and chooses a model from the per-session picker —
+        // a cycle the user can't break. Pick the first model of the first
+        // provider that has any configured models so the boot path
+        // resolves, and the next per-session pick promotes it to the
+        // durable default.
+        const fallback = firstAvailableModel(ctx)
+        if (fallback === undefined) {
           throw new Error('no model provider configured — add one in Settings → Models before starting a session')
         }
-        return selection
+        return fallback
       },
       saveDefaultModelSelection: selection => ctx.agentDefaultModel.saveSelection(selection),
       cwd: process.cwd(),
@@ -133,6 +142,46 @@ export class ApiProxyService extends Service implements ApiProxy {
     // behavior-neutral.
     this.respond = api.respond.bind(api)
   }
+}
+
+/**
+ * Find the first configured provider-model pair across the LLM settings
+ * namespaces. Used as a one-step fallback when `agent-default-model` has
+ * never been written — the user added a provider and a model catalog in
+ * Settings → Models, and the workspace picker would otherwise reject every
+ * selection with "no model provider configured" until the user opens a
+ * session and picks a model from the per-session picker.
+ */
+function firstAvailableModel(ctx: Context): { provider: string; model: string } | undefined {
+  const settings = ctx.get('settings') as
+    | {
+      describe?: (opts: { redactSecrets: boolean }) => Array<{
+        ns: string
+        value?: { providers?: Record<string, { models?: Array<{ id?: string }> }> }
+      }>
+    }
+    | undefined
+  if (settings?.describe === undefined) return undefined
+  const namespaces = ['llm-deepseek', 'llm-pi-ai']
+  let descriptors: ReturnType<NonNullable<typeof settings.describe>> = []
+  try {
+    descriptors = settings.describe({ redactSecrets: true })
+  } catch {
+    return undefined
+  }
+  for (const ns of namespaces) {
+    const descriptor = descriptors.find(candidate => candidate.ns === ns)
+    if (descriptor === undefined) continue
+    const providers = descriptor.value?.providers
+    if (providers === undefined) continue
+    for (const [providerId, profile] of Object.entries(providers)) {
+      const firstModel = profile?.models?.[0]
+      if (firstModel?.id !== undefined) {
+        return { provider: providerId, model: firstModel.id }
+      }
+    }
+  }
+  return undefined
 }
 
 export default ApiProxyService
