@@ -1,0 +1,19 @@
+name: CI Phase 1
+on: [push, pull_request]
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cd desktop/src-tauri && cargo fmt --check
+      - run: cd desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+      - run: cd desktop/src-tauri && cargo test --workspace
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - run: cd apps/web && pnpm tsc --noEmit
+      - run: cd apps/web && pnpm test
