@@ -2,11 +2,11 @@ mod error;
 mod services;
 mod state;
 
-use std::sync::Arc;
-use parking_lot::RwLock;
-use tauri::Manager;
 use crate::services::platform::Platform;
 use crate::state::AppState;
+use parking_lot::RwLock;
+use std::sync::Arc;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,10 +28,7 @@ pub fn run() {
             let db = Arc::new(std::sync::Mutex::new(rusqlite::Connection::open(&db_path)?));
             let http = Arc::new(
                 reqwest::Client::builder()
-                    .user_agent(concat!(
-                        "DeepSeek-Harness/",
-                        env!("CARGO_PKG_VERSION")
-                    ))
+                    .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
                     .build()?,
             );
             let state = AppState {

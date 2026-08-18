@@ -1,7 +1,7 @@
+use crate::services::platform;
+use parking_lot::RwLock;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use parking_lot::RwLock;
-use crate::services::platform;
 
 pub struct AppState {
     pub config_dir: PathBuf,

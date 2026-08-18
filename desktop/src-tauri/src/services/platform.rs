@@ -60,13 +60,24 @@ mod tests {
     }
 
     #[test]
-    fn allowed_binaries_non_empty() {
-        assert!(!allowed_shell_binaries().is_empty());
+    fn allowed_binaries_match_platform() {
+        let expected: &[&str] = if cfg!(target_os = "windows") {
+            &["cmd.exe", "powershell.exe", "node.exe"]
+        } else if cfg!(target_os = "macos") {
+            &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env"]
+        } else {
+            &[]
+        };
+        assert_eq!(allowed_shell_binaries(), expected);
     }
 
     #[test]
-    fn npx_is_npx_cmd_or_npx() {
-        let n = npx_executable_name();
-        assert!(n == "npx.cmd" || n == "npx");
+    fn npx_is_platform_specific() {
+        let expected = if cfg!(target_os = "windows") {
+            "npx.cmd"
+        } else {
+            "npx"
+        };
+        assert_eq!(npx_executable_name(), expected);
     }
 }
