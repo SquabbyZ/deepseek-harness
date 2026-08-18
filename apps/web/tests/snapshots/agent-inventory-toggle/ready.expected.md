@@ -1,0 +1,55 @@
+- dialog "设置":
+  - heading "设置" [level=2]
+  - navigation:
+    - text: 设置
+    - button "通用设置":
+      - img
+      - text: 通用设置
+    - button "个性化"
+    - button "模型":
+      - img
+      - text: 模型
+    - button "插件":
+      - img
+      - text: 插件
+    - button "Agent 预设":
+      - img
+      - text: Agent 预设
+    - button "使用统计"
+    - button "代理":
+      - img
+      - text: 代理
+  - button "打开配置文件"
+  - button "关闭":
+    - img
+    - text: 关闭
+  - heading "插件" [level=2]
+  - paragraph: 配置和查看本部署已安装的插件。
+  - tablist "插件视图":
+    - tab "插件配置"
+    - tab "插件列表"
+    - tab "技能列表"
+    - tab "MCP 服务"
+    - tab "代理预设" [selected]
+  - tabpanel "代理预设":
+    - img
+    - searchbox "搜索预设"
+    - heading "代理预设" [level=3]
+    - text: "4"
+    - list:
+      - listitem:
+        - paragraph: PTC 模式
+        - paragraph: sourceBundled
+        - switch "PTC 模式" [checked]
+      - listitem:
+        - paragraph: 创造模式
+        - paragraph: sourceBundled
+        - switch "创造模式" [checked]
+      - listitem:
+        - paragraph: 极简模式
+        - paragraph: sourceBundled
+        - switch "极简模式" [checked]
+      - listitem:
+        - paragraph: 标准模式
+        - paragraph: sourceBundled · 默认
+        - switch "标准模式" [checked]

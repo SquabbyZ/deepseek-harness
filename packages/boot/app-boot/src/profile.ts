@@ -204,19 +204,28 @@ function ensureSymlink(link: string, target: string): void {
 /**
  * Maintain the flat module fallback `$DSH_HOME/profiles/node_modules`: one
  * symlink per package in the dsh app's resolvable dependency CLOSURE (BFS
- * over `dependencies` from the app manifest), each resolved from its own
- * real location. Node's parent-directory walk from any profile finds this
- * directory after the profile's own `node_modules`, so every in-box plugin
- * resolves without pnpm ever managing it — the exact "bundles come from the
- * installation" contract. The closure (not just direct dependencies) is
- * required for out-of-tree plugins: their peer dependencies name Service
- * Definition packages (`dsh-compaction`, `dsh-invariants`, ...) that the app
- * reaches only through its Service Provider packages. Symlinked packages
- * resolve their own dependencies from their real directories (Node's default
- * symlink-following), so each package needs only its one flat link.
- * Idempotent: correct links are kept and moved installations are
- * re-pointed; a stale link to a vanished package stays until its name is
- * reused (dangling links are invisible to resolution).
+ * over `dependencies` and `peerDependencies` from the app manifest, plus an
+ * explicit re-rooted walk of every bundle's own closure — a bundle is any
+ * package the app installs transitively that declares `dsh.bundle` in its
+ * manifest, and its `cordis.patch.yml` rows name plugins like
+ * `@deepseek-ai/dsh-host-skill-inventory` whose packages must be linked too;
+ * the re-rooted walk handles bundles whose deps are installed at the
+ * workspace root rather than under the bundle's own node_modules, where a
+ * single BFS from the app would still pick them up but a future change to
+ * the walker that limits hop distance or anchor scope could drop them), each
+ * resolved from its own real location. Node's parent-directory walk from any
+ * profile finds this directory after the profile's own `node_modules`, so
+ * every in-box plugin resolves without pnpm ever managing it — the exact
+ * "bundles come from the installation" contract. The closure (not just
+ * direct dependencies) is required for out-of-tree plugins: their peer
+ * dependencies name Service Definition packages (`dsh-compaction`,
+ * `dsh-invariants`, ...) that the app reaches only through its Service
+ * Provider packages. Symlinked packages resolve their own dependencies from
+ * their real directories (Node's default symlink-following), so each
+ * package needs only its one flat link. Idempotent: correct links are kept
+ * and moved installations are re-pointed; a stale link to a vanished
+ * package stays until its name is reused (dangling links are invisible to
+ * resolution).
  * @param installAnchor - absolute path of the dsh app's package.json.
  * @param home - the Harness home; defaults to {@link resolveDshHome}.
  */
@@ -245,6 +254,37 @@ export function healProfilesModuleFallback(installAnchor: string, home: string =
       links.set(dep, dir)
       const manifestPath = join(dir, 'package.json')
       queue.push({ anchor: manifestPath, manifest: JSON.parse(readFileSync(manifestPath, 'utf8')) as ProfileManifest })
+    }
+  }
+  // Explicit bundle-dep re-root: for every bundle the walker already
+  // reached, walk its `dependencies` and `peerDependencies` starting from
+  // the bundle's own manifest as the resolution anchor. Each bundle's
+  // `cordis.patch.yml` is the user's plugin roster (e.g. web-app's patch
+  // names `@deepseek-ai/dsh-host-skill-inventory`, `dsh-host-mcp-inventory`,
+  // `dsh-host-agent-inventory`), and the re-rooted walk makes the bundle's
+  // plugin deps link to `profiles/node_modules` even if a future walker
+  // shape skips transitive hops. The first BFS already covers the closure;
+  // this pass is a defence-in-depth re-resolution with the bundle itself
+  // as anchor (rather than the dep's own anchor) so the install-wide
+  // package install is reachable for every plugin in the bundle's roster.
+  const bundleDeps = new Set<string>()
+  for (const [, target] of links) {
+    const manifestPath = join(target, 'package.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as ProfileManifest
+    if (manifest.dsh?.bundle?.patch === undefined) continue
+    const bundleAnchor = manifestPath
+    const bundleManifest = manifest
+    const bundleQueue: { anchor: string; manifest: ProfileManifest }[] = [{ anchor: bundleAnchor, manifest: bundleManifest }]
+    for (let next = bundleQueue.shift(); next !== undefined; next = bundleQueue.shift()) {
+      for (const dep of [...Object.keys(next.manifest.dependencies ?? {}), ...Object.keys(next.manifest.peerDependencies ?? {})]) {
+        bundleDeps.add(dep)
+        if (links.has(dep)) continue
+        const dir = packageDirFromAnchor(next.anchor, dep)
+        if (dir === undefined) continue
+        links.set(dep, dir)
+        const innerManifestPath = join(dir, 'package.json')
+        bundleQueue.push({ anchor: innerManifestPath, manifest: JSON.parse(readFileSync(innerManifestPath, 'utf8')) as ProfileManifest })
+      }
     }
   }
   for (const [packageName, target] of links) {

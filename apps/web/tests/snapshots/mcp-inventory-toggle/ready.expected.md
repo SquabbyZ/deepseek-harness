@@ -1,0 +1,39 @@
+- dialog "设置":
+  - heading "设置" [level=2]
+  - navigation:
+    - text: 设置
+    - button "通用设置":
+      - img
+      - text: 通用设置
+    - button "个性化"
+    - button "模型":
+      - img
+      - text: 模型
+    - button "插件":
+      - img
+      - text: 插件
+    - button "使用统计"
+    - button "Agent 预设":
+      - img
+      - text: Agent 预设
+    - button "代理":
+      - img
+      - text: 代理
+  - button "打开配置文件"
+  - button "关闭":
+    - img
+    - text: 关闭
+  - heading "插件" [level=2]
+  - paragraph: 配置和查看本部署已安装的插件。
+  - tablist "插件视图":
+    - tab "插件配置"
+    - tab "插件列表"
+    - tab "技能列表"
+    - tab "MCP 服务" [selected]
+    - tab "代理预设"
+  - tabpanel "MCP 服务":
+    - img
+    - searchbox "搜索服务"
+    - heading "MCP 服务" [level=3]
+    - text: "0"
+    - paragraph: 暂无 MCP 服务。

@@ -99,6 +99,18 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # User-toggleable Remote projection of effective skill registry state.
+    - id: skill-inventory
+      name: '@deepseek-ai/dsh-host-skill-inventory'
+
+    # User-toggleable Remote projection of MCP-client Loader entries.
+    - id: mcp-inventory
+      name: '@deepseek-ai/dsh-host-mcp-inventory'
+
+    # User-toggleable Remote projection of filesystem-discovered agent presets.
+    - id: agent-inventory
+      name: '@deepseek-ai/dsh-host-agent-inventory'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
@@ -228,6 +240,15 @@
 
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
+
+    - id: ui-settings-skill
+      name: '@deepseek-ai/dsh-client-ui-settings-skill'
+
+    - id: ui-settings-mcp
+      name: '@deepseek-ai/dsh-client-ui-settings-mcp'
+
+    - id: ui-settings-agent
+      name: '@deepseek-ai/dsh-client-ui-settings-agent'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'

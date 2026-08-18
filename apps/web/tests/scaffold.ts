@@ -23,9 +23,9 @@
 // (the plugin-row path discards the ReplayHandle; the direct install keeps
 // assertConsumed for the teardown fixture-consumption check).
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Page } from 'playwright'
 import { expect } from 'vitest'
@@ -350,6 +350,21 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     }
   }
   Object.assign(process.env, skillRootEnvironment)
+  // Seed the empty bundled-skill directory with the cordis preset's shipped
+  // skills so the inventory has a known row to assert against. The hermetic
+  // settings here (every other root is the owned empty temp world) keep the
+  // rest of the catalog pinned to zero.
+  {
+    const bundledSkillDir = skillRootEnvironment.DSH_BUNDLED_SKILL_DIR
+    await mkdir(bundledSkillDir, { recursive: true })
+    const shippedSkills = join(REPO_ROOT, 'apps/cli/config/agent-presets/cordis/skills')
+    if (existsSync(shippedSkills)) {
+      for (const entry of await readdir(shippedSkills, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue
+        await cp(join(shippedSkills, entry.name), join(bundledSkillDir, entry.name), { recursive: true })
+      }
+    }
+  }
   let persistenceRoot: string
   try {
     persistenceRoot = await mkdtemp(join(tmpdir(), 'dsh-web-e2e-sessions-'))
@@ -412,6 +427,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // enabled against the same empty temp workspace, preserving the real seam.
     {
       id: 'skill-filesystem',
+      disabled: false,
       config: {
         dshHome: join(workspaceCwd, '.dsh-home'),
         agentsHome: join(workspaceCwd, '.agents-home'),
@@ -848,6 +864,7 @@ export async function captureStableAria(page: Page, selector: string, workspaceC
 export async function compareOrRefreshGolden(goldenPath: string, actual: string, mode: WebSnapshotMode): Promise<void> {
   const payload = `${actual}\n`
   if (mode === 'refresh') {
+    await mkdir(dirname(goldenPath), { recursive: true })
     await writeFile(goldenPath, payload)
     return
   }
