@@ -47,7 +47,9 @@ Each phase ends with a self-contained, demoable build. Phase 1 must compile and 
 
 ---
 
-### Task 1.1: Tauri shell scaffold compiles + launches empty WebView2
+### Task 1.1: Tauri shell scaffold compiles + launches empty WebView2 (with platform adapter)
+
+> **2026-08-19 amendment:** Platform-specific code lives in a single `services/platform/` adapter module. Task 1.7 (shell) and Task 1.10 (esbuild verify) call into this adapter, never use `#[cfg(target_os = ...)]` directly in business logic.
 
 **Files:**
 - Create: `desktop/src-tauri/Cargo.toml`
@@ -231,13 +233,25 @@ Write `desktop/src-tauri/src/state.rs`:
 use std::path::PathBuf;
 use std::sync::Arc;
 use parking_lot::RwLock;
+use crate::services::platform;
 
 pub struct AppState {
     pub config_dir: PathBuf,
     pub db: Arc<rusqlite::Connection>,
     pub http: Arc<reqwest::Client>,
-    pub platform: Platform,
+    pub platform: platform::Platform,
 }
+
+pub type SharedState = Arc<RwLock<AppState>>;
+```
+
+- [ ] **Step 6a: Write services/platform.rs (the single platform adapter)**
+
+Write `desktop/src-tauri/src/services/platform.rs`:
+```rust
+// This module is the ONLY place where #[cfg(target_os = ...)] may appear.
+// All business logic (services/, commands/, lib.rs) calls Platform::current()
+// and the helper functions here, never cfg directly.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
@@ -255,7 +269,55 @@ impl Platform {
     pub fn is_macos(&self) -> bool { matches!(self, Platform::MacOS) }
 }
 
-pub type SharedState = Arc<RwLock<AppState>>;
+/// Shell binaries that are allowed to be spawned by `shell_spawn` command.
+pub fn allowed_shell_binaries() -> &'static [&'static str] {
+    if cfg!(target_os = "windows") {
+        &["cmd.exe", "powershell.exe", "node.exe"]
+    } else if cfg!(target_os = "macos") {
+        &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env"]
+    } else {
+        &[] // unreachable — build should have failed
+    }
+}
+
+pub fn is_shell_binary_allowed(cmd: &str) -> bool {
+    allowed_shell_binaries().iter().any(|c| *c == cmd)
+}
+
+/// Executable name for running npx from Rust.
+pub fn npx_executable_name() -> &'static str {
+    if cfg!(target_os = "windows") { "npx.cmd" } else { "npx" }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn current_is_not_panicking() {
+        let _ = Platform::current();
+    }
+
+    #[test]
+    fn allowed_binaries_non_empty() {
+        assert!(!allowed_shell_binaries().is_empty());
+    }
+
+    #[test]
+    fn npx_is_npx_cmd_or_npx() {
+        let n = npx_executable_name();
+        assert!(n == "npx.cmd" || n == "npx");
+    }
+}
+```
+
+- [ ] **Step 6b: Add `pub mod platform;` to services/mod.rs**
+
+Write `desktop/src-tauri/src/services/mod.rs` (new file):
+```rust
+pub mod crash;
+pub mod platform;
+pub mod settings;
 ```
 
 - [ ] **Step 7: Write error.rs**
@@ -308,7 +370,8 @@ mod state;
 use std::sync::Arc;
 use parking_lot::RwLock;
 use tauri::Manager;
-use state::{AppState, Platform};
+use crate::services::platform::Platform;
+use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1066,6 +1129,7 @@ use serde::Deserialize;
 use tauri::State;
 use crate::state::SharedState;
 use crate::error::{AppError, AppResult};
+use crate::services::platform;
 use std::path::PathBuf;
 
 #[derive(Deserialize)]
@@ -1080,7 +1144,7 @@ pub struct ShellSpec {
 
 #[tauri::command]
 pub async fn shell_spawn(spec: ShellSpec, state: State<'_, SharedState>) -> AppResult<u64> {
-    if !is_cmd_allowed(&spec.cmd) {
+    if !platform::is_shell_binary_allowed(&spec.cmd) {
         return Err(AppError::PermissionDenied { cmd: spec.cmd });
     }
     let mut cmd = tokio::process::Command::new(&spec.cmd);
@@ -1095,14 +1159,6 @@ pub async fn shell_spawn(spec: ShellSpec, state: State<'_, SharedState>) -> AppR
     cmd.envs(&spec.env);
     let child = cmd.spawn().map_err(|e| AppError::Shell { message: e.to_string() })?;
     Ok(child.id().unwrap_or(0))
-}
-
-fn is_cmd_allowed(cmd: &str) -> bool {
-    if cfg!(target_os = "windows") {
-        matches!(cmd, "cmd.exe" | "powershell.exe" | "node.exe")
-    } else if cfg!(target_os = "macos") {
-        matches!(cmd, "sh" | "bash" | "zsh" | "/bin/sh" | "/usr/bin/env")
-    } else { false }
 }
 ```
 
@@ -1596,7 +1652,8 @@ pub async fn verify_browser_safe(plugin_dir: &Path) -> AppResult<()> {
         .map_err(|e| AppError::FsIo { message: e.to_string() })?;
 
     // 1. AST check via esbuild subprocess (sandboxed)
-    let output = tokio::process::Command::new(if cfg!(windows) { "npx.cmd" } else { "npx" })
+    use crate::services::platform::npx_executable_name;
+    let output = tokio::process::Command::new(npx_executable_name())
         .arg("--no-install")
         .arg("esbuild")
         .arg("--bundle=false")
@@ -2187,7 +2244,7 @@ export const queryClient = new QueryClient({
 
 `apps/web/src/dsh/query/queries.ts`:
 ```typescript
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { pluginApi, settingsApi, appApi } from '../bridge'
 
 export const useAppVersion = () =>
@@ -2200,29 +2257,36 @@ export const useInstalledPlugins = () =>
     staleTime: Infinity,
   })
 
-export const useInstallPlugin = () =>
-  useMutation({
+export function useInstallPlugin() {
+  const qc = useQueryClient()
+  return useMutation({
     mutationFn: (spec: string) => pluginApi.install(spec),
-    onSettled: () => useInstalledPlugins.invalidate(),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['plugins'] }),
   })
+}
 
-export const useUninstallPlugin = () =>
-  useMutation({
+export function useUninstallPlugin() {
+  const qc = useQueryClient()
+  return useMutation({
     mutationFn: (id: string) => pluginApi.uninstall(id),
-    onSettled: () => useInstalledPlugins.invalidate(),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['plugins'] }),
   })
+}
 
-export const useSettings = <T = unknown>(key: string) =>
-  useQuery({
+export function useSettings<T = unknown>(key: string) {
+  return useQuery({
     queryKey: ['settings', key],
     queryFn: () => settingsApi.get<T>(key),
   })
+}
 
-export const useUpdateSettings = <T = unknown>(key: string) =>
-  useMutation({
+export function useUpdateSettings<T = unknown>(key: string) {
+  const qc = useQueryClient()
+  return useMutation({
     mutationFn: (value: T) => settingsApi.update(key, value),
-    onSettled: () => useSettings<T>(key).refetch(),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['settings', key] }),
   })
+}
 ```
 
 - [ ] **Step 3: Wire QueryClientProvider in main.tsx**
