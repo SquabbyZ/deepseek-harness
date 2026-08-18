@@ -2,6 +2,19 @@ CLAUDE.local.md
 .env
 node_modules/
 lib/
+# Build output that landed under src/ after the 2026-08 faces refactor moved
+# the typert gateway emitter; ignore at the tsbuildinfo granularity until the
+# faces refactor lands an outDir fix. The vendor/ subtree is patched in as
+# compiled output (its .ts files are committed alongside emitted .js/.d.ts
+# and source maps); the sibling non-.ts siblings are the bundle, not source.
+packages/**/src/**/*.d.ts
+packages/**/src/**/*.d.ts.map
+packages/**/src/**/*.js
+packages/**/src/**/*.js.map
+vendor/**/src/**/*.d.ts
+vendor/**/src/**/*.d.ts.map
+vendor/**/src/**/*.js
+vendor/**/src/**/*.js.map
 *.tsbuildinfo
 pnpm-debug.log
 .pnpm-store/

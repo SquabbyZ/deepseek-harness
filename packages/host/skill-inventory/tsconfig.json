@@ -1,0 +1,19 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../../vendor/loader" },
+    { "path": "../../util/brand" },
+    { "path": "../../typert/protocol" },
+    { "path": "../../settings/settings" },
+    { "path": "../../skill/skill" },
+    { "path": "../../runtime-diagnostics/invariants" }
+  ]
+}

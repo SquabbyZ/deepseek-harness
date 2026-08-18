@@ -1,0 +1,596 @@
+- dialog "设置":
+  - heading "设置" [level=2]
+  - navigation:
+    - text: 设置
+    - button "通用设置":
+      - img
+      - text: 通用设置
+    - button "个性化"
+    - button "模型":
+      - img
+      - text: 模型
+    - button "插件":
+      - img
+      - text: 插件
+    - button "Agent 预设":
+      - img
+      - text: Agent 预设
+    - button "使用统计"
+    - button "代理":
+      - img
+      - text: 代理
+  - button "打开配置文件"
+  - button "关闭":
+    - img
+    - text: 关闭
+  - heading "插件" [level=2]
+  - paragraph: 配置和查看本部署已安装的插件。
+  - tablist "插件视图":
+    - tab "插件配置"
+    - tab "插件列表" [selected]
+  - tabpanel "插件列表":
+    - img
+    - searchbox "搜索插件"
+    - heading "插件列表" [level=3]
+    - text: "140"
+    - list:
+      - listitem:
+        - paragraph: include
+        - paragraph: 已挂载
+        - switch "include" [checked]
+      - listitem:
+        - paragraph: timer
+        - paragraph: 已挂载
+        - switch "timer" [checked]
+      - listitem:
+        - paragraph: hmr
+        - paragraph: cordis.yml 已停用
+        - switch "hmr"
+      - listitem:
+        - paragraph: llm
+        - paragraph: 已挂载
+        - switch "llm" [checked]
+      - listitem:
+        - paragraph: session
+        - paragraph: 已挂载
+        - switch "session" [checked]
+      - listitem:
+        - paragraph: typert-registry
+        - paragraph: 已挂载
+        - switch "typert-registry" [checked]
+      - listitem:
+        - paragraph: typert-loader
+        - paragraph: 已挂载
+        - switch "typert-loader" [checked]
+      - listitem:
+        - paragraph: api-gateway
+        - paragraph: 已挂载
+        - switch "api-gateway" [checked]
+      - listitem:
+        - paragraph: session-title
+        - paragraph: 已挂载
+        - switch "session-title" [checked]
+      - listitem:
+        - paragraph: session-title-first-prompt-llm
+        - paragraph: cordis.yml 已停用
+        - switch "session-title-first-prompt-llm"
+      - listitem:
+        - paragraph: user-questions
+        - paragraph: 已挂载
+        - switch "user-questions" [checked]
+      - listitem:
+        - paragraph: agent
+        - paragraph: 已挂载
+        - switch "agent" [checked]
+      - listitem:
+        - paragraph: agent-default-model
+        - paragraph: 已挂载
+        - switch "agent-default-model" [checked]
+      - listitem:
+        - paragraph: jobs-local
+        - paragraph: 已挂载
+        - switch "jobs-local" [checked]
+      - listitem:
+        - paragraph: llm-retry
+        - paragraph: 已挂载
+        - switch "llm-retry" [checked]
+      - listitem:
+        - paragraph: settings-file
+        - paragraph: 已挂载
+        - switch "settings-file" [checked]
+      - listitem:
+        - paragraph: network
+        - paragraph: 已挂载
+        - switch "network" [checked]
+      - listitem:
+        - paragraph: credentials-local
+        - paragraph: 已挂载
+        - switch "credentials-local" [checked]
+      - listitem:
+        - paragraph: llm-pi-ai
+        - paragraph: 已挂载
+        - switch "llm-pi-ai" [checked]
+      - listitem:
+        - paragraph: session-persistence-jsonl
+        - paragraph: 已挂载
+        - switch "session-persistence-jsonl" [checked]
+      - listitem:
+        - paragraph: attachment-local
+        - paragraph: 已挂载
+        - switch "attachment-local" [checked]
+      - listitem:
+        - paragraph: session-query-sqlite
+        - paragraph: 已挂载
+        - switch "session-query-sqlite" [checked]
+      - listitem:
+        - paragraph: session-projection
+        - paragraph: 已挂载
+        - switch "session-projection" [checked]
+      - listitem:
+        - paragraph: session-telemetry-otel
+        - paragraph: cordis.yml 已停用
+        - switch "session-telemetry-otel"
+      - listitem:
+        - paragraph: subprocess-local
+        - paragraph: 已挂载
+        - switch "subprocess-local" [checked]
+      - listitem:
+        - paragraph: sandbox-local
+        - paragraph: 已挂载
+        - switch "sandbox-local" [checked]
+      - listitem:
+        - paragraph: sandbox-policy
+        - paragraph: 已挂载
+        - switch "sandbox-policy" [checked]
+      - listitem:
+        - paragraph: bash-sandbox
+        - paragraph: cordis.yml 已停用
+        - switch "bash-sandbox"
+      - listitem:
+        - paragraph: pwsh-sandbox
+        - paragraph: 已挂载
+        - switch "pwsh-sandbox" [checked]
+      - listitem:
+        - paragraph: user-approval
+        - paragraph: 已挂载
+        - switch "user-approval" [checked]
+      - listitem:
+        - paragraph: permission-presets
+        - paragraph: 已挂载
+        - switch "permission-presets" [checked]
+      - listitem:
+        - paragraph: shell-env
+        - paragraph: 已挂载
+        - switch "shell-env" [checked]
+      - listitem:
+        - paragraph: tool-bash
+        - paragraph: cordis.yml 已停用
+        - switch "tool-bash"
+      - listitem:
+        - paragraph: tool-pwsh
+        - paragraph: cordis.yml 已停用
+        - switch "tool-pwsh"
+      - listitem:
+        - paragraph: tool-jobs
+        - paragraph: cordis.yml 已停用
+        - switch "tool-jobs"
+      - listitem:
+        - paragraph: fs-observation-policy
+        - paragraph: 已挂载
+        - switch "fs-observation-policy" [checked]
+      - listitem:
+        - paragraph: tool-fs
+        - paragraph: cordis.yml 已停用
+        - switch "tool-fs"
+      - listitem:
+        - paragraph: tool-fs-search
+        - paragraph: cordis.yml 已停用
+        - switch "tool-fs-search"
+      - listitem:
+        - paragraph: agent-instructions
+        - paragraph: cordis.yml 已停用
+        - switch "agent-instructions"
+      - listitem:
+        - paragraph: skill
+        - paragraph: 已挂载
+        - switch "skill" [checked]
+      - listitem:
+        - paragraph: skill-filesystem
+        - paragraph: cordis.yml 已停用
+        - switch "skill-filesystem"
+      - listitem:
+        - paragraph: skill-badge
+        - paragraph: cordis.yml 已停用
+        - switch "skill-badge"
+      - listitem:
+        - paragraph: tool-skill
+        - paragraph: cordis.yml 已停用
+        - switch "tool-skill"
+      - listitem:
+        - paragraph: commands
+        - paragraph: 已挂载
+        - switch "commands" [checked]
+      - listitem:
+        - paragraph: command-feedback
+        - paragraph: 已挂载
+        - switch "command-feedback" [checked]
+      - listitem:
+        - paragraph: goal
+        - paragraph: 已挂载
+        - switch "goal" [checked]
+      - listitem:
+        - paragraph: goal-round-driver
+        - paragraph: 已挂载
+        - switch "goal-round-driver" [checked]
+      - listitem:
+        - paragraph: command-goal
+        - paragraph: 已挂载
+        - switch "command-goal" [checked]
+      - listitem:
+        - paragraph: plan-mode
+        - paragraph: cordis.yml 已停用
+        - switch "plan-mode"
+      - listitem:
+        - paragraph: token-meter
+        - paragraph: 已挂载
+        - switch "token-meter" [checked]
+      - listitem:
+        - paragraph: compaction-basic
+        - paragraph: cordis.yml 已停用
+        - switch "compaction-basic"
+      - listitem:
+        - paragraph: command-compact
+        - paragraph: cordis.yml 已停用
+        - switch "command-compact"
+      - listitem:
+        - paragraph: subagent
+        - paragraph: 已挂载
+        - switch "subagent" [checked]
+      - listitem:
+        - paragraph: subagent-spawn-in-process
+        - paragraph: 已挂载
+        - switch "subagent-spawn-in-process" [checked]
+      - listitem:
+        - paragraph: subagent-fork-in-process
+        - paragraph: 已挂载
+        - switch "subagent-fork-in-process" [checked]
+      - listitem:
+        - paragraph: tool-subagent-control
+        - paragraph: cordis.yml 已停用
+        - switch "tool-subagent-control"
+      - listitem:
+        - paragraph: tool-subagent-control/list-agents
+        - paragraph: cordis.yml 已停用
+        - switch "tool-subagent-control/list-agents"
+      - listitem:
+        - paragraph: tool-subagent
+        - paragraph: cordis.yml 已停用
+        - switch "tool-subagent"
+      - listitem:
+        - paragraph: tool-subagent
+        - paragraph: cordis.yml 已停用
+        - switch "tool-subagent"
+      - listitem:
+        - paragraph: tool-subagent-report
+        - paragraph: 已挂载
+        - switch "tool-subagent-report" [checked]
+      - listitem:
+        - paragraph: workflow-worker-thread
+        - paragraph: cordis.yml 已停用
+        - switch "workflow-worker-thread"
+      - listitem:
+        - paragraph: tool-workflow
+        - paragraph: cordis.yml 已停用
+        - switch "tool-workflow"
+      - listitem:
+        - paragraph: tool-call-timeout-policy
+        - paragraph: 已挂载
+        - switch "tool-call-timeout-policy" [checked]
+      - listitem:
+        - paragraph: spill-local
+        - paragraph: 已挂载
+        - switch "spill-local" [checked]
+      - listitem:
+        - paragraph: spill-policy
+        - paragraph: 已挂载
+        - switch "spill-policy" [checked]
+      - listitem:
+        - paragraph: session-checkpoint-policy
+        - paragraph: 已挂载
+        - switch "session-checkpoint-policy" [checked]
+      - listitem:
+        - paragraph: compaction-tool-result-pruner
+        - paragraph: cordis.yml 已停用
+        - switch "compaction-tool-result-pruner"
+      - listitem:
+        - paragraph: compaction-headroom
+        - paragraph: cordis.yml 已停用
+        - switch "compaction-headroom"
+      - listitem:
+        - paragraph: tool-todo
+        - paragraph: cordis.yml 已停用
+        - switch "tool-todo"
+      - listitem:
+        - paragraph: tool-goal
+        - paragraph: cordis.yml 已停用
+        - switch "tool-goal"
+      - listitem:
+        - paragraph: tool-ralph
+        - paragraph: cordis.yml 已停用
+        - switch "tool-ralph"
+      - listitem:
+        - paragraph: tool-str-replace-editor
+        - paragraph: cordis.yml 已停用
+        - switch "tool-str-replace-editor"
+      - listitem:
+        - paragraph: repeat-tool-reminder
+        - paragraph: 已挂载
+        - switch "repeat-tool-reminder" [checked]
+      - listitem:
+        - paragraph: web
+        - paragraph: 已挂载
+        - switch "web" [checked]
+      - listitem:
+        - paragraph: web-search-deepseek
+        - paragraph: 已挂载
+        - switch "web-search-deepseek" [checked]
+      - listitem:
+        - paragraph: tool-web
+        - paragraph: cordis.yml 已停用
+        - switch "tool-web"
+      - listitem:
+        - paragraph: tools
+        - paragraph: 已挂载
+        - switch "tools" [checked]
+      - listitem:
+        - paragraph: system-prompt
+        - paragraph: 已挂载
+        - switch "system-prompt" [checked]
+      - listitem:
+        - paragraph: agent-loop
+        - paragraph: 已挂载
+        - switch "agent-loop" [checked]
+      - listitem:
+        - paragraph: fs-sandbox
+        - paragraph: 已挂载
+        - switch "fs-sandbox" [checked]
+      - listitem:
+        - paragraph: llm-deepseek
+        - paragraph: cordis.yml 已停用
+        - switch "llm-deepseek"
+      - listitem:
+        - paragraph: code-runtime-worker-thread
+        - paragraph: 已挂载
+        - switch "code-runtime-worker-thread" [checked]
+      - listitem:
+        - paragraph: storage
+        - paragraph: 已挂载
+        - switch "storage" [checked]
+      - listitem:
+        - paragraph: storage-json
+        - paragraph: 已挂载
+        - switch "storage-json" [checked]
+      - listitem:
+        - paragraph: storage-domain
+        - paragraph: 已挂载
+        - switch "storage-domain" [checked]
+      - listitem:
+        - paragraph: message-feedback
+        - paragraph: 已挂载
+        - switch "message-feedback" [checked]
+      - listitem:
+        - paragraph: session-log-export
+        - paragraph: 已挂载
+        - switch "session-log-export" [checked]
+      - listitem:
+        - paragraph: workspace
+        - paragraph: 已挂载
+        - switch "workspace" [checked]
+      - listitem:
+        - paragraph: session-projection-cache
+        - paragraph: 已挂载
+        - switch "session-projection-cache" [checked]
+      - listitem:
+        - paragraph: session-stats
+        - paragraph: 已挂载
+        - switch "session-stats" [checked]
+      - listitem:
+        - paragraph: usage-stats
+        - paragraph: 已挂载
+        - switch "usage-stats" [checked]
+      - listitem:
+        - paragraph: directory-picker-auto
+        - paragraph: cordis.yml 已停用
+        - switch "directory-picker-auto"
+      - listitem:
+        - paragraph: plugin-inventory
+        - paragraph: 已挂载
+        - switch "plugin-inventory" [checked]
+      - listitem:
+        - paragraph: apiproxy
+        - paragraph: 已挂载
+        - switch "apiproxy" [checked]
+      - listitem:
+        - paragraph: media-intake
+        - paragraph: 已挂载
+        - switch "media-intake" [checked]
+      - listitem:
+        - paragraph: github-oauth
+        - paragraph: 已挂载
+        - switch "github-oauth" [checked]
+      - listitem:
+        - paragraph: cordis-host-runner
+        - paragraph: 已挂载
+        - switch "cordis-host-runner" [checked]
+      - listitem:
+        - paragraph: web-app/startup
+        - paragraph: 已挂载
+        - switch "web-app/startup" [checked]
+      - listitem:
+        - paragraph: webserver
+        - paragraph: 已挂载
+        - switch "webserver" [checked]
+      - listitem:
+        - paragraph: web-app
+        - paragraph: 已挂载
+        - switch "web-app" [checked]
+      - listitem:
+        - paragraph: hmr
+        - paragraph: 已挂载
+        - switch "hmr" [checked]
+      - listitem:
+        - paragraph: modules
+        - paragraph: 已挂载
+        - switch "modules" [checked]
+      - listitem:
+        - paragraph: connection
+        - paragraph: 已挂载
+        - switch "connection" [checked]
+      - listitem:
+        - paragraph: api-remotes
+        - paragraph: 已挂载
+        - switch "api-remotes" [checked]
+      - listitem:
+        - paragraph: runtime
+        - paragraph: 已挂载
+        - switch "runtime" [checked]
+      - listitem:
+        - paragraph: cordis-client-runner
+        - paragraph: 已挂载
+        - switch "cordis-client-runner" [checked]
+      - listitem:
+        - paragraph: ui-theme
+        - paragraph: 已挂载
+        - switch "ui-theme" [checked]
+      - listitem:
+        - paragraph: locale
+        - paragraph: 已挂载
+        - switch "locale" [checked]
+      - listitem:
+        - paragraph: ui-layout
+        - paragraph: 已挂载
+        - switch "ui-layout" [checked]
+      - listitem:
+        - paragraph: ui-sidebar
+        - paragraph: 已挂载
+        - switch "ui-sidebar" [checked]
+      - listitem:
+        - paragraph: ui-settings
+        - paragraph: 已挂载
+        - switch "ui-settings" [checked]
+      - listitem:
+        - paragraph: ui-settings-general
+        - paragraph: 已挂载
+        - switch "ui-settings-general" [checked]
+      - listitem:
+        - paragraph: ui-account
+        - paragraph: 已挂载
+        - switch "ui-account" [checked]
+      - listitem:
+        - paragraph: ui-settings-models
+        - paragraph: 已挂载
+        - switch "ui-settings-models" [checked]
+      - listitem:
+        - paragraph: ui-settings-usage
+        - paragraph: 已挂载
+        - switch "ui-settings-usage" [checked]
+      - listitem:
+        - paragraph: ui-settings-proxy
+        - paragraph: 已挂载
+        - switch "ui-settings-proxy" [checked]
+      - listitem:
+        - paragraph: ui-settings-plugin-inventory
+        - paragraph: 已挂载
+        - switch "ui-settings-plugin-inventory" [checked]
+      - listitem:
+        - paragraph: ui-conversation
+        - paragraph: 已挂载
+        - switch "ui-conversation" [checked]
+      - listitem:
+        - paragraph: ui-tool
+        - paragraph: 已挂载
+        - switch "ui-tool" [checked]
+      - listitem:
+        - paragraph: ui-cordis
+        - paragraph: 已挂载
+        - switch "ui-cordis" [checked]
+      - listitem:
+        - paragraph: ui-workflow-run
+        - paragraph: 已挂载
+        - switch "ui-workflow-run" [checked]
+      - listitem:
+        - paragraph: ui-deliverables
+        - paragraph: 已挂载
+        - switch "ui-deliverables" [checked]
+      - listitem:
+        - paragraph: ui-workspace
+        - paragraph: 已挂载
+        - switch "ui-workspace" [checked]
+      - listitem:
+        - paragraph: ui-input-trigger
+        - paragraph: 已挂载
+        - switch "ui-input-trigger" [checked]
+      - listitem:
+        - paragraph: ui-commands
+        - paragraph: 已挂载
+        - switch "ui-commands" [checked]
+      - listitem:
+        - paragraph: ui-skill
+        - paragraph: 已挂载
+        - switch "ui-skill" [checked]
+      - listitem:
+        - paragraph: ui-subagent
+        - paragraph: 已挂载
+        - switch "ui-subagent" [checked]
+      - listitem:
+        - paragraph: ui-jobs
+        - paragraph: 已挂载
+        - switch "ui-jobs" [checked]
+      - listitem:
+        - paragraph: ui-goal
+        - paragraph: 已挂载
+        - switch "ui-goal" [checked]
+      - listitem:
+        - paragraph: ui-message-feedback
+        - paragraph: 已挂载
+        - switch "ui-message-feedback" [checked]
+      - listitem:
+        - paragraph: ui-model-selection
+        - paragraph: 已挂载
+        - switch "ui-model-selection" [checked]
+      - listitem:
+        - paragraph: ui-permission-presets
+        - paragraph: 已挂载
+        - switch "ui-permission-presets" [checked]
+      - listitem:
+        - paragraph: ui-agent-preset
+        - paragraph: 已挂载
+        - switch "ui-agent-preset" [checked]
+      - listitem:
+        - paragraph: ui-settings-plugins
+        - paragraph: 已挂载
+        - switch "ui-settings-plugins" [checked]
+      - listitem:
+        - paragraph: ui-plan
+        - paragraph: 已挂载
+        - switch "ui-plan" [checked]
+      - listitem:
+        - paragraph: ui-user-questions
+        - paragraph: 已挂载
+        - switch "ui-user-questions" [checked]
+      - listitem:
+        - paragraph: ui-trajectory
+        - paragraph: 已挂载
+        - switch "ui-trajectory" [checked]
+      - listitem:
+        - paragraph: agent-presets
+        - paragraph: 已挂载
+        - switch "agent-presets" [checked]
+      - listitem:
+        - paragraph: directory-picker-browse
+        - paragraph: 已挂载
+        - switch "directory-picker-browse" [checked]
+      - listitem:
+        - paragraph: ui-directory-picker-browse
+        - paragraph: 已挂载
+        - switch "ui-directory-picker-browse" [checked]
