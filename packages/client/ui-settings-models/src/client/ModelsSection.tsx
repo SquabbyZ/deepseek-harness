@@ -23,7 +23,7 @@ import type { ModelsSettingsState, ModelsSettingsStore, ProviderRow } from './st
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
 
-const SECTION = 'flex flex-col gap-3 max-w-[720px] text-foreground'
+const SECTION = 'flex flex-col gap-3 text-foreground'
 const TITLE = 'm-0 text-base leading-6 font-medium text-foreground'
 const INTRO = 'm-0 text-sm leading-[22px] text-[var(--dsw-alias-label-tertiary)]'
 const NOTICE = 'm-0 text-xs leading-[18px] text-[var(--dsw-alias-state-warn-label)]'

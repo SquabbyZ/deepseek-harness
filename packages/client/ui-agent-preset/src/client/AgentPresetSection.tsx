@@ -203,7 +203,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const detail = state.error ?? ''
     return (
-      <div className="flex max-w-[720px] flex-col gap-3 text-foreground">
+      <div className="flex flex-col gap-3 text-foreground">
         <p className="m-0 text-xs text-[var(--dsw-alias-state-error-primary)]" role="alert">{`${t('error')} ${detail}`}</p>
         <button
           type="button"
@@ -241,7 +241,7 @@ export function AgentPresetSection(props: AgentPresetSectionProps): ReactNode {
     : null
 
   return (
-    <div className="flex max-w-[720px] flex-col gap-3 text-foreground">
+    <div className="flex flex-col gap-3 text-foreground">
       <h2 className="m-0 text-lg font-semibold">{t('nav')}</h2>
       <p className="m-0 text-[13px] text-[var(--dsw-alias-label-tertiary)]">{t('sectionIntro')}</p>
       {state.error === null ? null : <p className="m-0 text-xs text-[var(--dsw-alias-state-error-primary)]" role="alert">{state.error}</p>}
