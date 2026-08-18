@@ -4,8 +4,10 @@ mod services;
 mod state;
 
 use crate::commands::app::{app_version, crash_log_path};
+use crate::commands::settings::{settings_get, settings_update};
 use crate::services::crash;
 use crate::services::platform::Platform;
+use crate::services::settings::SettingsStore;
 use crate::state::AppState;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -30,6 +32,10 @@ pub fn run() {
             crash::init_panic_hook(&config_dir);
             let db_path = config_dir.join("config.sqlite");
             let db = Arc::new(std::sync::Mutex::new(rusqlite::Connection::open(&db_path)?));
+            {
+                let conn = db.lock().expect("db mutex poisoned");
+                SettingsStore::new(&*conn).init_schema()?;
+            }
             let http = Arc::new(
                 reqwest::Client::builder()
                     .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
@@ -49,7 +55,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_version, crash_log_path])
+        .invoke_handler(tauri::generate_handler![app_version, crash_log_path, settings_get, settings_update])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }
