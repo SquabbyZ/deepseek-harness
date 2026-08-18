@@ -9,6 +9,7 @@ use crate::commands::deeplink::{deeplink_import, deeplink_parse};
 use crate::commands::dialog::{dialog_message, dialog_open, dialog_save};
 use crate::commands::fs::{fs_exists, fs_list, fs_read, fs_write};
 use crate::commands::http::http_request;
+use crate::commands::plugin::{plugin_get_manifest, plugin_list, plugin_read_file};
 use crate::commands::settings::{settings_get, settings_update};
 use crate::commands::shell::shell_spawn;
 use crate::services::crash;
@@ -61,7 +62,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, settings_get, settings_update, shell_spawn])
+        .invoke_handler(tauri::generate_handler![app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, plugin_get_manifest, plugin_list, plugin_read_file, settings_get, settings_update, shell_spawn])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }

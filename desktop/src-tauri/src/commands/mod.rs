@@ -4,5 +4,6 @@ pub mod deeplink;
 pub mod dialog;
 pub mod fs;
 pub mod http;
+pub mod plugin;
 pub mod settings;
 pub mod shell;
