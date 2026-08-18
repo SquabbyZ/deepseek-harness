@@ -11,6 +11,9 @@ pub enum AppError {
 
     #[error("Filesystem IO error: {message}")]
     FsIo { message: String },
+
+    #[error("Network error: {message}")]
+    Network { message: String, status: Option<u16> },
 }
 
 impl From<rusqlite::Error> for AppError {
@@ -31,8 +34,9 @@ impl From<std::io::Error> for AppError {
 
 impl From<reqwest::Error> for AppError {
     fn from(e: reqwest::Error) -> Self {
-        AppError::Internal {
+        AppError::Network {
             message: format!("http: {e}"),
+            status: e.status().map(|s| s.as_u16()),
         }
     }
 }
