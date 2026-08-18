@@ -379,9 +379,97 @@ UI: saveSettings(formData)
 中期:UpdateContext.tsx 每 6 小时后台 poll 一次
 ```
 
-## 7. 错误模型
+## 7. 跨平台路径纪律（约束）
 
-### 7.1 Rust 端 `AppError`
+**目标平台：Windows + macOS。Linux 不在范围内。**
+
+### 7.0 平台识别机制（三层，必要时混用）
+
+```rust
+// 编译期:不同 target 编译出不同二进制
+#[cfg(target_os = "windows")]
+fn platform_specific_setup() { /* Windows-only */ }
+
+#[cfg(target_os = "macos")]
+fn platform_specific_setup() { /* macOS-only */ }
+
+// 运行时:统一一个 Platform 枚举,业务逻辑 dispatch
+pub enum Platform { Windows, MacOS }
+
+impl Platform {
+    pub fn current() -> Self {
+        if cfg!(target_os = "windows") { Platform::Windows }
+        else if cfg!(target_os = "macos") { Platform::MacOS }
+        else { unreachable!("Linux out of scope; build should have failed") }
+    }
+
+    pub fn is_windows(&self) -> bool { matches!(self, Platform::Windows) }
+    pub fn is_macos(&self) -> bool { matches!(self, Platform::MacOS) }
+}
+```
+
+**Tauri 端推荐用 `tauri::Manager::platform()`**（在 tauri 2.x 已稳定），跨平台用同一个 API。**业务侧 99% 情况下不需要判断平台**——Tauri 抽象了 `app.path()` / `dialog` / `shell` / `deep-link` 的差异。如果某条路径非要 dispatch（比如 macOS 上跑 `xattr -d com.apple.quarantine`），用一个 `match platform.current()` 单点处理，避免散落 `#[cfg]`。
+
+**`#[cfg(target_os = "...")]` 限制在 src-tauri/build.rs 或单文件 platform-specific 适配器里**，业务 service / command 文件不直接出现。
+
+### 7.1 路径绝不硬编码分隔符
+
+| 层 | 规则 | 例子 |
+|---|---|---|
+| Rust | 一律用 `std::path::PathBuf` + `Path::join`，禁用 `format!("{}/{}", a, b)` | `config_dir.join("plugins").join(id)` |
+| Rust | 用 `app.path().app_config_dir()` 等 Tauri API 拿系统目录，绝不写 `~/.dsh` 字面量 | `app.path().app_config_dir()?` |
+| Rust | 路径在 IPC 边界序列化时用 `path.to_string_lossy().into_owned()`（Windows 会变 `C:\Users\foo`） |  |
+| WebView2 | 收到的路径字符串当 **opaque token** 处理，要回传 Rust 时原样回传 | 不要做 `path.split('/')` |
+| WebView2 | 浏览器侧要用 URL 时，调 Rust 拿 `file://` URL，自己不构造 | `invoke('path_to_url', { path }) → 'file:///...'` |
+| Plugin SDK | 提供 `path.normalize(p)` helper（调 Rust 拿 canonical path） | 禁用 `path.replace(/\\/g, '/')` |
+
+### 7.2 平台相关的硬编码禁区
+
+| 反例（禁止） | 正确做法 |
+|---|---|
+| `~/.dsh/plugins` 字面量 | `app.path().app_config_dir()?.join("plugins")` |
+| `C:\Users\...` | `dirs::config_dir()?.join("deepseek-harness")`（在 macOS 上会落到 `~/Library/Application Support/deepseek-harness`） |
+| `/tmp/foo` | `std::env::temp_dir().join("foo")` |
+| `\\?\C:\very\long\path` (Windows 长路径前缀) | `\\?\` 透明交给 Rust + Tauri，WebView2 不感知 |
+| `.app` / `.exe` 二进制判断 | 用 `std::env::consts::EXE_SUFFIX` 或 `which` crate |
+| `register_protocol_handler` 路径 (Windows) vs `Info.plist` `CFBundleURLTypes` (macOS) | 走 Tauri deep-link 插件，不直接写注册表/plist |
+
+### 7.3 文件系统命令的路径白名单（跨平台）
+
+```rust
+// commands/fs.rs 内部
+fn is_path_allowed(path: &Path, capabilities: &Capabilities) -> bool {
+    let canonical = path.canonicalize().unwrap_or(path.to_path_buf());
+    // 1. 在用户授权的 plugins/<id>/ 下
+    if canonical.starts_with(&capabilities.plugin_dir) { return true; }
+    // 2. 在 app_config_dir 下（settings, cache）
+    if canonical.starts_with(&capabilities.app_config_dir) { return true; }
+    // 3. 用户安装时显式授权的扩展路径（plugin manifest.fs.read.paths）
+    capabilities.plugin_fs_allowlist.iter().any(|p| canonical.starts_with(p))
+}
+```
+
+macOS 沙盒（如果开启 hardened runtime）需要单独的 `entitlements.plist` 配 `com.apple.security.files.user-selected.read-only` 等条目。Tauri 默认不开沙盒，**本期不在范围**，但代码结构要保留扩展位。
+
+### 7.4 测试覆盖
+
+| 测试 | 覆盖 |
+|---|---|
+| Rust 单元 | `PathBuf` 操作在不同平台下结果正确（macOS runner 跑测试） |
+| Integration | 装包流程在 Windows runner 和 macOS runner 各跑一遍 e2e |
+| Manual checklist | "全新机器装 MSI" 在 Windows 跑；"全新机器装 .dmg" 在 macOS 跑 |
+
+### 7.5 不在范围
+
+- **Linux**：本期不支持。任何 Linux-only 路径处理不写。Tauri 编译时 Linux target 不进 CI。
+- **Windows ARM64**：跟随 x64 一起出，不单独适配。
+- **macOS sandbox / notarization**：Tauri 默认关闭沙盒；notarization 在 release 阶段单独配。
+
+---
+
+## 8. 错误模型
+
+### 8.1 Rust 端 `AppError`
 
 ```rust
 #[derive(thiserror::Error, Debug, Serialize)]
@@ -428,7 +516,7 @@ pub enum AppError {
 }
 ```
 
-### 7.2 前端 `DshError` 标准化 + 展示
+### 8.2 前端 `DshError` 标准化 + 展示
 
 ```ts
 export class DshError extends Error {
@@ -455,7 +543,7 @@ export function normalizeError(e: unknown): DshError {
 }
 ```
 
-### 7.3 UI 错误展示分级
+### 8.3 UI 错误展示分级
 
 | 错误类型 | UI 表现 | 可恢复 |
 |---|---|---|
@@ -469,7 +557,7 @@ export function normalizeError(e: unknown): DshError {
 | `DeeplinkParse` | Toast（warning） | ✓ |
 | `Internal` | Toast（error）："Crash log updated" | 不定 |
 
-### 7.4 重试策略
+### 8.4 重试策略
 
 | 操作 | 重试 |
 |---|---|
@@ -480,9 +568,9 @@ export function normalizeError(e: unknown): DshError {
 | `credentials_*` | 不重试（用户可能 cancel keychain） |
 | `update_check` | 24h 后自动 |
 
-## 8. 插件合约
+## 9. 插件合约
 
-### 8.1 manifest.json
+### 9.1 manifest.json
 
 ```jsonc
 {
@@ -510,7 +598,7 @@ export function normalizeError(e: unknown): DshError {
 
 校验流程：manifest.permissions 是声明（用户审阅），Tauri capability 是强制（Rust 拒）。**plugin manifest 声明的范围不能超过 Tauri capability 允许的范围**——超出会被装包时拒绝。
 
-### 8.2 dist/plugin.js
+### 9.2 dist/plugin.js
 
 ```ts
 import { definePlugin } from '@dsh/plugin-sdk'
@@ -522,7 +610,7 @@ export default definePlugin({
 })
 ```
 
-### 8.3 加载保证
+### 9.3 加载保证
 
 | 关注点 | 保证 |
 |---|---|
@@ -533,7 +621,7 @@ export default definePlugin({
 | 动态 toggle | ✓ `entry.update({ disabled })` |
 | hot reload | ✓ install 后 Tauri 通知 WebView2，reload 单个 plugin fiber |
 
-### 8.4 外部插件迁移成本
+### 9.4 外部插件迁移成本
 
 | 现状 | 新架构 | 改造量 |
 |---|---|---|
@@ -542,7 +630,7 @@ export default definePlugin({
 | 没构建步骤的（只发布源码） | 加 `pnpm run build` 用 esbuild 出 `dist/plugin.js` | 半天 |
 | 通过 `cordis.patch.yml` 声明式注册 | 不变（patch 是数据，跟运行时无关） | 0 |
 
-## 9. 现有 ~140 个内置插件的命运
+## 10. 现有 ~140 个内置插件的命运
 
 | 类别 | 数量（估） | 命运 | 说明 |
 |---|---|---|---|
@@ -570,9 +658,9 @@ export default definePlugin({
 
 粗估：~140 个包 → ~80 个保留/微调，~30 个重写，~30 个删除。新增 ~5 个（cordis browser shim / Tauri command 薄包装 / plugin SDK / manifest 校验工具 / SSOT 同步工具）。
 
-## 10. 测试策略
+## 11. 测试策略
 
-### 10.1 测试金字塔
+### 11.1 测试金字塔
 
 ```
         ┌─────────────────────────────┐
@@ -587,7 +675,7 @@ export default definePlugin({
    └─────────────────────────────────┘
 ```
 
-### 10.2 各层测试
+### 11.2 各层测试
 
 **Layer 4（Rust）— `cargo test`**：
 - `services/plugin_registry.rs` — manifest 解析 / hash 校验 / SQLite CRUD
@@ -616,7 +704,7 @@ export default definePlugin({
 - esbuild --metafile — 必须在浏览器安全列表
 - e2e：装真实 sample plugin，加载成功
 
-### 10.3 关键路径覆盖清单
+### 11.3 关键路径覆盖清单
 
 | 路径 | 类型 |
 |---|---|
@@ -631,7 +719,7 @@ export default definePlugin({
 | autoupdate 触发 | e2e（本地 fixture server） |
 | window start hidden → visible | e2e |
 
-### 10.4 CI 门禁
+### 11.4 CI 门禁
 
 PR opened / push：
 1. `cargo fmt --check`
@@ -647,7 +735,7 @@ PR opened / push：
 
 tag `v*.*.*`：全套 + `pnpm tauri build` → MSI 实际产物 → install + smoke。
 
-### 10.5 手动 release checklist
+### 11.5 手动 release checklist
 
 ```
 □ 全新机器装 MSI，启动 < 5s 出主界面
@@ -668,7 +756,7 @@ tag `v*.*.*`：全套 + `pnpm tauri build` → MSI 实际产物 → install + sm
 □ uninstall MSI，残留文件清理干净（除 ~/.dsh 主动保留）
 ```
 
-## 11. 关键决策记录
+## 12. 关键决策记录
 
 ### 决策 1：客户端原生（client-first）方向
 
@@ -690,14 +778,14 @@ tag `v*.*.*`：全套 + `pnpm tauri build` → MSI 实际产物 → install + sm
 ### 决策 4：原生桥 ~12 commands
 
 - 严格遵循「一个 capability 一个 command」原则。
-- 详见 Section 8.1 表格：plugin manifest.permissions 是粗粒度声明（用户审阅），Tauri capability 是细粒度强制（Rust 拒）。两者都要有，**manifest 声明不能超 capability 范围**。
+- 详见 Section 9.1 表格：plugin manifest.permissions 是粗粒度声明（用户审阅），Tauri capability 是细粒度强制（Rust 拒）。两者都要有，**manifest 声明不能超 capability 范围**。
 
 ### 决策 5：plugins 仍是 npm 包 / 文件夹
 
 - 外部作者继续用 pnpm 构建（在自己的环境里），产物 `dist/plugin.js` 浏览器安全即可。
 - Tauri 端只下载 tarball + 解析 manifest + 写本地，不依赖 pnpm 在运行时可用。
 
-## 12. 风险与缓解
+## 13. 风险与缓解
 
 | 风险 | 概率 | 影响 | 缓解 |
 |---|---|---|---|
@@ -710,7 +798,7 @@ tag `v*.*.*`：全套 + `pnpm tauri build` → MSI 实际产物 → install + sm
 | 旧 ~/.dsh 数据 schema 不兼容 | 低 | 高 | `state.rs` 启动时跑 schema migration，失败 → DbErrorScreen |
 | 用户安装恶意插件 | 中 | 中 | UI 装包前 `PermissionPreview` 清晰展示 permissions；用户看着办 |
 
-## 13. 实施路径（高层切片，writing-plans 细化）
+## 14. 实施路径（高层切片，writing-plans 细化）
 
 ```
 S1: Tauri Shell skeleton（Rust ~3,000 LOC，无 sidecar，无业务逻辑）
@@ -767,7 +855,7 @@ S10: 测试 + CI 门禁 + 手动 checklist
 S11: MSI 实际构建 + 全新机器装机 smoke
 ```
 
-## 14. 验收标准
+## 15. 验收标准
 
 1. 全新机器装 MSI，启动到主界面 < 5s（含 WebView2 首次冷盘读取）。
 2. 安装一个 npm 插件，从 UI 输入到可用 < 30s（视网络）。
