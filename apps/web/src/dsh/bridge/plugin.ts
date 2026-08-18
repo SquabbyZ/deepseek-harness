@@ -24,10 +24,7 @@ export interface PluginInfo {
   id: string
   name: string
   version: string
-  manifest_json: string
-  content_hash: string
-  installed_at: number
-  source: string
+  manifest: Manifest
   enabled: boolean
 }
 
