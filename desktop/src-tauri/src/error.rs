@@ -5,6 +5,12 @@ use serde::Serialize;
 pub enum AppError {
     #[error("Internal error: {message}")]
     Internal { message: String },
+
+    #[error("Filesystem permission denied: {path} not in allowlist")]
+    FsPermissionDenied { path: String },
+
+    #[error("Filesystem IO error: {message}")]
+    FsIo { message: String },
 }
 
 impl From<rusqlite::Error> for AppError {

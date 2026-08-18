@@ -5,6 +5,7 @@ mod state;
 
 use crate::commands::app::{app_version, crash_log_path};
 use crate::commands::credentials::{credentials_delete, credentials_get, credentials_set};
+use crate::commands::fs::{fs_exists, fs_list, fs_read, fs_write};
 use crate::commands::settings::{settings_get, settings_update};
 use crate::services::crash;
 use crate::services::platform::Platform;
@@ -56,7 +57,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, settings_get, settings_update])
+        .invoke_handler(tauri::generate_handler![app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, fs_exists, fs_list, fs_read, fs_write, settings_get, settings_update])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }
