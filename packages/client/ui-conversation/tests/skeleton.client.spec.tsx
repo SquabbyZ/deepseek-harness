@@ -249,6 +249,7 @@ function mount(
     renderSlot,
     renderSlotChain,
     selectWorkspace: retargetWorkspace,
+    openSettingsSection: () => { /* no-op in tests; the toast fires but its action is not exercised here */ },
     t,
   }
   const view = render(<ConversationRoot {...props} />)

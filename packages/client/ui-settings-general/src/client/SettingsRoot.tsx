@@ -117,24 +117,20 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose, open }: 
  * @returns the settings shell element tree.
  */
 export function SettingsRoot(props: SettingsRootComponentProps) {
-  const { wide, useSections, useOnboardingSteps, useSessions, renderSlot } = props
-  const [open, setOpen] = useState(false)
-  const [activeId, setActiveId] = useState<string | undefined>(undefined)
+  const { wide, useSections, useOnboardingSteps, useSessions, useNav, navActions, renderSlot } = props
   const [completedOnboarding, setCompletedOnboarding] = useState<ReadonlySet<string>>(() => new Set())
-  const close = useCallback(() => {
-    setOpen(false)
-    setActiveId(undefined)
-  }, [])
-  const openSection = useCallback((id: string) => {
-    setActiveId(id)
-    setOpen(true)
-  }, [])
-
   // The ledger tick keeps the nav rows fresh: registrants re-register with
   // freshly localized text on locale change, and the trigger/header/close
   // seats re-render through their own outlets' subscriptions.
   const rows = useSections(s => s)
   const onboardingSteps = useOnboardingSteps(s => s)
+  // Panel state lives in the cross-package nav store so other features
+  // (notably `ui-conversation` workspace selection failures) can flip it
+  // through `ctx.settingsNav.openSection('models')`.
+  const nav = useNav(s => s)
+  const open = nav.open
+  const activeId = nav.activeId
+
   // The gate fires while sessions are ready; the registered step decides whether
   // to render from its own readiness projection (no usable provider → show,
   // anything else → return null and auto-complete). The previous "blank
@@ -165,7 +161,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
         className={cn(TRIGGER_BASE, !wide && TRIGGER_RAIL)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => { setOpen(true) }}
+        onClick={() => { navActions.openSection(activeId ?? rows[0]?.id ?? '') }}
       >
         {renderSlot('settings.trigger', { wide })}
       </ShadcnButton>
@@ -174,8 +170,8 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           rows={rows}
           renderSlot={renderSlot}
           activeId={activeId}
-          onSelect={setActiveId}
-          onClose={close}
+          onSelect={(id) => { navActions.openSection(id) }}
+          onClose={navActions.close}
           open={open}
         />
       )}
@@ -185,7 +181,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
       {onboardingStep !== undefined && renderSlot('settings.onboarding', {
         stepId: onboardingStep.id,
         complete: () => { completeOnboardingStep(onboardingStep.id) },
-        openSection,
+        openSection: navActions.openSection,
       }, { only: onboardingStep.id })}
     </>
   )

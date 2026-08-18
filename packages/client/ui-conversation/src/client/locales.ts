@@ -181,6 +181,11 @@ export const zh = {
   'json.truncated': '… 已截断，共 {total} 字符',
   'clock.md': '{m}月{d}日',
   'clock.ymd': '{y}年{m}月{d}日',
+  // Workspace selection failure (no usable model provider, etc.). The toast
+  // surfaces the host-localized reason verbatim; this is only the action label.
+  'errors.workspaceSelectFailed': '选择工作区失败：{message}',
+  'errors.workspaceSelectFailedAction': '前往「设置 → 模型」添加',
+  'errors.workspaceSelectFailedRetry': '重试',
 } satisfies Record<string, string>
 
 /** The conversation namespace key union. */
@@ -359,4 +364,9 @@ export const en = {
   'json.truncated': '… truncated, {total} characters total',
   'clock.md': '{m}/{d}',
   'clock.ymd': '{y}-{m}-{d}',
+  // Workspace selection failure (no usable model provider, etc.). The toast
+  // surfaces the host-localized reason verbatim; this is only the action label.
+  'errors.workspaceSelectFailed': 'Failed to select workspace: {message}',
+  'errors.workspaceSelectFailedAction': 'Open Settings → Models',
+  'errors.workspaceSelectFailedRetry': 'Retry',
 } satisfies Record<ConversationKey, string>

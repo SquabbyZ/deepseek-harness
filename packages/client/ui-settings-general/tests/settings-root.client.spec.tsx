@@ -50,6 +50,11 @@ function mount({
     useWorkspaces: unusedHook,
     wide,
     useOnboardingSteps: select => select(steps),
+    useNav: select => select({ open: false, activeId: undefined }),
+    navActions: {
+      openSection: () => { /* no-op in tests */ },
+      close: () => { /* no-op in tests */ },
+    },
     useSections: (select) => {
       const [, force] = useState(0)
       useEffect(() => {

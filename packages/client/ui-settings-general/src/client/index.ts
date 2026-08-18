@@ -8,7 +8,9 @@
  * Export discipline: packages/client/AGENTS.md.
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
+import type { SettingsNavState } from './nav-store.ts'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 // Type-only: the settings slot declarations plus the ctx.settingsScope Context
@@ -27,6 +29,7 @@ import { PersonalizationSection } from './PersonalizationSection.tsx'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { refreshDocumentIfLoaded, SettingsDocumentStore } from './settings-document-store.ts'
+import { createSettingsNavStore, type SettingsNavStore } from './nav-store.ts'
 import { en, zh, type SettingsKey } from './locales.ts'
 
 export type {
@@ -41,12 +44,26 @@ export type {
 export type { SettingsDocumentActionInjected, SettingsDocumentActionProps } from './SettingsDocumentAction.tsx'
 export type { SettingsDocumentState } from './settings-document-store.ts'
 export { SettingsDocumentStore } from './settings-document-store.ts'
+export { createSettingsNavStore } from './nav-store.ts'
+export type { SettingsNavStore, SettingsNavState, SettingsNavHandle } from './nav-store.ts'
 export type { SettingsKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Shell chrome + shell-owned General section copy. */
     settings: SettingsKey
+  }
+}
+
+/**
+ * Type-only: declares `ctx.settingsNav` so callers in other packages can
+ * reach the singleton nav store through the global Cordis context without a
+ * value import of this module (client bundle purity gate).
+ */
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** Cross-package settings panel navigation handle. */
+    settingsNav: SettingsNavStore
   }
 }
 
@@ -72,6 +89,24 @@ export function apply(ctx: ClientContext): void {
   // seat, and the nav label is a thunk the owner resolves per render — no
   // locale/change re-registration wiring.
   const t = ctx.locale.bind(NS)
+
+  // The settings panel state lives in a singleton nav store so other packages
+  // (notably `ui-conversation` workspace selection failures) can open the
+  // panel and jump to a specific section without simulating clicks. Register
+  // it on `ctx` via the standard provide channel so any package can read it
+  // through `ctx.settingsNav` (Cordis rejects raw property assignment).
+  const navStore = createSettingsNavStore()
+  ctx.effect(() => () => { navStore.close() }, 'ui-settings-general: nav-store teardown')
+  ctx.provide('settingsNav', navStore)
+  // The nav host observable follows the same `HostObservable<SettingsNavState>`
+  // shape as `sections` and `onboardingSteps`: a `getSnapshot` + `subscribe`
+  // pair sourced from the snapshot store. The slot framework auto-binds
+  // `hooks.nav` (HostObservable) into a `useNav` (SnapshotSelectorHook) via
+  // the standard InjectFace type remapping.
+  const useNav: HostObservable<SettingsNavState> = {
+    getSnapshot: () => navStore.store.getSnapshot(),
+    subscribe: listener => navStore.store.subscribe(listener),
+  }
   const connection = ctx.get('connection') as ConnectionHandle
   const documentController = connection.isLoopback
     ? new SettingsDocumentStore(connection.api)
@@ -85,6 +120,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.on('connection/reset', () => {
     refreshDocumentIfLoaded(documentController)
   }), 'ui-settings-general: metadata invalidations')
+  // The settings panel state lives in a singleton nav store so other packages
   // The settings shell: this package occupies the sidebar-owned hole and
   // declares the settings slots. Ledger → nav-row projection as an observable
   // source (uSES contract: getSnapshot returns the cached rows until the
@@ -96,7 +132,9 @@ export function apply(ctx: ClientContext): void {
   let onboardingVersion = -1
   let onboardingSteps: readonly SettingsOnboardingStep[] = []
   const shellInjected = (): SettingsRootInjected => ({
+    navActions: navStore,
     hooks: {
+      nav: useNav,
       sections: {
         getSnapshot: () => {
           const version = ctx.slots.getVersion('settings.section')

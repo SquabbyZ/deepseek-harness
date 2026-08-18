@@ -3,17 +3,18 @@
 // no-session/session transitions — the bar renders inert via owner props.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { cn } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Toaster, cn, toast } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConversationSlotProps, InputZone } from '../contract/slots.ts'
 import { HeroGlow, HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.tsx'
+import { messageOf } from '../error-message.ts'
 
 /** Full props composed from the slot contract. */
 export type ConversationRootProps = ConversationSlotProps
 
 export function ConversationRoot({
   sessionId, useSession, useSessions, useWorkspaces, useInput, useComposerBlock,
-  renderSlot, renderSlotChain, selectWorkspace, t,
+  renderSlot, renderSlotChain, selectWorkspace, openSettingsSection, t,
 }: ConversationRootProps) {
   const openState = useSession(s => s.openState)
   const composerPhase = useSession(s => s.composerPhase)
@@ -112,8 +113,29 @@ export function ConversationRoot({
         onPick: (workspaceId) => {
           setPickerOpen(false)
           setPendingWorkspaceId(workspaceId)
-          void selectWorkspace(workspaceId).catch(() => {
+          void selectWorkspace(workspaceId).catch((reason: unknown) => {
+            // The previous silent catch made workspace selection look broken on
+            // a fresh install (`./dsh` empty): the host rejected `sessions.create`
+            // for missing model provider and the user only saw a flash.
+            // Surface the host-localized reason verbatim; for the canonical
+            // "no model provider configured" failure, deep-link into the
+            // Models section so the user can recover in one click.
             setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
+            const message = messageOf(reason)
+            const isNoProvider = message.includes('no model provider configured')
+            toast.error(t('errors.workspaceSelectFailed', { message }), {
+              ...(isNoProvider ? {
+                action: {
+                  label: t('errors.workspaceSelectFailedAction'),
+                  onClick: () => { openSettingsSection('models') },
+                },
+              } : {
+                action: {
+                  label: t('errors.workspaceSelectFailedRetry'),
+                  onClick: () => { void selectWorkspace(workspaceId).catch(() => { /* swallow retry failure — toast already shows */ }) },
+                },
+              }),
+            })
           })
         },
         onClose: () => { setPickerOpen(false) },
@@ -189,6 +211,11 @@ export function ConversationRoot({
         {renderSlot('conversation.session', {})}
         {composerSeat}
       </div>
+      {/* Sonner toast viewport: workspace-selection failures (and any future
+          transient error from this surface) land here. Mounted on this
+          slot's resident root so the viewport lives exactly as long as the
+          conversation skeleton does. */}
+      <Toaster />
     </div>
   )
 }

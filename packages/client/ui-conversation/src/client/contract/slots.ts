@@ -417,6 +417,12 @@ export interface ConversationInjected {
    */
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /**
+   * Programmatic navigation into the settings panel — used by the workspace
+   * selection failure toast to deep-link to the Models section when the host
+   * rejected `sessions.create` for missing model provider.
+   */
+  openSettingsSection: (id: string) => void
+  /**
    * Framework-bound sources. `composerBlock` is this session's block when a
    * plugin raised one; the reason is the blocker's own localized copy, which
    * the root renders as the inert composer's placeholder.

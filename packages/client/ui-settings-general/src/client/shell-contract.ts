@@ -7,6 +7,7 @@
  * The settings SLOT types (what registrants contribute) stay in ui-settings.
  */
 import type { HostObservable, InjectFace, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SettingsNavState } from './nav-store.ts'
 // Type-only: pulls ui-sidebar's SlotMap merge (the 'sidebar.settings' entry)
 // into every program that sees this contract.
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
@@ -26,10 +27,27 @@ export interface SettingsOnboardingStep {
   order: number
 }
 
+/** Cross-package programmatic navigation into the settings panel. */
+export interface SettingsNavHandle {
+  /** Open the panel and activate the named section. */
+  openSection(id: string): void
+  /** Close the panel. */
+  close(): void
+}
+
+/** Reactive state of the settings panel (sourced from the singleton nav store). */
+export type { SettingsNavState } from './nav-store.ts'
+/** uSES-compatible selector for the nav snapshot. */
+export type SettingsNavSelector = (snapshot: SettingsNavState) => SettingsNavState
+
 /**
  * Registrant-private injected share of the settings shell (assembled in
  * apply): the ledger's nav-row projection as a hooks-compartment source —
  * the shell reads no locale state and subscribes through the bound hook.
+ *
+ * The panel-state source (open / activeId) is also a hooks-compartment source
+ * so external callers can flip them through a shared store (see
+ * {@link ./nav-store.ts}).
  */
 export type SettingsRootInjected = {
   hooks: {
@@ -37,14 +55,18 @@ export type SettingsRootInjected = {
     sections: HostObservable<readonly SettingsSectionRow[]>
     /** settings.onboarding ledger projected into coordinator order. */
     onboardingSteps: HostObservable<readonly SettingsOnboardingStep[]>
+    /** Panel open / activeId state (reactive, cross-package reachable). */
+    nav: HostObservable<SettingsNavState>
   }
+  /** Imperative actions exposed alongside the hook so external callers can open the panel. */
+  navActions: SettingsNavHandle
 }
 
 /**
  * Full component props of the settings shell root: the sidebar owner share
  * (wide/rail state) plus the declared render shares and the injected face
- * (hooks compartment bound to useSections). No store is registered — modal
- * open state and active section id are component-local viewing state.
+ * (hooks compartment bound to useSections). Panel state is sourced from the
+ * injected `nav` store, not from local useState.
  */
 export type SettingsRootComponentProps =
   PropsRuntime<'sidebar.settings'>
