@@ -38,7 +38,9 @@ const ROW_SELECTOR = '[data-mcp-entry]'
  * specific server — the toggle/rollback tests skip the toggle path when the
  * composition is empty. The reserved package name `@deepseek-ai/dsh-mcp-client`
  * is the row pattern the inventory would project. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _MCP_CLIENT_PACKAGE = '@deepseek-ai/dsh-mcp-client'
+void _MCP_CLIENT_PACKAGE
 
 describe('web e2e: mcp inventory toggle', () => {
   let scaffold: WebScaffold

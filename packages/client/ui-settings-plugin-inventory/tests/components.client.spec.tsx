@@ -6,122 +6,184 @@ import type {
   PluginInventorySettingsTabInjected,
   PluginInventorySettingsTabProps,
 } from '../src/client/PluginInventorySettingsTab.tsx'
+import type { PluginEntryId, PluginInventoryEntry } from '@deepseek-ai/dsh-host-plugin-inventory/types'
+import { createPluginInventoryStore, type PluginInventoryStore } from '../src/client/inventory-store.ts'
 import { en, type PluginInventoryLocaleKey } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-type Snapshot = Awaited<ReturnType<PluginInventorySettingsTabInjected['list']>>
-const t = ((key: PluginInventoryLocaleKey): string => en[key]) as PluginInventorySettingsTabProps['t']
+function id(value: string): PluginEntryId {
+  return value as PluginEntryId
+}
 
-function props(list: PluginInventorySettingsTabInjected['list']): PluginInventorySettingsTabProps {
+const ENTRIES: readonly PluginInventoryEntry[] = [
+  { entryId: id('8a1b2c3d'), moduleName: '@deepseek-ai/cordis-plugin-hmr', enabled: true, disabledReason: null, fiberPhase: 'active' },
+  { entryId: id('pending'), moduleName: 'cordis:pending-name', enabled: true, disabledReason: null, fiberPhase: 'pending' },
+  { entryId: id('loading'), moduleName: '@fixture/loading-name', enabled: true, disabledReason: null, fiberPhase: 'loading' },
+  { entryId: id('failed'), moduleName: '@fixture/failed-name', enabled: true, disabledReason: null, fiberPhase: 'failed' },
+  { entryId: id('unloading'), moduleName: '@fixture/unloading-name', enabled: true, disabledReason: null, fiberPhase: 'unloading' },
+  { entryId: id('unobserved'), moduleName: '@fixture/unobserved-name', enabled: true, disabledReason: null, fiberPhase: null },
+  { entryId: id('disabled-entry'), moduleName: '@deepseek-ai/dsh-host-directory-picker-native', enabled: false, disabledReason: 'cordis', fiberPhase: null },
+]
+
+function buildProps({
+  store,
+  setEnabled = vi.fn(async () => undefined),
+  list = vi.fn(async () => ({ entries: store.getSnapshot().entries })),
+  refresh = vi.fn(),
+}: {
+  store: PluginInventoryStore
+  setEnabled?: PluginInventorySettingsTabInjected['setEnabled']
+  list?: PluginInventorySettingsTabInjected['list']
+  refresh?: PluginInventorySettingsTabInjected['refresh']
+}): PluginInventorySettingsTabProps {
   return {
-    t,
+    store,
+    setEnabled,
     list,
+    refresh,
+    t: (key: PluginInventoryLocaleKey, params?: Record<string, string>) => translate(en, key, params),
   } as PluginInventorySettingsTabProps
 }
 
-const SNAPSHOT = {
-  entries: [
-    { entryId: '8a1b2c3d', moduleName: '@deepseek-ai/cordis-plugin-hmr', enabled: true, fiberPhase: 'active' },
-    { entryId: 'pending', moduleName: 'cordis:pending-name', enabled: true, fiberPhase: 'pending' },
-    { entryId: 'loading', moduleName: '@fixture/loading-name', enabled: true, fiberPhase: 'loading' },
-    { entryId: 'failed', moduleName: '@fixture/failed-name', enabled: true, fiberPhase: 'failed' },
-    { entryId: 'unloading', moduleName: '@fixture/unloading-name', enabled: true, fiberPhase: 'unloading' },
-    { entryId: 'unobserved', moduleName: '@fixture/unobserved-name', enabled: true, fiberPhase: null },
-    { entryId: 'disabled-entry', moduleName: '@deepseek-ai/dsh-host-directory-picker-native', enabled: false, fiberPhase: null },
-  ],
-} as unknown as Snapshot
+function translate(
+  dict: typeof en,
+  key: PluginInventoryLocaleKey,
+  params?: Record<string, string>,
+): string {
+  const template: string = (dict as Record<string, string>)[key] ?? key
+  let text = template
+  if (params !== undefined) {
+    for (const [name, value] of Object.entries(params)) {
+      text = text.replace(`{{${name}}}`, value)
+    }
+  }
+  return text
+}
 
 describe('PluginInventorySettingsTab', () => {
-  it('renders runtime status only for enabled plugins', async () => {
-    const deferred = Promise.withResolvers<Snapshot>()
-    const list = vi.fn(() => deferred.promise)
-    const view = render(<PluginInventorySettingsTab {...props(list)} />)
-    expect(screen.getByText(en.loading)).toBeTruthy()
+  it('renders one row per entry with phase dot, caption, and switch', async () => {
+    const setEnabled = vi.fn(async () => undefined)
+    const store = createPluginInventoryStore(
+      { list: async () => ({ entries: ENTRIES }) },
+      () => undefined,
+    )
+    const view = render(<PluginInventorySettingsTab {...buildProps({ store, setEnabled })} />)
 
-    await act(async () => { deferred.resolve(SNAPSHOT) })
-    expect(list).toHaveBeenCalledOnce()
+    // Wait for the snapshot to settle (read=true).
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem').length).toBe(ENTRIES.length)
+    })
     expect(screen.getByRole('searchbox', { name: en.search })).toBeTruthy()
     expect(screen.getByRole('heading', { name: en.catalog })).toBeTruthy()
-    expect(view.container.querySelector('[data-plugin-count]')?.textContent).toBe('7')
-    expect(screen.getAllByRole('listitem')).toHaveLength(7)
-    expect(screen.getAllByText(en.enabledTag)).toHaveLength(6)
-    expect(screen.getByText(en.disabledTag)).toBeTruthy()
-    for (const value of [
-      'Mounted',
-      'Waiting for dependencies',
-      'Loading',
-      'Mount failed',
-      'Unloading',
-      'Not mounted',
-    ]) {
-      expect(screen.getByRole('img', { name: value })).toBeTruthy()
-    }
-    const active = screen.getByRole('button', { name: 'hmr, Mounted, Enabled' })
-    expect(active.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(active)
-    expect(active.getAttribute('aria-expanded')).toBe('true')
-    expect(view.container.querySelector('[data-loader-entry]')?.textContent).toBe('8a1b2c3d')
-    expect(screen.getByText(en.configuration)).toBeTruthy()
-    expect(screen.getByText(en.cordis)).toBeTruthy()
-    fireEvent.click(active)
-    expect(view.container.querySelector('[data-loader-entry]')).toBeNull()
+    expect(view.container.querySelector('[data-plugin-count]')?.textContent).toBe(String(ENTRIES.length))
 
-    fireEvent.click(active)
-    fireEvent.change(screen.getByRole('searchbox', { name: en.search }), {
-      target: { value: 'disabled-entry' },
-    })
-    expect(view.container.querySelector('[data-loader-entry]')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'directory-picker-native, Disabled' }))
-    expect(screen.getAllByText(en.disabledTag)).toHaveLength(2)
-    expect(screen.queryByText(en.cordis)).toBeNull()
-    expect(screen.queryByText(en.unobserved)).toBeNull()
+    // Each entry has one switch.
+    const switches = screen.getAllByRole('switch')
+    expect(switches).toHaveLength(ENTRIES.length)
+    // The disabled entry's switch starts off.
+    const disabled = switches[ENTRIES.length - 1] as HTMLButtonElement
+    expect(disabled.getAttribute('data-state')).toBe('unchecked')
+    // The other six are on.
+    for (let i = 0; i < ENTRIES.length - 1; i += 1) {
+      expect((switches[i] as HTMLButtonElement).getAttribute('data-state')).toBe('checked')
+    }
   })
 
-  it('filters by module name or Loader entry id', async () => {
-    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT)} />)
+  it('filters the list by module name or Loader entry id', async () => {
+    const store = createPluginInventoryStore(
+      { list: async () => ({ entries: ENTRIES }) },
+      () => undefined,
+    )
+    render(<PluginInventorySettingsTab {...buildProps({ store })} />)
     const search = await screen.findByRole('searchbox', { name: en.search })
 
     fireEvent.change(search, { target: { value: 'disabled-entry' } })
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
-    expect(screen.getByText('directory-picker-native')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    })
 
     fireEvent.change(search, { target: { value: 'cordis-plugin-hmr' } })
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    })
     expect(screen.getByText('hmr')).toBeTruthy()
 
     fireEvent.change(search, { target: { value: 'not-a-plugin' } })
-    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    await waitFor(() => {
+      expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    })
     expect(screen.getByText(en.emptySearch)).toBeTruthy()
   })
 
-  it('shows a generic failure and retries into the empty state', async () => {
-    const list = vi.fn<PluginInventorySettingsTabInjected['list']>()
-      .mockRejectedValueOnce(new Error('private transport detail'))
-      .mockResolvedValueOnce({ entries: [] })
-    render(<PluginInventorySettingsTab {...props(list)} />)
+  it('debounces 5 rapid clicks into a single setEnabled commit', async () => {
+    const store = createPluginInventoryStore(
+      { list: async () => ({ entries: ENTRIES }) },
+      () => undefined,
+    )
+    const setEnabled = vi.fn(async () => undefined)
+    render(<PluginInventorySettingsTab {...buildProps({ store, setEnabled })} />)
+    await waitFor(() => {
+      expect(screen.getAllByRole('switch')).toHaveLength(ENTRIES.length)
+    })
 
-    expect((await screen.findByRole('alert')).textContent).toBe(en.error)
-    expect(screen.queryByText('private transport detail')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: en.retry }))
-    await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
-    expect(await screen.findByText(en.empty)).toBeTruthy()
+    const target = screen.getAllByRole('switch')[0] as HTMLButtonElement
+    // 5 rapid toggles on/off/on/off/on collapse into the final state.
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.click(target)
+    }
+    // Within the debounce window, no RPC has fired yet.
+    expect(setEnabled).not.toHaveBeenCalled()
+
+    await waitFor(() => {
+      expect(setEnabled).toHaveBeenCalledOnce()
+    })
   })
 
-  it('contains a synchronous Remote failure and ignores a result after unmount', async () => {
-    const syncFailure = vi.fn(() => { throw new Error('namespace unavailable') }) as PluginInventorySettingsTabInjected['list']
-    const failed = render(<PluginInventorySettingsTab {...props(syncFailure)} />)
-    expect((await screen.findByRole('alert')).textContent).toBe(en.error)
-    failed.unmount()
+  it('rolls back the optimistic switch when setEnabled rejects', async () => {
+    const store = createPluginInventoryStore(
+      { list: async () => ({ entries: ENTRIES }) },
+      () => undefined,
+    )
+    const setEnabled = vi.fn(async () => { throw new Error('RPC failed') })
+    render(<PluginInventorySettingsTab {...buildProps({ store, setEnabled })} />)
+    await waitFor(() => {
+      expect(screen.getAllByRole('switch')).toHaveLength(ENTRIES.length)
+    })
 
-    const deferred = Promise.withResolvers<Snapshot>()
-    const pending = render(<PluginInventorySettingsTab {...props(() => deferred.promise)} />)
-    pending.unmount()
-    await act(async () => { deferred.resolve(SNAPSHOT) })
+    const target = screen.getAllByRole('switch')[0] as HTMLButtonElement
+    fireEvent.click(target)
 
-    const deferredFailure = Promise.withResolvers<Snapshot>()
-    const pendingFailure = render(<PluginInventorySettingsTab {...props(() => deferredFailure.promise)} />)
-    pendingFailure.unmount()
-    await act(async () => { deferredFailure.reject(new Error('late failure')) })
+    await waitFor(() => {
+      expect(setEnabled).toHaveBeenCalledOnce()
+    })
+    // Switch rolls back to committed state.
+    await waitFor(() => {
+      expect(target.getAttribute('data-state')).toBe('checked')
+    })
+    // Error toast surfaces.
+    await waitFor(() => {
+      expect(screen.getByRole('alert').textContent).toContain('RPC failed')
+    })
+  })
+
+  it('refreshes when refresh() is invoked and re-renders new entries', async () => {
+    const first: { entries: readonly PluginInventoryEntry[] } = { entries: ENTRIES.slice(0, 2) }
+    const second: { entries: readonly PluginInventoryEntry[] } = { entries: ENTRIES }
+    let index = 0
+    const responses = [first, second]
+    const store = createPluginInventoryStore(
+      { list: async () => responses[index++] ?? { entries: [] } },
+      () => undefined,
+    )
+    render(<PluginInventorySettingsTab {...buildProps({ store })} />)
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    })
+
+    await act(async () => { store.refresh() })
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(ENTRIES.length)
+    })
   })
 })

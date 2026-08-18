@@ -4,6 +4,18 @@
 
 export { StateDot } from './StateDot.tsx'
 export type { StateDotState } from './StateDot.tsx'
+export { StatusDot } from './StatusDot.tsx'
+export type { StatusDotPhase } from './StatusDot.tsx'
+export { SwitchRow } from './SwitchRow.tsx'
+export { SearchInput } from './SearchInput.tsx'
+export {
+  useDebouncedToggle,
+} from './useDebouncedToggle.ts'
+export type {
+  DebouncedToggleAction,
+  UseDebouncedToggleOptions,
+  UseDebouncedToggleApi,
+} from './useDebouncedToggle.ts'
 export { DisclosureRow } from './DisclosureRow.tsx'
 export type { DisclosureRowProps } from './DisclosureRow.tsx'
 export { Button } from './Button.tsx'

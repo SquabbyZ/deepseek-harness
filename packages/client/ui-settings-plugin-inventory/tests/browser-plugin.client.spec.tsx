@@ -23,7 +23,12 @@ async function bench() {
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
+  const onMock = vi.fn<(event: string, listener: (...args: unknown[]) => void) => () => void>()
+    .mockReturnValue(() => undefined)
   class RemoteService extends Service {
+    $on(event: string, listener: (...args: unknown[]) => void): () => void {
+      return onMock(event, listener)
+    }
     constructor(serviceCtx: Context) {
       super(serviceCtx, 'remote')
     }
@@ -32,7 +37,7 @@ async function bench() {
   const list = vi.fn<() => Promise<ListResult>>()
     .mockResolvedValue({ ok: true, value: EMPTY })
   ctx.provide('remote.pluginInventory', { list })
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, list }
+  return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, list, onMock }
 }
 
 function declare(slots: SlotRegistry): () => void {
