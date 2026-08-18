@@ -14,6 +14,15 @@ pub enum AppError {
 
     #[error("Network error: {message}")]
     Network { message: String, status: Option<u16> },
+
+    #[error("Shell permission denied: {cmd}")]
+    PermissionDenied { cmd: String },
+
+    #[error("Shell error: {message}")]
+    Shell { message: String },
+
+    #[error("Deeplink parse failed: {url} - {reason}")]
+    DeeplinkParse { url: String, reason: String },
 }
 
 impl From<rusqlite::Error> for AppError {
