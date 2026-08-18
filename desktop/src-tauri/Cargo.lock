@@ -937,12 +937,15 @@ dependencies = [
 name = "dsh-desktop"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "keyring",
  "parking_lot",
  "reqwest 0.12.28",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
+ "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-deep-link",
