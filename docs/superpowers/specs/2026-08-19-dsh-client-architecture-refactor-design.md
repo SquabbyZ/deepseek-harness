@@ -501,6 +501,15 @@ export function normalizeError(e: unknown): DshError {
 }
 ```
 
+**两套权限字段**（必须分清，避免歧义）：
+
+| 层级 | 字段 | 含义 | 粒度 |
+|---|---|---|---|
+| 插件 manifest | `permissions` | 插件**声明**想要的能力（用于 UI 装包前展示给用户） | 粗粒度：`fs.read` / `shell.spawn` / `network.outbound` / `credentials.*` / `dialog.*` |
+| Tauri capability | `src-tauri/capabilities/default.json` | Rust 端**强制**允许的命令 + 参数域限制 | 细粒度：`fs.read.<path_pattern>` / `network.outbound.<domain>` / `credentials.<key_name>` |
+
+校验流程：manifest.permissions 是声明（用户审阅），Tauri capability 是强制（Rust 拒）。**plugin manifest 声明的范围不能超过 Tauri capability 允许的范围**——超出会被装包时拒绝。
+
 ### 8.2 dist/plugin.js
 
 ```ts
@@ -681,7 +690,7 @@ tag `v*.*.*`：全套 + `pnpm tauri build` → MSI 实际产物 → install + sm
 ### 决策 4：原生桥 ~12 commands
 
 - 严格遵循「一个 capability 一个 command」原则。
-- permissions 字段粒度：`fs.read.*` / `fs.write.*` / `network.outbound.<domain>` 等。
+- 详见 Section 8.1 表格：plugin manifest.permissions 是粗粒度声明（用户审阅），Tauri capability 是细粒度强制（Rust 拒）。两者都要有，**manifest 声明不能超 capability 范围**。
 
 ### 决策 5：plugins 仍是 npm 包 / 文件夹
 
