@@ -20,14 +20,18 @@ pub enum InstallSpec {
 
 pub fn parse_spec(spec: &str) -> AppResult<InstallSpec> {
     if let Some(rest) = spec.strip_prefix("npm:") {
-        let parts: Vec<&str> = rest.split('@').collect();
-        let name = if parts.len() > 1 && !parts[0].is_empty() {
-            format!("@{}", parts[0])
+        if rest.starts_with('@') {
+            // Scoped package — no version pin possible in this form
+            Ok(InstallSpec::Npm { name: rest.to_string(), version_req: None })
+        } else if let Some(at_idx) = rest.rfind('@') {
+            // Version-pinned unscoped package
+            Ok(InstallSpec::Npm {
+                name: rest[..at_idx].to_string(),
+                version_req: Some(rest[at_idx+1..].to_string()),
+            })
         } else {
-            rest.to_string()
-        };
-        let version_req = parts.get(1).map(|s| s.to_string()).filter(|s| !s.is_empty());
-        Ok(InstallSpec::Npm { name, version_req })
+            Ok(InstallSpec::Npm { name: rest.to_string(), version_req: None })
+        }
     } else if spec.starts_with("git+") || spec.starts_with("github:") || spec.contains(".git") {
         Ok(InstallSpec::Git {
             url: spec.to_string(),
@@ -105,5 +109,29 @@ mod tests {
     fn defaults_to_npm() {
         let s = parse_spec("plain-pkg-name").unwrap();
         assert!(matches!(s, InstallSpec::Npm { .. }));
+    }
+
+    #[test]
+    fn parses_npm_with_version_req() {
+        let s = parse_spec("npm:lodash@^4.0.0").unwrap();
+        match s {
+            InstallSpec::Npm { name, version_req } => {
+                assert_eq!(name, "lodash");
+                assert_eq!(version_req.as_deref(), Some("^4.0.0"));
+            }
+            _ => panic!("expected Npm"),
+        }
+    }
+
+    #[test]
+    fn parses_npm_scoped_without_version() {
+        let s = parse_spec("npm:@scope/pkg").unwrap();
+        match s {
+            InstallSpec::Npm { name, version_req } => {
+                assert_eq!(name, "@scope/pkg");
+                assert_eq!(version_req, None);
+            }
+            _ => panic!("expected Npm"),
+        }
     }
 }
