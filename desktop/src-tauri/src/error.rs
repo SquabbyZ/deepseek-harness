@@ -23,6 +23,18 @@ pub enum AppError {
 
     #[error("Deeplink parse failed: {url} - {reason}")]
     DeeplinkParse { url: String, reason: String },
+
+    #[error("Plugin manifest invalid: {field} - {hint}")]
+    InvalidManifest { field: String, hint: String },
+
+    #[error("Plugin code not browser-safe: {issue}")]
+    PluginNotBrowserSafe { issue: String, file: String },
+
+    #[error("Plugin hash mismatch - file tampered: {path}")]
+    PluginHashMismatch { path: String, expected: String, actual: String },
+
+    #[error("Plugin permission denied: {permission} not in manifest")]
+    PluginPermissionDenied { permission: String },
 }
 
 impl From<rusqlite::Error> for AppError {
