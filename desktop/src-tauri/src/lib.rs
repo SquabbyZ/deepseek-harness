@@ -1,7 +1,10 @@
+mod commands;
 mod error;
 mod services;
 mod state;
 
+use crate::commands::app::{app_version, crash_log_path};
+use crate::services::crash;
 use crate::services::platform::Platform;
 use crate::state::AppState;
 use parking_lot::RwLock;
@@ -24,6 +27,7 @@ pub fn run() {
                 .app_config_dir()
                 .map_err(|e| format!("config_dir: {e}"))?;
             std::fs::create_dir_all(&config_dir)?;
+            crash::init_panic_hook(&config_dir);
             let db_path = config_dir.join("config.sqlite");
             let db = Arc::new(std::sync::Mutex::new(rusqlite::Connection::open(&db_path)?));
             let http = Arc::new(
@@ -45,7 +49,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![])
+        .invoke_handler(tauri::generate_handler![app_version, crash_log_path])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }
