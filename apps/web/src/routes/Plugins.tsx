@@ -29,9 +29,13 @@ export function Plugins() {
         {install.isPending ? 'Installing…' : 'Install test plugin'}
       </button>
       {install.isError && (
-        <p className="text-red-600 mt-2" role="alert">
-          Install failed: {String(install.error)}
-        </p>
+        <div className="mt-2 text-red-600" role="alert">
+          <p className="font-semibold">Install failed</p>
+          <pre className="mt-1 text-sm whitespace-pre-wrap">
+            {JSON.stringify(install.error, Object.getOwnPropertyNames(install.error ?? {}), 2)
+              ?? String(install.error)}
+          </pre>
+        </div>
       )}
       <ul className="mt-4 space-y-1">
         {isLoading && <li className="text-gray-500">Loading…</li>}
