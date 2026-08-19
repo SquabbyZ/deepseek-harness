@@ -7552,6 +7552,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      '@tauri-apps/api':
+        specifier: ^2.0.0
+        version: 2.11.1
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^

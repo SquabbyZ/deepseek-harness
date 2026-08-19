@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -13,6 +13,47 @@ import * as acp from '../src/index.ts'
 import { acpStopReason, acpContentText, DEFAULT_DISPOSE_EOF_GRACE_MS, DEFAULT_DISPOSE_GRACE_MS, disposeAcpChild, startAcpRun, toAcpPrompt, type AcpRunSpec } from '../src/run.ts'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { spawnSubprocess } from '@deepseek-ai/dsh-subprocess-local/src/spawn.ts'
+
+/**
+ * Phase 2 Task 2.7.2 made the package browser-safe: cwd validation runs
+ * through `bridge.cwdApi.resolve` → `commands::fs::cwd_resolve` on the Tauri
+ * host. Tests run under vitest in a Node context with no Tauri runtime, so
+ * this mock re-implements the Rust command on top of `node:fs` (statSync +
+ * accessSync) + `node:path` (resolve / isAbsolute). The mirror covers the
+ * cases the suite actually exercises:
+ *
+ * - relative path → resolve() against `process.cwd()` (host launch dir)
+ * - absolute path → used verbatim
+ * - canonicalize() so a symlinked parent (macOS /tmp → /private/tmp) returns
+ *   the same value the child will see in its real `process.cwd()`
+ * - non-directory path → throws with `not a directory`
+ * - POSIX mode with no `x` bit → throws with `not searchable (X_OK)`
+ * - missing path → throws the underlying `ENOENT` text
+ *
+ * Keeping the implementation in the mock (not in a parallel Node-side
+ * service) preserves the single-source-of-truth contract: production goes
+ * through the Tauri command; tests route the same call through this mock.
+ */
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(async (cmd: string, args: { path: string }) => {
+    if (cmd !== 'cwd_resolve') throw new Error(`subagent-acp test mock: unrecognised command ${cmd}`)
+    const { accessSync, constants, statSync } = await import('node:fs')
+    const absolute = isAbsolute(args.path) ? args.path : resolve(args.path)
+    let meta: import('node:fs').Stats
+    try {
+      meta = statSync(absolute)
+    } catch (error) {
+      throw new Error(`${absolute}: ${(error as NodeJS.ErrnoException).message ?? String(error)}`)
+    }
+    if (!meta.isDirectory()) throw new Error(`${absolute}: not a directory`)
+    try {
+      accessSync(absolute, constants.X_OK)
+    } catch (error) {
+      throw new Error(`${absolute}: not searchable (X_OK): ${(error as NodeJS.ErrnoException).message ?? String(error)}`)
+    }
+    return realpathSync(absolute)
+  }),
+}))
 
 /**
  * Keyless integration tests for the ACP subagent backend. Each spawns a REAL
@@ -303,23 +344,29 @@ describe('cwd resolution', () => {
   })
 
   // Windows ACLs do not expose the POSIX directory search-bit state this fixture creates.
-  it.skipIf(process.platform === 'win32')('rejects a config cwd directory without search permission at load', async () => {
+  it.skipIf(process.platform === 'win32')('rejects a config cwd directory without search permission at first start', async () => {
     // statSync().isDirectory() is true for a mode-600 directory, but a
     // subprocess cwd needs SEARCH permission — spawn would fail EACCES.
+    // Phase 2 Task 2.7.2 moved this probe from `apply()` (sync, via
+    // `node:fs::accessSync`) to `resolveCwd()` (async, via
+    // `bridge.cwdApi.resolve` → the Tauri host); cordis' `apply()` is
+    // synchronous so the host call cannot happen there.
     const tmp = mkdtempSync(join(tmpdir(), 'acp-noexec-'))
     chmodSync(tmp, 0o600)
     try {
       const ctx = new Context()
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
-      await expect(ctx.plugin(acp, {
+      await ctx.plugin(acp, {
         providerName: 'acp',
         command: 'true',
         args: [],
         cwd: tmp,
         permission: 'reject',
         env: {},
-      })).rejects.toThrow('not an accessible directory')
+      })
+      await expect(ctx.subagents.start('acp', request()))
+        .rejects.toThrow('not an accessible directory')
       await ctx.fiber.dispose()
     } finally {
       chmodSync(tmp, 0o700)
@@ -327,18 +374,25 @@ describe('cwd resolution', () => {
     }
   })
 
-  it('rejects a config cwd that is not an accessible directory at load', async () => {
+  it('rejects a config cwd that is not an accessible directory at first start', async () => {
+    // Phase 2 Task 2.7.2: filesystem validation runs through the Tauri host
+    // (cwd_resolve) and therefore moves out of `apply()` into
+    // `resolveCwd()`. `apply()` still fails loud on the empty-string guard
+    // (which is browser-safe), but the directory existence + search-bit
+    // checks now reject at start time with the host's diagnostic.
     const ctx = new Context()
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    await expect(ctx.plugin(acp, {
+    await ctx.plugin(acp, {
       providerName: 'acp',
       command: 'true',
       args: [],
       cwd: '/nonexistent/acp-child-workspace',
       permission: 'reject',
       env: {},
-    })).rejects.toThrow('not an accessible directory')
+    })
+    await expect(ctx.subagents.start('acp', request()))
+      .rejects.toThrow('not an accessible directory')
     await ctx.fiber.dispose()
   })
 

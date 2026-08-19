@@ -4,20 +4,28 @@
  * the ONE thing it reads off `request.parent` is the session's workspace cwd (see
  * {@link resolveCwd}). This plugin uses named exports only; a default would hide its
  * loader metadata (see `docs/postmortem/0001-acp-default-export-drops-inject.md`).
+ *
+ * Phase 2 Task 2.7.2 made the package browser-safe: the cwd-validation logic that
+ * previously imported `node:fs` and `node:path` is replaced by a Tauri-mediated
+ * call (`bridge.cwdApi.resolve` → `commands::fs::cwd_resolve`). The plugin
+ * applies a synchronous shape-only check at load (empty + non-string), and
+ * delegates the directory existence / search-bit probe to the host — the
+ * renderer never touches a filesystem.
+ *
  * @module @deepseek-ai/dsh-subagent-acp
  */
 
-import { accessSync, constants, statSync } from 'node:fs'
-import { isAbsolute, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {
   ResolvedSubagentStartRequest,
   SubagentCapabilities,
   SubagentProvider,
+  SubagentRun,
   SubagentStartRequest,
 } from '@deepseek-ai/dsh-subagent'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+import { cwdApi } from './bridge.ts'
 import { type AcpRunSpec, DEFAULT_DISPOSE_EOF_GRACE_MS, DEFAULT_DISPOSE_GRACE_MS, type PermissionPolicy, startAcpRun } from './run.ts'
 
 export const name = 'subagent-acp'
@@ -33,10 +41,10 @@ export interface Config {
   args: string[]
   /**
    * Working directory override for the child process and its ACP session.
-   * Must be non-empty; a relative path resolves against the harness launch
-   * directory at load, and the result must be an existing directory. When
-   * omitted, each child inherits its delegating parent session's cwd — and
-   * starting one from a parent session that has no cwd fails.
+   * Must be non-empty; a relative path is resolved against the host's launch
+   * directory at first start, and the result must be an existing directory.
+   * When omitted, each child inherits its delegating parent session's cwd —
+   * and starting one from a parent session that has no cwd fails.
    */
   cwd?: string
   /**
@@ -85,55 +93,70 @@ function assertPositiveFinite(name: string, value: number): void {
 type ResolvedConfig = Required<Omit<Config, 'cwd'>> & Pick<Config, 'cwd'>
 
 /**
- * Whether `path` names an existing directory the harness can ENTER. The
- * search-permission probe matters: `statSync().isDirectory()` is true for a
- * mode-600 directory, but a subprocess cwd needs `X_OK` or spawn fails EACCES.
+ * Whether `path` is absolute on POSIX or Windows. Browser-safe replacement
+ * for `node:path::isAbsolute` (avoids the Node import for a pure string check
+ * that the package needs to enforce at apply() time and again on the parent
+ * session cwd).
+ *
+ * - POSIX: leading `/`.
+ * - Windows: `<drive>:\...`, `<drive>:/...`, or UNC `\\server\share\...`.
  */
-function isDirectory(path: string): boolean {
-  try {
-    if (!statSync(path).isDirectory()) return false
-    accessSync(path, constants.X_OK)
-    return true
-  } catch {
-    // statSync/accessSync throw only filesystem access errors here
-    // (ENOENT/EACCES/ENOTDIR/…), and every one of them means the path cannot
-    // serve as the child's cwd.
-    return false
+function isAbsolutePath(path: string): boolean {
+  if (path.length === 0) return false
+  if (path.charCodeAt(0) === 47 /* '/' */) return true
+  // `<drive>:<sep>` — a drive letter followed by `:` and a separator.
+  if (path.length >= 3) {
+    const drive = path.charCodeAt(0)
+    const colon = path.charCodeAt(1)
+    const sep = path.charCodeAt(2)
+    if (((drive >= 65 && drive <= 90) || (drive >= 97 && drive <= 122)) && colon === 58 && (sep === 47 || sep === 92)) return true
   }
+  // UNC: leading `\\` or `//`.
+  if (path.length >= 2) {
+    const a = path.charCodeAt(0)
+    const b = path.charCodeAt(1)
+    if ((a === 92 || a === 47) && (b === 92 || b === 47)) return true
+  }
+  return false
 }
 
 /**
- * Assert `cwd` can actually host the child: absolute (it doubles as the ACP
- * session workspace, and a relative path would be re-anchored to the server
- * process's launch directory) and an existing directory (fail here, before the
- * process boundary, instead of as an ambiguous spawn ENOENT).
- * @param label - which source supplied the value, for the diagnostic.
- * @param cwd - the candidate working directory.
- * @returns `cwd`, validated.
+ * Resolve `path` against the host's launch directory (when relative) and
+ * validate that the result names an existing, searchable directory. Throws
+ * with the host's diagnostic verbatim so a misconfigured cwd surfaces the
+ * same shape of error it did under the old `node:fs` check.
+ *
+ * @param label - which source supplied the value, for the diagnostic prefix.
+ * @param path - the candidate path; may be relative (resolved against the
+ *   host launch directory) or absolute.
  */
-function assertUsableCwd(label: string, cwd: string): string {
-  if (!isAbsolute(cwd)) {
-    throw new Error(`subagent-acp: ${label} must be an absolute path: ${cwd}`)
+async function assertUsableCwd(label: string, path: string): Promise<string> {
+  try {
+    return await cwdApi.resolve(path)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`subagent-acp: ${label} is not an accessible directory: ${message}`)
   }
-  if (!isDirectory(cwd)) {
-    throw new Error(`subagent-acp: ${label} is not an accessible directory: ${cwd}`)
-  }
-  return cwd
 }
 
 /**
  * Resolve the child's working directory: the deployment `cwd` override when
- * configured (already validated at load), else the parent session's workspace
- * cwd (validated here, its earliest resolvable point). Fails loud when neither
- * exists — falling back to the harness process cwd would silently bind the
- * child to the server's launch directory instead of the delegating session's
- * workspace (one server process serves many sessions, each with its own cwd).
+ * configured, else the parent session's workspace cwd. The configured value
+ * accepts a relative path (resolved against the host's launch directory at
+ * first start — the same behaviour the package previously implemented with
+ * `node:path::resolve`); the parent session's cwd MUST be absolute, because
+ * `SessionHeader.cwd` is documented as absolute and a relative value there
+ * is a broken header that resolving against a launch directory would
+ * silently paper over. Fails loud when neither source exists.
  */
-function resolveCwd(configured: string | undefined, request: SubagentStartRequest): string {
-  if (configured !== undefined) return configured
+async function resolveCwd(configured: string | undefined, request: SubagentStartRequest): Promise<string> {
+  if (configured !== undefined) return assertUsableCwd('config cwd', configured)
   const parentCwd = request.parent.session.header.cwd
   if (parentCwd === undefined) {
     throw new Error('subagent-acp: no working directory for the child — configure `cwd` or delegate from a parent session that has one')
+  }
+  if (!isAbsolutePath(parentCwd)) {
+    throw new Error(`subagent-acp: parent session cwd must be an absolute path: ${parentCwd}`)
   }
   return assertUsableCwd('parent session cwd', parentCwd)
 }
@@ -150,11 +173,12 @@ class AcpProvider implements SubagentProvider {
 
   constructor(readonly name: string, private readonly ctx: Context, private readonly config: ResolvedConfig) {}
 
-  start(request: ResolvedSubagentStartRequest) {
+  async start(request: ResolvedSubagentStartRequest): Promise<SubagentRun> {
+    const cwd = await resolveCwd(this.config.cwd, request)
     const spec: AcpRunSpec = {
       command: this.config.command,
       args: this.config.args,
-      cwd: resolveCwd(this.config.cwd, request),
+      cwd,
       permission: this.config.permission,
       env: this.config.env,
       disposeEofGraceMs: this.config.disposeEofGraceMs,
@@ -175,15 +199,20 @@ export function apply(ctx: Context, config: Config): void {
   const resolved = config as ResolvedConfig
   assertPositiveFinite('disposeEofGraceMs', resolved.disposeEofGraceMs)
   assertPositiveFinite('disposeGraceMs', resolved.disposeGraceMs)
-  // `path.resolve('')` is the process cwd — an empty string would silently
-  // reintroduce the launch-directory fallback this resolution removed.
+  // The empty-string guard stays synchronous and browser-safe: an empty cwd
+  // would silently re-introduce the launch-directory fallback the cwd
+  // resolution removes (`cwdApi.resolve('')` would still bind to the host
+  // launch dir, which is never the intended workspace).
   if (resolved.cwd === '') {
     throw new Error('subagent-acp: config cwd must not be empty — omit the key to inherit the parent session cwd')
   }
-  // Interpret a relative configured cwd against the harness launch directory
-  // ONCE, at load, and fail a misconfigured directory here — not per start.
-  const validated: ResolvedConfig = resolved.cwd === undefined
-    ? resolved
-    : { ...resolved, cwd: assertUsableCwd('config cwd', resolve(resolved.cwd)) }
-  ctx.subagents.registerProvider(new AcpProvider(validated.providerName, ctx, validated))
+  // The cwd validation that used to live in `node:fs`/`node:path` now runs
+  // lazily through `resolveCwd` (which `AcpProvider.start` awaits before
+  // handing the spec to the subprocess seam). `apply()` stays synchronous —
+  // cordis plugin entry points are not awaited — and keeps only the
+  // empty-string guard above. A misconfigured cwd therefore fails loud on
+  // the first `start()` call instead of at load; the error still names the
+  // source (`config cwd` vs. `parent session cwd`) and still preserves the
+  // host's filesystem diagnostic verbatim.
+  ctx.subagents.registerProvider(new AcpProvider(resolved.providerName, ctx, resolved))
 }
