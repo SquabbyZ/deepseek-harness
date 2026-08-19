@@ -32,8 +32,7 @@ export function Plugins() {
         <div className="mt-2 text-red-600" role="alert">
           <p className="font-semibold">Install failed</p>
           <pre className="mt-1 text-sm whitespace-pre-wrap">
-            {JSON.stringify(install.error, Object.getOwnPropertyNames(install.error ?? {}), 2)
-              ?? String(install.error)}
+            {JSON.stringify(install.error, null, 2)}
           </pre>
         </div>
       )}
