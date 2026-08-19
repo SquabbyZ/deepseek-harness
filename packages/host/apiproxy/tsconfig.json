@@ -105,9 +105,6 @@
       "path": "../../extensions/cordis-host-runner"
     },
     {
-      "path": "../../host/agent-inventory"
-    },
-    {
       "path": "../../runtime-diagnostics/invariants"
     },
     {

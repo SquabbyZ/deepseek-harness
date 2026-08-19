@@ -10,3 +10,4 @@ Spec: docs/superpowers/specs/2026-08-19-dsh-client-architecture-refactor-design.
 | 2.5.2 | Delete host-side plugin-inventory | DONE | 2762ed5 | Pending |
 | 2.5.2 | Delete plugin-inventory | DONE | 796ebc5 | Approved |
 | 2.5.3 | Delete skill-inventory | DONE | 587acf4 | Approved |
+| 2.5.4 | Delete mcp-inventory | DONE | 48a3850 | Approved |

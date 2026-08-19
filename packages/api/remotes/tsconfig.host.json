@@ -44,9 +44,6 @@
       "path": "../../settings/settings"
     },
     {
-      "path": "../../host/agent-inventory"
-    },
-    {
       "path": "../../runtime-diagnostics/invariants"
     },
     {

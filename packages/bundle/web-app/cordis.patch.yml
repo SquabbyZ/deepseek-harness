@@ -95,10 +95,6 @@
     - id: directory-picker
       name: '@deepseek-ai/dsh-host-directory-picker-auto'
 
-    # User-toggleable Remote projection of filesystem-discovered agent presets.
-    - id: agent-inventory
-      name: '@deepseek-ai/dsh-host-agent-inventory'
-
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway

@@ -627,9 +627,6 @@ importers:
       '@deepseek-ai/dsh-home-paths':
         specifier: workspace:^
         version: link:../../packages/util/home-paths
-      '@deepseek-ai/dsh-host-agent-inventory':
-        specifier: workspace:^
-        version: link:../../packages/host/agent-inventory
       '@deepseek-ai/dsh-host-directory-picker-browse':
         specifier: workspace:^
         version: link:../../packages/host/directory-picker-browse
@@ -1312,9 +1309,6 @@ importers:
       '@deepseek-ai/dsh-goal':
         specifier: workspace:^
         version: link:../../goal/goal
-      '@deepseek-ai/dsh-host-agent-inventory':
-        specifier: workspace:^
-        version: link:../../host/agent-inventory
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
@@ -1884,9 +1878,6 @@ importers:
       '@deepseek-ai/dsh-github-oauth':
         specifier: workspace:^
         version: link:../../identity/github-oauth
-      '@deepseek-ai/dsh-host-agent-inventory':
-        specifier: workspace:^
-        version: link:../../host/agent-inventory
       '@deepseek-ai/dsh-host-apiproxy':
         specifier: workspace:^
         version: link:../../host/apiproxy
@@ -3132,9 +3123,6 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../ui-slots
-      '@deepseek-ai/dsh-host-agent-inventory':
-        specifier: workspace:^
-        version: link:../../host/agent-inventory
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
@@ -5649,34 +5637,6 @@ importers:
         specifier: workspace:^
         version: link:../../core/tools
 
-  packages/host/agent-inventory:
-    dependencies:
-      '@deepseek-ai/dsh-agent-presets':
-        specifier: workspace:^
-        version: link:../../preset/agent-presets
-      '@deepseek-ai/dsh-settings':
-        specifier: workspace:^
-        version: link:../../settings/settings
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:^
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-brand':
-        specifier: workspace:^
-        version: link:../../util/brand
-      '@deepseek-ai/dsh-invariants':
-        specifier: workspace:^
-        version: link:../../runtime-diagnostics/invariants
-      '@deepseek-ai/dsh-typert-protocol':
-        specifier: workspace:^
-        version: link:../../typert/protocol
-
   packages/host/apiproxy:
     dependencies:
       '@deepseek-ai/dsh-agent':
@@ -5782,9 +5742,6 @@ importers:
       '@deepseek-ai/dsh-cordis-host-runner':
         specifier: workspace:^
         version: link:../../extensions/cordis-host-runner
-      '@deepseek-ai/dsh-host-agent-inventory':
-        specifier: workspace:^
-        version: link:../agent-inventory
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants

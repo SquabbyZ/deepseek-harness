@@ -1,7 +1,38 @@
 /** Agent-preset inventory snapshot store. Mirrors the plugin/skill/mcp stores. */
 
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { AgentEntryId, AgentInventorySnapshot } from '@deepseek-ai/dsh-host-agent-inventory/types'
+
+/**
+ * Local stand-ins for the host-side inventory types after
+ * `@deepseek-ai/dsh-host-agent-inventory` was deleted. The client tab remains
+ * compile-compatible with the existing `ctx.remote.agentInventory` Remote API
+ * shape, even though `ctx.remote.agentInventory` resolves to `undefined` at
+ * runtime until task 2.5.7 (client-side `inventory/agent.ts` hook) lands.
+ *
+ * The brand uses a structural nominal type (`string & { readonly __brand:
+ * 'AgentEntryId' }`) instead of the original `Branded<'AgentEntryId'>` from
+ * `@deepseek-ai/dsh-brand`, mirroring the same compromise the plugin/skill/mcp
+ * stores adopted in tasks 2.5.2 / 2.5.3 / 2.5.4. Downstream consumers only
+ * need a string-bearing opaque id, so this is functionally compatible. If
+ * task 2.5.7 needs an exact `Branded<'AgentEntryId'>`, the schema fragment
+ * below will need reconciling.
+ */
+export type AgentEntryId = string & { readonly __brand: 'AgentEntryId' }
+
+export interface AgentInventoryEntry {
+  readonly entryId: AgentEntryId
+  readonly presetId: string
+  readonly name: string
+  readonly description: string
+  readonly source: string
+  readonly isDefault: boolean
+  readonly enabled: boolean
+  readonly disabledReason: string | null
+}
+
+export interface AgentInventorySnapshot {
+  readonly entries: readonly AgentInventoryEntry[]
+}
 
 export interface AgentInventoryPanelSnapshot {
   readonly entries: readonly AgentInventoryEntryView[]

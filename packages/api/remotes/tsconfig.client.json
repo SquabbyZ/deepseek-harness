@@ -34,9 +34,6 @@
       "path": "../../feedback/message-feedback"
     },
     {
-      "path": "../../host/agent-inventory"
-    },
-    {
       "path": "../../interaction/commands"
     },
     {
