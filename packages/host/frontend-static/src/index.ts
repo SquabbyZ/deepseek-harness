@@ -16,7 +16,6 @@ import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 
 /** Stable Cordis plugin name. */
 export const name = 'frontend-static'
@@ -86,25 +85,25 @@ export async function serveStatic(
 }
 
 /**
- * Claim the webserver fallback seat and serve the dist.
- * @param ctx - plugin context carrying the webServer service.
+ * Static-asset service for the built frontend. The previous implementation
+ * claimed the deleted `ctx.webServer` fallback seat and ran the index tap
+ * pipeline through the webserver carrier. Phase 2 retires that carrier; this
+ * plugin keeps `serveStatic` and the dist resolution so a Tauri asset-protocol
+ * wrapper (or successor carrier) can adopt it without re-deriving the path
+ * semantics.
+ * @param ctx - plugin context (no longer claims the webServer service).
  * @param config - validated {@link Config}.
  */
 export function apply(ctx: Context, config: Config): void {
   const distIndex = config.distIndex
   const distRoot = dirname(distIndex)
   const renderIndex = async (): Promise<string> =>
-    ctx.webServer.applyIndexTaps(await readFile(distIndex, 'utf8'))
-  ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {
-    // Non-GET/HEAD without a matching named route is 405 (fallback-only
-    // semantics: named routes own their method handling).
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405)
-      res.end()
-      return
-    }
-    /* v8 ignore next -- node:http always sets url on server requests */
-    const rawPath = new URL(req.url ?? '/', 'http://x').pathname
-    await serveStatic(decodeURIComponent(rawPath), res, distRoot, distIndex, renderIndex)
-  }), 'frontend-static: fallback seat')
+    /* v8 ignore next -- the index-tap pipeline is reapplied by the next carrier */
+    await readFile(distIndex, 'utf8')
+  // `serveStatic` and `renderIndex` are kept for the successor carrier; the
+  // current apply body is a no-op so the plugin stays loaded without the
+  // retired route registration.
+  void ctx
+  void distRoot
+  void renderIndex
 }

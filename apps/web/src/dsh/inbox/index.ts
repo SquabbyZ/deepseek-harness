@@ -63,7 +63,6 @@ import * as dsh_compaction from '@deepseek-ai/dsh-compaction'
 import * as dsh_compaction_headroom from '@deepseek-ai/dsh-compaction-headroom'
 import * as dsh_compaction_tool_result_pruner from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 import * as dsh_cordis_client_runner from '@deepseek-ai/dsh-cordis-client-runner/client'
-import * as dsh_cordis_host_runner from '@deepseek-ai/dsh-cordis-host-runner'
 import * as dsh_credentials from '@deepseek-ai/dsh-credentials'
 import * as dsh_fs from '@deepseek-ai/dsh-fs'
 import * as dsh_fs_observation_policy from '@deepseek-ai/dsh-fs-observation-policy'
@@ -106,7 +105,6 @@ import * as dsh_tmux_context from '@deepseek-ai/dsh-tmux-context'
 import * as dsh_token_meter from '@deepseek-ai/dsh-token-meter'
 import * as dsh_tool_ask_user from '@deepseek-ai/dsh-tool-ask-user'
 import * as dsh_tool_call_timeout_policy from '@deepseek-ai/dsh-tool-call-timeout-policy'
-import * as dsh_tool_cordis from '@deepseek-ai/dsh-tool-cordis'
 import * as dsh_tool_goal from '@deepseek-ai/dsh-tool-goal'
 import * as dsh_tool_jobs from '@deepseek-ai/dsh-tool-jobs'
 import * as dsh_tool_lsp from '@deepseek-ai/dsh-tool-lsp'
@@ -190,7 +188,6 @@ export const inboxPlugins = [
   dsh_compaction_headroom,
   dsh_compaction_tool_result_pruner,
   dsh_cordis_client_runner,
-  dsh_cordis_host_runner,
   dsh_credentials,
   dsh_fs,
   dsh_fs_observation_policy,
@@ -233,7 +230,6 @@ export const inboxPlugins = [
   dsh_token_meter,
   dsh_tool_ask_user,
   dsh_tool_call_timeout_policy,
-  dsh_tool_cordis,
   dsh_tool_goal,
   dsh_tool_jobs,
   dsh_tool_lsp,
@@ -259,6 +255,6 @@ export const inboxPlugins = [
 ] as const
 
 /** Number of in-box plugins the shell boot wires into the host context. */
-export const inboxPluginsCount = 118
+export const inboxPluginsCount = 116
 
 export type InboxPlugin = (typeof inboxPlugins)[number]

@@ -72,11 +72,6 @@ jobs:
       - name: Build shared library
         run: pnpm run build:lib
 
-      # The sidecar (portable-Node + dsh web profile) is a Tauri resource, so
-      # it must exist before `tauri build` bundles it.
-      - name: Build portable-Node sidecar
-        run: pnpm --dir desktop run build:sidecar
-
       - name: Build, sign, and publish
         uses: tauri-apps/tauri-action@v1
         env:

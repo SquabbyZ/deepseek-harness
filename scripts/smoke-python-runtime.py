@@ -104,10 +104,6 @@ CUSTOM_CORDIS = """\
     provider: spawn
 - id: workflow-tool
   name: '@deepseek-ai/dsh-tool-workflow'
-- id: cordis-host-runner
-  name: '@deepseek-ai/dsh-cordis-host-runner'
-- id: cordis-tool
-  name: '@deepseek-ai/dsh-tool-cordis'
 """
 class MockModelHandler(BaseHTTPRequestHandler):
     """Return deterministic text, worker, and orchestration completions."""

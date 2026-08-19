@@ -21,3 +21,4 @@ Spec: docs/superpowers/specs/2026-08-19-dsh-client-architecture-refactor-design.
 | 2.6.2 | Wire in-box plugins (118 cordis) | DONE | bedff0b | Approved |
 | 2.6.3 | UI nav routes (Chat/Settings/About) | DONE | 6e99d19 | Approved |
 | 2.6.4 | Settings panel + theme | DONE | (this commit) | Pending |
+| 2.6.4 | Settings + theme | DONE | a8efadb | Approved |

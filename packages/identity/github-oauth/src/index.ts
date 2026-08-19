@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process'
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 import { GitHubIdentityProvider } from './github.ts'
 import type { Identity } from './identity.ts'
 import { LoopbackCallbackServer, type CallbackResult } from './loopback.ts'
@@ -133,37 +132,12 @@ function openInSystemBrowser(url: string): void {
   spawn(command, [url], { detached: true, stdio: 'ignore' }).unref()
 }
 
-/** Mount the identity service and the /auth/github/* HTTP routes. */
+/** Mount the identity service. The /auth/github/* HTTP routes previously
+ *  registered on the deleted `ctx.webServer` carrier; Phase 2 retires that
+ *  carrier. The Tauri-managed surface will replace these routes when the
+ *  `dsh-github-oauth` port task lands; the identity service stays on the host
+ *  Context so the redirect target and persistence paths keep working.
+ */
 export function apply(ctx: Context, config: GithubOauthConfig): void {
   ctx.provide('identity', new IdentityService(config))
-
-  ctx.effect(() => {
-    const offStart = ctx.webServer.register({
-      kind: 'exact',
-      path: '/auth/github/start',
-      handler: (_req, res) => {
-        void ctx.identity.login().catch((error: unknown) => { ctx.logger.warn(error) })
-        res.writeHead(202, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ started: true }))
-      },
-    })
-    const offStatus = ctx.webServer.register({
-      kind: 'exact',
-      path: '/auth/github/status',
-      handler: (_req, res) => {
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ identity: ctx.identity.current(), error: ctx.identity.lastError() }))
-      },
-    })
-    const offLogout = ctx.webServer.register({
-      kind: 'exact',
-      path: '/auth/github/logout',
-      handler: async (_req, res) => {
-        await ctx.identity.logout()
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end('null')
-      },
-    })
-    return () => { offStart(); offStatus(); offLogout() }
-  }, 'github-oauth: routes')
 }
