@@ -38,3 +38,7 @@ Spec: docs/superpowers/specs/2026-08-19-dsh-client-architecture-refactor-design.
 | 2.7.3 | subagent-codex → Tauri shell | DONE | (this commit) | Pending |
 
 **S7 in progress (3/6 tasks).** `subagent-codex` removed its `node:crypto.randomUUID` / `process.platform` / `node:stream` (type) imports. Platform detection moved to a new `bridge.ts` module that reads `navigator.userAgent` (WebView2-safe); `codexAppServerArgv` and `CodexRunSpec` now take the host platform as an explicit input. Subprocess pipe communication with the `codex app-server` child still flows through the shared `@deepseek-ai/dsh-subprocess` seam — `shell_spawn` (Phase 1 Task 1.7) is not extended in this slice (see Concerns).
+| 2.7.3 | subagent-codex → Tauri shell | DONE | 7a8fa8a | Approved |
+| 2.7.4 | subagent-claude-code → Tauri shell | DONE | (this commit) | Pending |
+
+**S7 in progress (4/6 tasks).** `subagent-claude-code` removed its `node:crypto.randomUUID` / `node:events.EventEmitter` / `node:path.extname` / `process.platform` imports. Platform detection moved to a new `bridge.ts` module that reads `navigator.userAgent` (WebView2-safe); `claudeSpawnSpec` and `ClaudeCodeRunSpec` now take the host platform as an explicit input. `ManagedClaudeCodeProcess` now uses a small in-file `LifecycleEmitter` instead of `node:events`. The package still talks to the real Claude Code CLI through the shared `@deepseek-ai/dsh-subprocess` seam — `shell_spawn` (Phase 1 Task 1.7) is not extended in this slice (see Concerns).

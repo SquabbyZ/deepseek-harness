@@ -31,6 +31,28 @@ import {
 
 const observedSdkMessages = vi.hoisted((): SDKMessage[] => [])
 
+// Phase 2 of the ecosystem refactor dropped `process.platform` from
+// `subagent-claude-code` in favour of a `navigator.userAgent` sniff. Vitest
+// forks run on real Node, where `navigator.userAgent` is `"Node.js/v22"` and
+// never matches the Windows substring, so the sniff would default to `linux`
+// and skip the `cmd.exe` shim. That breaks the real-product assertion that
+// the CLI argv starts with `cmd.exe` on Windows. Stub the UA up front so
+// `detectHostPlatform()` returns the same platform this test otherwise
+// derives from `process.platform`.
+const platformUserAgent: Record<NodeJS.Platform, string> = {
+  win32: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+  darwin: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17 Safari/605.1.15',
+  linux: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+  aix: 'Mozilla/5.0 (X11; Linux x86_64)',
+  freebsd: 'Mozilla/5.0 (X11; FreeBSD amd64)',
+  openbsd: 'Mozilla/5.0 (X11; OpenBSD amd64)',
+  sunos: 'Mozilla/5.0 (X11; SunOS i86pc)',
+  android: 'Mozilla/5.0 (Linux; Android 14)',
+  haiku: 'Mozilla/5.0 (Haiku)',
+  cygwin: 'Mozilla/5.0 (Windows NT 10.0)',
+  netbsd: 'Mozilla/5.0 (X11; NetBSD amd64)',
+}
+
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => {
   const actual = await importOriginal<
     typeof import('@anthropic-ai/claude-agent-sdk')
@@ -94,11 +116,13 @@ const ambientAnthropicModel = process.env.ANTHROPIC_MODEL
 const ambientAnthropicSmallFastModel = process.env.ANTHROPIC_SMALL_FAST_MODEL
 
 beforeAll(() => {
+  vi.stubGlobal('navigator', { userAgent: platformUserAgent[process.platform] })
   delete process.env.ANTHROPIC_MODEL
   delete process.env.ANTHROPIC_SMALL_FAST_MODEL
 })
 
 afterAll(() => {
+  vi.unstubAllGlobals()
   if (ambientAnthropicModel !== undefined) process.env.ANTHROPIC_MODEL = ambientAnthropicModel
   if (ambientAnthropicSmallFastModel !== undefined) process.env.ANTHROPIC_SMALL_FAST_MODEL = ambientAnthropicSmallFastModel
 })

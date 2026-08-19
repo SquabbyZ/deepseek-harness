@@ -17,6 +17,7 @@ import {
   type SubagentCapabilities,
   type SubagentProvider,
 } from '@deepseek-ai/dsh-subagent'
+import { detectHostPlatform } from './bridge.ts'
 import {
   DEFAULT_DISPOSE_GRACE_MS,
   startClaudeCodeRun,
@@ -66,12 +67,14 @@ class ClaudeCodeProvider implements SubagentProvider {
         'subagent-claude-code: no working directory for the child — delegate from a parent session that has one',
       )
     }
+    const platform = await detectHostPlatform()
     const executable = await this.ctx.subprocess.resolveExecutable(
       'claude',
       this.config.env,
       request.signal,
     )
     const spec: ClaudeCodeRunSpec = {
+      platform,
       cwd: resolveChildCwd(
         'subagent-claude-code',
         undefined,
