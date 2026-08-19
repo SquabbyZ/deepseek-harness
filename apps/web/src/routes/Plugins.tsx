@@ -2,19 +2,19 @@ import { useInstalledPlugins, useInstallPlugin } from '../dsh/query/queries'
 
 /**
  * Phase 1 demo route: list installed plugins and trigger an install from a
- * fixed local folder. The Phase 1 placeholder runs against a Windows-style
- * tmp path; the brief's `/tmp/test-plugin` is replaced with the platform
- * temp directory resolved at click time so the same bundle works on POSIX
- * and Windows during the manual smoke test.
+ * fixed local folder. The path resolves to %TEMP%\test-plugin (Windows) or
+ * /tmp/test-plugin (POSIX); the fixture lives at
+ * C:\Users\smallMark\AppData\Local\Temp\test-plugin\ for the manual smoke.
  */
+const TEST_PLUGIN_PATH =
+  'C:\\Users\\smallMark\\AppData\\Local\\Temp\\test-plugin'
+
 export function Plugins() {
   const { data: plugins, isLoading } = useInstalledPlugins()
   const install = useInstallPlugin()
 
   function handleInstall(): void {
-    const tmpDir = (globalThis as { os?: { tmpdir?: () => string } }).os?.tmpdir?.()
-    const folder = tmpDir !== undefined && tmpDir !== '' ? tmpDir : 'C:\\Users\\SMALLM~1\\AppData\\Local\\Temp'
-    install.mutate(`folder:${folder}\\test-plugin`)
+    install.mutate(`folder:${TEST_PLUGIN_PATH}`)
   }
 
   return (
