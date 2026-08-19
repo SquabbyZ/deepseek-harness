@@ -1,5 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
+import { inboxPlugins } from './inbox/index.ts'
 
 /** Cordis services initialized for the browser runtime. */
 export interface Host {
@@ -9,6 +10,12 @@ export interface Host {
 
 /**
  * Initialize Cordis and its browser-side plugin loader.
+ *
+ * Phase 2 task 2.6.2 also registers every in-box browser-safe plugin (see
+ * `./inbox`). The loader's own module system stays available — extension /
+ * loader-entry plugins still arrive through it — but the in-box set is wired
+ * directly so the cordis services are usable on first mount without waiting
+ * for a network roundtrip.
  * @returns The initialized Cordis context and loader service.
  */
 export async function startHost(): Promise<Host> {
@@ -33,6 +40,10 @@ export async function startHost(): Promise<Host> {
     prefetch: async () => {},
     invalidate: () => {},
   } as never
+
+  for (const plugin of inboxPlugins) {
+    await ctx.plugin(plugin)
+  }
 
   return { ctx, loader }
 }
