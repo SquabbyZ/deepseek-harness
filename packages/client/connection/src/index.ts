@@ -3,13 +3,13 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
 // Activates the webServer Context merge used below.
-import type { WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-apiproxy'
+import type { WebRoute } from '@deepseek-ai/dsh-host-apiproxy'
 import { toFetchHandler } from '@deepseek-ai/dsh-host-apiproxy'
 import { API_PATH, HOST_EVENTS_PATH, MUX_EVENTS_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority, isTrustedApiRequest } from './api-request-trust.ts'
 import { HostConnectionService } from './rpc-host.ts'
-import { rejectWebSocketUpgrade, WebSocketDownlinks } from './websocket-downlink.ts'
+import { WebSocketDownlinks } from './websocket-downlink.ts'
 
 export type {
   ConnectionRpcAuthority,
@@ -43,8 +43,16 @@ function assertImageBodyCapacity(ctx: Context, maxRequestBodyBytes: number): voi
   }
 }
 
-/** Services required before providing Connection; API Proxy is an optional `/api` fallback. */
-export const inject = ['webServer']
+/**
+ * Services required before providing Connection; API Proxy is an optional `/api` fallback.
+ *
+ * TODO(phase2-h5/b2): The Phase 1 `webServer` carrier that mounted `/api` and
+ * the WebSocket downlink upgrades is retired; the Tauri desktop shell speaks
+ * to the host over IPC, so route registration is a no-op until a new carrier
+ * is wired. Connection still owns its fetch handlers (used by tests) and the
+ * `apply()` entry stays callable so that callers binding it keep loading.
+ */
+export const inject = ['webServer'] as const
 
 /** Plugin config: the deployment's non-loopback serving authorities. */
 export interface ConnectionConfig {
@@ -214,33 +222,18 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
       await bridge(req, res, fetchHandler, maxRequestBodyBytes)
     },
   }
-  ctx.effect(() => ctx.webServer.register(route), 'client-connection: /api route')
-  // Inject the sidecar's own origin so the desktop shell's custom-protocol page
-  // can still reach /api and the downlinks (see injectApiBase).
-  ctx.effect(
-    () => ctx.webServer.tapIndex(html => injectApiBase(html, ctx.webServer.host, ctx.webServer.port)),
-    'client-connection: api base injection',
-  )
+  // TODO(phase2-h5/b2): the deleted `ctx.webServer` carrier used to own the
+  // /api route, the index `<head>` injection, and the WebSocket downlink
+  // upgrades. Until the Tauri IPC carrier lands, all three are no-ops so the
+  // tree still loads; the host keeps running and only the web RPC gateway is
+  // unreachable from a browser. Tests exercise the fetch handlers directly.
+  void route
+  void injectApiBase
   ctx.inject(['apiProxy'], (apiCtx) => {
     assertImageBodyCapacity(apiCtx, maxRequestBodyBytes)
     const downlinks = new WebSocketDownlinks(apiCtx.apiProxy)
-    const registerDownlink = (
-      path: string,
-      handle: WebUpgradeRoute['handler'],
-    ): void => {
-      apiCtx.effect(() => apiCtx.webServer.registerUpgrade({
-        path,
-        handler: (req, socket, head) => {
-          if (!isTrustedApiRequest(req, trustedHosts)) {
-            rejectWebSocketUpgrade(socket)
-            return
-          }
-          return handle(req, socket, head)
-        },
-      }), `client-connection: ${path} WebSocket`)
-    }
     apiCtx.effect(() => () => downlinks.close(), 'client-connection: WebSocket downlinks')
-    registerDownlink(MUX_EVENTS_PATH, (req, socket, head) => { downlinks.handleMux(req, socket, head) })
-    registerDownlink(HOST_EVENTS_PATH, (req, socket, head) => { downlinks.handleHost(req, socket, head) })
+    void MUX_EVENTS_PATH
+    void HOST_EVENTS_PATH
   })
 }

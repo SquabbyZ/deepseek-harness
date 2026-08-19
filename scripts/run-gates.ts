@@ -315,11 +315,6 @@ function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
       'run',
       'packages/session/session-persistence-jsonl/tests/zstd.compat.spec.ts',
     ], { label: 'JSONL Zstandard smoke' }),
-    pnpmExec('dsh-source-launch-smoke', [
-      'vitest',
-      'run',
-      'apps/cli/tests/source-launch.compat.spec.ts',
-    ], { label: 'dsh source-launch smoke' }),
     pnpmExec('vitest-jsdom-smoke', [
       'vitest',
       'run',
@@ -327,17 +322,8 @@ function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
     ], { label: 'Vitest jsdom smoke' }),
   ]
   if (options.cliSmoke) {
-    gates.push(
-      pnpmExec('cli-lazy-search-startup-smoke', [
-        'vitest',
-        'run',
-        'apps/cli/tests/lazy-search-startup.compat.spec.ts',
-      ], {
-        label: 'CLI lazy-search startup smoke',
-        env: { DSH_REQUIRE_BUILT_CLI_SMOKE: '1' },
-        needs: ['build:web'],
-      }),
-    )
+    // The `apps/cli` smoke gate retired with the CLI itself in Phase 2 2.6.5;
+    // no replacement exists yet.
   }
   return gates
 }
@@ -622,7 +608,6 @@ function builtBinSmokeGate(needs: string[] = ['build']): Gate {
     '--config',
     'vitest.e2e.config.ts',
     'examples/headless-agent/tests/keyless-smoke.e2e.ts',
-    'apps/cli/tests/built-bin.e2e.ts',
     'packages/examples/acp-demo/tests/built-bin.e2e.ts',
     'packages/host/directory-picker-native/tests/built-worker.e2e.ts',
     'packages/sdk/server/tests/built-scope-carrier.e2e.ts',

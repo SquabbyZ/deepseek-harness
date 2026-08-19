@@ -201,7 +201,6 @@ describe('translation scope discovery', () => {
     'CONTRIBUTING.md',
     'CONTRIBUTING.zh.md',
     'CONTRIBUTING.i18n.yaml',
-    'apps/cli/README.md',
     'future/subtree/readme.md',
     'packages/example/README.zh.md',
     'native/example/README.i18n.yaml',

@@ -116,9 +116,6 @@
         clientSecret: !!js process.env.DSH_GITHUB_CLIENT_SECRET
         redirectUri: 'http://127.0.0.1:3846/callback'
 
-    - id: cordis-host-runner
-      name: '@deepseek-ai/dsh-cordis-host-runner'
-
     # Ordinary provider for the parsed Web flags. Its plugin-level injection
     # waits for cmdlineArgs; no launcher metadata or special row kind is needed.
     - id: web-startup
@@ -126,15 +123,11 @@
 
     # ── layer 2: transport/service ──────────────────────────────────────────────
 
-    # Plain route-registration carrier; host and port come from the app's
-    # webStartup provider, with these deployment fallbacks. The dist is served by
-    # the web-runtime row below through the fallback seat.
-    - id: webserver
-      name: '@deepseek-ai/dsh-host-webserver'
-      inject: [webStartup]
-      config:
-        host: !!js ctx.webStartup.host ?? '127.0.0.1'
-        port: !!js ctx.webStartup.port ?? 3080
+    # TODO(phase2-h5/b2): the Phase 1 `dsh-host-webserver` route-registration
+    # carrier and `dsh-cordis-host-runner` host driver were retired in Phase 2
+    # 2.6.5; the Tauri asset-protocol carrier replaces them (audit H-5 / B-2).
+    # Until that lands, this bundle patch omits both rows; the web-runtime row
+    # below still mounts so dependents compile and the desktop shell loads.
 
     # Web glue owned by this bundle: resolves the built frontend dist (an
     # assembly fact of dsh-web-app, never user config), mounts the

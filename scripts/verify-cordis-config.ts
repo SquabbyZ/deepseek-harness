@@ -32,8 +32,11 @@ interface PluginReference {
 
 const root = resolve(import.meta.dirname, '..')
 // These example files are overlays consumed by the built dsh app, so their bare
-// specifiers resolve from apps/cli rather than the examples workspace.
-const appOverlayFiles = new Set([
+// specifiers resolve from the dsh app's own dependency surface rather than the
+// examples workspace. With `apps/cli/` retired in Phase 2 2.6.5, overlays now
+// resolve through the bundle manifests themselves (handled below); the set is
+// retained as a no-op placeholder so the example scanning still iterates.
+const appOverlayFiles = new Set<string>([
   'examples/web-cordis/cordis.yml',
   'examples/web-schedule/cordis.yml',
   ...globSync('examples/mcp-memory/*.cordis.yml', { cwd: root }),
@@ -158,7 +161,7 @@ function validatePresetPlaneSeparation(): string[] {
   }
   // The overlay's own inserts are host-plane too; its disables take them back out.
   const active = new Set([...hostRows, ...rowIds(overlayFile)].filter(id => !disabled.has(id)))
-  for (const file of globSync('apps/cli/config/agent-presets/*/agent.cordis.yml', { cwd: root })) {
+  for (const file of globSync('packages/preset/agent-presets/config/agent-presets/*/agent.cordis.yml', { cwd: root })) {
     for (const id of rowIds(file)) {
       if (!active.has(id)) continue
       problems.push(
@@ -260,18 +263,14 @@ function validateExampleResolution(): string[] {
 
 function validateAppResolution(): string[] {
   const violations: string[] = []
-  // App overlays (and any config left under apps/cli/config) resolve from the
-  // dsh app's own dependency surface — the profile module fallback mirrors it.
-  const appDependencies = {
-    ...readManifest('apps/cli/package.json').dependencies,
-    // The fallback also links every bundle's own dependencies (healProfilesModuleFallback).
-    ...Object.fromEntries(globSync('packages/bundle/*/package.json', { cwd: root })
-      .flatMap(file => Object.entries(readManifest(file).dependencies ?? {}))),
-  }
-  const shipped = new Set(globSync('*.cordis.yml', { cwd: resolve(root, 'apps/cli/config') })
-    .map(file => `apps/cli/config/${file}`))
+  // With `apps/cli/` retired in Phase 2 2.6.5, the app's own dependency surface
+  // is now the union of every bundle manifest's `dependencies`. Overlays under
+  // `examples/` still need to resolve from that surface.
+  const appDependencies = Object.fromEntries(globSync('packages/bundle/*/package.json', { cwd: root })
+    .flatMap(file => Object.entries(readManifest(file).dependencies ?? {})))
+  const shipped = new Set<string>()
   const appReferences = pluginReferences.filter(reference => shipped.has(reference.file) || appOverlayFiles.has(reference.file))
-  violations.push(...missingPluginDependencies(appReferences, appDependencies, 'apps/cli/package.json or a bundle manifest'))
+  violations.push(...missingPluginDependencies(appReferences, appDependencies, 'a bundle manifest'))
   // Each bundle's patch rows must resolve from that bundle's own dependencies:
   // per-layer resolution anchors on the bundle package directory.
   for (const manifestPath of globSync('packages/bundle/*/package.json', { cwd: root })) {

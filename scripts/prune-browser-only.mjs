@@ -46,9 +46,9 @@ function isBrowserOnly(name) {
 }
 
 // Provider SDKs pi-ai lazy-imports by bare name. They are downloaded on first
-// use (apps/cli/src/lazy-sdk.ts), so the installer omits them — but their
-// non-lazy dependencies (zod, ws, tslib, bowser, …) must STAY so the downloaded
-// SDK can resolve them against the bundled tree.
+// use by the desktop shell's lazy-sdk loader, so the installer omits them —
+// but their non-lazy dependencies (zod, ws, tslib, bowser, …) must STAY so
+// the downloaded SDK can resolve them against the bundled tree.
 const LAZY_SDK_EXACT = new Set(['@mistralai/mistralai', '@anthropic-ai/sdk', 'openai', '@google/genai'])
 const LAZY_SDK_PREFIX = ['@aws-sdk/', '@smithy/']
 

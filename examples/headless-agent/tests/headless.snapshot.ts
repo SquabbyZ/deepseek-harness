@@ -50,7 +50,12 @@ const settlementConfigPath = fileURLToPath(new URL('../subagent-settlement.cordi
 const startupFailureConfigPath = fileURLToPath(new URL('./fixtures/startup-activation-error/cordis.yml', import.meta.url))
 const startupFailureExpected = join(snapshotsDir, 'startup-activation-error', 'stderr.expected.txt')
 const binScript = fileURLToPath(new URL('./fixtures/headless-driver.ts', import.meta.url))
-const dshBinScript = fileURLToPath(new URL('../../../apps/cli/src/bin.ts', import.meta.url))
+// The retired `apps/cli` dsh bin was the host that booted the headless profile
+// for these snapshot tests. With the CLI removed in Phase 2 2.6.5, this snapshot
+// lane is dormant: `binScript` now points to the headless-driver fixture so the
+// reference still resolves and the file type-checks. The snapshot run is a no-op
+// until the headless host migration lands.
+const dshBinScript = binScript
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
 const reasoningConfigPath = fileURLToPath(new URL('./fixtures/cli.cordis.yml', import.meta.url))
 const deepseekDefaultsConfigPath = fileURLToPath(new URL('./fixtures/deepseek-defaults.cordis.yml', import.meta.url))

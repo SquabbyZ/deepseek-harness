@@ -83,7 +83,6 @@
     "apps/web/tests/workflow-run.e2e.ts",
     "apps/web/tests/plugin-inventory-toggle.e2e.ts",
     "apps/web/stress-tests/reasoning-chunks.stress.ts",
-    "apps/cli/tests/**/*.ts",
     "examples/*/src/**/*.ts",
     "examples/*/start.ts",
     "examples/*/tests/**/*.ts",
@@ -294,7 +293,6 @@
     { "path": "./packages/sdk/protocol" },
     { "path": "./packages/lsp/lsp" },
     { "path": "./packages/lsp/lsp-stdio" },
-    { "path": "./packages/lsp/tool-lsp" },
-    { "path": "./apps/cli" }
+    { "path": "./packages/lsp/tool-lsp" }
   ]
 }

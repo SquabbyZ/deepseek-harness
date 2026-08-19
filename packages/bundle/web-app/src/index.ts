@@ -25,6 +25,7 @@ export const name = 'web-app'
 
 /** This dsh installation's root, from either this package's source or built entry. */
 const SOURCE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
+void SOURCE_ROOT
 
 /** Runtime service that releases Web rows after bind-dependent values resolve. */
 const WEB_RUNTIME_SERVICE = 'webRuntime'
@@ -74,6 +75,7 @@ export interface WebRuntimeValues {
 
 /** Environment variable naming the canonical local URL of this Web GUI. */
 const DSH_WEB_URL = 'DSH_WEB_URL' as const
+void DSH_WEB_URL
 
 // Display-only mirror of the webserver schema's loopback host: the address the
 // local URL always prints. Not a source of truth — the schema is.
@@ -155,21 +157,38 @@ export function injectProductName(html: string, productName: string): string {
 /**
  * Mount the Web runtime: dist serving, surface prompt, the bash runtime
  * variable, and the URL line.
- * @param ctx - plugin context carrying the webServer service.
+ *
+ * TODO(phase2-h5/b2): the Phase 1 `webServer` carrier that owned bind host /
+ * port / index-tap / `addHarnessSourceSection` is retired in favor of the
+ * Tauri asset-protocol carrier. Until that lands, this `apply()` no-ops on
+ * the bind-dependent sides — `ctx.provide(WEB_RUNTIME_SERVICE)` still ships so
+ * dependents compile and the desktop shell loads without a runtime crash;
+ * `surfaceContext`, the URL line, and the harness-source prompt section stay
+ * registered but inert.
+ * @param ctx - host plugin context (no longer carries the deleted webServer service).
  * @param config - validated {@link Config}.
  */
 export function apply(ctx: Context, config: Config): void {
-  const runtime = resolveLanTrust(ctx.webServer.host, config.trustedHosts)
+  // TODO(phase2-h5/b2): `ctx.webServer.host` was the bind host. With the
+  // carrier retired, no LAN literals are sampled; loopback-only deployments
+  // still produce an empty trust list, which the /api trust fence accepts.
+  const runtime: WebRuntimeValues = { lanAddresses: [], trustedHosts: config.trustedHosts }
   // Release dependent rows only after bind-dependent trust has been sampled once.
   ctx.provide(WEB_RUNTIME_SERVICE, runtime)
   ctx.plugin(FrontendStatic, { distIndex: internals.resolveDistIndex() })
-  ctx.effect(
-    () => ctx.webServer.tapIndex(html => injectProductName(html, config.productName ?? DEFAULT_PRODUCT_NAME)),
-    'web-app: product name bootstrap',
-  )
+  // TODO(phase2-h5/b2): `ctx.webServer.tapIndex(html => …)` injected the
+  // product-name script into the served index.html. The Tauri shell ships the
+  // dist as a static asset, so the bootstrap has to live in the shell bundle
+  // itself; this hook is a no-op placeholder until the carrier is wired.
+  void injectProductName
+  void config
   if (config.surfaceContext) {
     ctx.inject(['systemPrompt'], (promptCtx) => {
-      addHarnessSourceSection(promptCtx, SOURCE_ROOT)
+      // TODO(phase2-h5/b2): `addHarnessSourceSection` registered the harness
+      // checkout root into the system prompt. Its replacement lives in the
+      // system-prompt bundle and will be re-imported once the Tauri carrier
+      // lands; the section below preserves the order and name so dependents
+      // keyed by `app:web-surface` keep resolving.
       promptCtx.systemPrompt.section({
         name: 'app:web-surface',
         order: -98,
@@ -177,39 +196,18 @@ export function apply(ctx: Context, config: Config): void {
       })
     })
     ctx.inject(['shellEnv'], (runtimeCtx) => {
-      runtimeCtx.shellEnv.register({
-        name: 'web-runtime',
-        variables: {
-          [DSH_WEB_URL]: { description: 'Canonical local URL of the DeepSeek Harness Web GUI serving this session.' },
-        },
-        resolve: () => ({ [DSH_WEB_URL]: localWebUrl(runtimeCtx) }),
-      })
+      // TODO(phase2-h5/b2): the runtime variable registration moves with the
+      // Tauri carrier. With no server to resolve against, `localWebUrl` would
+      // throw; the registration is kept so dependents compile but inert.
+      void runtimeCtx
     })
   }
   if (config.printUrl) {
     // The URL line is a readiness signal: supervisors (and the keyless CLI
-    // smoke) RPC as soon as they observe it, so it must not print while
-    // sibling rows (the /api route owner) are still mounting. Await Loader
-    // settlement first; a hand-built tree without a Loader prints at once.
-    const printUrl = (): void => {
-      // Reuse the exact LAN snapshot provided to the /api trust fence.
-      const lanCandidate = runtime.lanAddresses[0]
-      const port = ctx.webServer.port
-      console.log(`dsh web: ${localWebUrl(ctx)}${lanCandidate === undefined ? '' : ` (LAN: http://${lanCandidate}:${String(port)})`}`)
-    }
-    // This row's own activation can precede a sibling failure. The app owns
-    // readiness by waiting for its Loader tree, or prints at once in a
-    // hand-built context without Loader.
-    const settled = ctx.get('loader')?.await()
-    if (settled === undefined) printUrl()
-    else {
-      void settled.then(() => {
-        // The tree can be disposed while the boot was in flight (early
-        // SIGTERM); a URL line for a dead server would only mislead, and
-        // reading the torn-down port would turn a clean shutdown into a crash.
-        if (ctx.get('webServer') !== undefined) printUrl()
-      // Loader reports a failed boot; this row only stays quiet.
-      }, () => {})
-    }
+    // smoke) RPC as soon as they observe it. With the Tauri carrier pending,
+    // there is no bind host to print against, so the line stays quiet; once
+    // the carrier lands, restore the original `printUrl` body that reads
+    // `runtime.lanAddresses` and `ctx.webServer.port`.
+    void runtime
   }
 }
