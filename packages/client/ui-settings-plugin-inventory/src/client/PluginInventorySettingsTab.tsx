@@ -2,12 +2,6 @@ import {
   useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import type {
-  PluginDisabledReason,
-  PluginEntryId,
-  PluginInventoryEntry,
-  PluginFiberPhase,
-} from '@deepseek-ai/dsh-host-plugin-inventory/types'
 import {
   SearchInput,
   ShadcnButton,
@@ -17,7 +11,13 @@ import {
   useDebouncedToggle,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PluginInventoryStore } from './inventory-store.ts'
+import type {
+  PluginDisabledReason,
+  PluginEntryId,
+  PluginFiberPhase,
+  PluginInventoryEntry,
+  PluginInventoryStore,
+} from './inventory-store.ts'
 import type { PluginInventoryLocaleKey } from './locales.ts'
 
 /** Registration-side Remote face used by the section. */

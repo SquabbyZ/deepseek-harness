@@ -34,9 +34,6 @@
       "path": "../../feedback/message-feedback"
     },
     {
-      "path": "../../host/plugin-inventory"
-    },
-    {
       "path": "../../host/skill-inventory"
     },
     {

@@ -95,10 +95,6 @@
     - id: directory-picker
       name: '@deepseek-ai/dsh-host-directory-picker-auto'
 
-    # Read-only projection of current Loader entries for trusted client RPCs.
-    - id: plugin-inventory
-      name: '@deepseek-ai/dsh-host-plugin-inventory'
-
     # User-toggleable Remote projection of effective skill registry state.
     - id: skill-inventory
       name: '@deepseek-ai/dsh-host-skill-inventory'

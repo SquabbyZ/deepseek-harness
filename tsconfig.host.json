@@ -295,7 +295,6 @@
     { "path": "./packages/host/directory-picker-browse" },
     { "path": "./packages/host/directory-picker-native" },
     { "path": "./packages/host/frontend-static" },
-    { "path": "./packages/host/plugin-inventory" },
     { "path": "./packages/host/skill-inventory" },
     { "path": "./packages/host/mcp-inventory" },
     { "path": "./packages/host/agent-inventory" },

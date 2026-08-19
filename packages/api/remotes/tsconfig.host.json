@@ -44,9 +44,6 @@
       "path": "../../settings/settings"
     },
     {
-      "path": "../../host/plugin-inventory"
-    },
-    {
       "path": "../../host/skill-inventory"
     },
     {

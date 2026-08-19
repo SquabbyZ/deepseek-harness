@@ -4,7 +4,6 @@ import type { Context } from '@deepseek-ai/cordis'
 import commandsRemote from '@deepseek-ai/dsh-commands/remote'
 import goalsRemote from '@deepseek-ai/dsh-goal/remote'
 import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
-import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 import skillInventoryRemote from '@deepseek-ai/dsh-host-skill-inventory/remote'
 import mcpInventoryRemote from '@deepseek-ai/dsh-host-mcp-inventory/remote'
 import agentInventoryRemote from '@deepseek-ai/dsh-host-agent-inventory/remote'
@@ -12,13 +11,11 @@ import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
 import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 
 export type { TypertClientRemote as ClientRemote } from '@deepseek-ai/dsh-typert-protocol'
-export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory/types'
 export type { SkillInventorySnapshot } from '@deepseek-ai/dsh-host-skill-inventory/types'
 export type { McpInventorySnapshot } from '@deepseek-ai/dsh-host-mcp-inventory/types'
 export type { AgentInventorySnapshot } from '@deepseek-ai/dsh-host-agent-inventory/types'
 export type {} from '@deepseek-ai/dsh-commands/remote'
 export type {} from '@deepseek-ai/dsh-goal/remote'
-export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-host-skill-inventory/remote'
 export type {} from '@deepseek-ai/dsh-host-mcp-inventory/remote'
 export type {} from '@deepseek-ai/dsh-host-agent-inventory/remote'
@@ -115,7 +112,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const disposers: Array<() => Promise<void>> = []
   try {
     for (const contribution of [
-      commandsRemote, goalsRemote, dynamicRemote, pluginInventoryRemote,
+      commandsRemote, goalsRemote, dynamicRemote,
       skillInventoryRemote, mcpInventoryRemote, agentInventoryRemote,
       messageFeedbackRemote,
     ]) {
