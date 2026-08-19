@@ -22,3 +22,11 @@ Spec: docs/superpowers/specs/2026-08-19-dsh-client-architecture-refactor-design.
 | 2.6.3 | UI nav routes (Chat/Settings/About) | DONE | 6e99d19 | Approved |
 | 2.6.4 | Settings panel + theme | DONE | (this commit) | Pending |
 | 2.6.4 | Settings + theme | DONE | a8efadb | Approved |
+| 2.6.5 | Delete dead code | DONE | 9272ee7 + ebe435b (fix) | Approved |
+| 2.6.6 | Playwright smoke (catches SyntaxError follow-up) | DONE | 6a0d88d | Approved |
+| 2.6.7 | CI Phase 2 gate | DONE | b12f8d0 | Approved |
+
+**S6 COMPLETE (7/7 tasks).** All in-box plugins loaded into WebView2; dead code removed; Playwright smoke in CI.
+| 2.7.1 | subagent-spawn-in-process → Tauri shell | DONE | 4b2491b | Pending |
+
+**S7 in progress (1/6 tasks).** First subagent backend rewired through Tauri's `shell_spawn` (Phase 1 Task 1.7) via a new `SubagentSpawnInProcess` service + bridge module.
