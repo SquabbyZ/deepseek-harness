@@ -192,10 +192,7 @@ async fn prepare_from_tarball(
     extract_tarball(&tarball_path, &target, true)?;
 
     let manifest_path = target.join("manifest.json");
-    let manifest_json = fs::read_to_string(&manifest_path).map_err(|e| AppError::InvalidManifest {
-        field: "manifest.json".into(),
-        hint: e.to_string(),
-    })?;
+    let manifest_json = read_manifest_json(&manifest_path)?;
     let m = manifest::parse(&manifest_json)?;
 
     manifest::verify_browser_safe(&target).await?;
@@ -210,6 +207,22 @@ async fn prepare_from_tarball(
 }
 
 /// Sync prep for a local folder install: copy source → read manifest
+/// Strip UTF-8 BOM (U+FEFF) from text content. Common on Windows-authored
+/// files (PowerShell, Notepad "UTF-8 with BOM"). serde_json refuses `﻿{`
+/// as the first 3 bytes, so without this we surface a confusing parse error
+/// for any plugin whose manifest was authored or edited on Windows.
+fn strip_bom(s: &str) -> &str {
+    s.strip_prefix('\u{FEFF}').unwrap_or(s)
+}
+
+fn read_manifest_json(path: &Path) -> AppResult<String> {
+    let raw = std::fs::read_to_string(path).map_err(|e| AppError::InvalidManifest {
+        field: "manifest.json".into(),
+        hint: e.to_string(),
+    })?;
+    Ok(strip_bom(&raw).to_string())
+}
+
 /// → browser-safety verify. Does NOT touch the db.
 fn prepare_from_folder(config_dir: &PathBuf, source: &PathBuf) -> AppResult<PreparedInstall> {
     if !source.exists() {
@@ -217,12 +230,7 @@ fn prepare_from_folder(config_dir: &PathBuf, source: &PathBuf) -> AppResult<Prep
             message: format!("source folder does not exist: {}", source.display()),
         });
     }
-    let manifest_json = fs::read_to_string(source.join("manifest.json")).map_err(|e| {
-        AppError::InvalidManifest {
-            field: "manifest.json".into(),
-            hint: e.to_string(),
-        }
-    })?;
+    let manifest_json = read_manifest_json(&source.join("manifest.json"))?;
     let m = manifest::parse(&manifest_json)?;
 
     let id = format!("plg_{}", short_hash(&source.to_string_lossy()));
@@ -459,6 +467,16 @@ pub fn now_unix() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strip_bom_handles_three_cases() {
+        // No BOM — passthrough
+        assert_eq!(strip_bom(r#"{"name":"x"}"#), r#"{"name":"x"}"#);
+        // BOM at start — stripped
+        assert_eq!(strip_bom("\u{FEFF}{\"name\":\"x\"}"), r#"{"name":"x"}"#);
+        // BOM only — empty string
+        assert_eq!(strip_bom("\u{FEFF}"), "");
+    }
 
     #[test]
     fn parses_npm_with_at_scope() {
