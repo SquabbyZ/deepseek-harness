@@ -1,18 +1,22 @@
 /**
- * App — Phase 2 task 2.5.8 top-level view router.
+ * App — Phase 2 task 2.6.3 top-level view router.
  *
  * Deliberately simple: a `useState` that holds the current view id, no
- * react-router. Routes `plugins` (Phase 1 demo) and `inventory` (Phase 2
- * task 2.5.8). The router stays in this file until react-router lands in
- * a later task.
+ * react-router. Routes `plugins` (Phase 1 demo), `inventory` (Phase 2
+ * task 2.5.8), and the Phase 2 task 2.6.3 stubs `chat`, `settings`,
+ * `about`. The router stays in this file until react-router lands in a
+ * later task.
  */
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Plugins } from './routes/Plugins.tsx'
 import { Inventory } from './routes/Inventory.tsx'
+import { Chat } from './routes/Chat.tsx'
+import { Settings } from './routes/Settings.tsx'
+import { About } from './routes/About.tsx'
 
-export type ViewId = 'plugins' | 'inventory'
+export type ViewId = 'chat' | 'plugins' | 'inventory' | 'settings' | 'about'
 
 interface NavItem {
   readonly id: ViewId
@@ -20,8 +24,11 @@ interface NavItem {
 }
 
 const NAV: readonly NavItem[] = [
+  { id: 'chat', label: 'Chat' },
   { id: 'plugins', label: 'Plugins' },
   { id: 'inventory', label: 'Inventory' },
+  { id: 'settings', label: 'Settings' },
+  { id: 'about', label: 'About' },
 ]
 
 /** Top bar with a single nav button per view. */
@@ -52,15 +59,21 @@ function Nav(props: { readonly current: ViewId; readonly onSelect: (id: ViewId) 
 /** Route the current view id to its component. */
 function CurrentView(props: { readonly view: ViewId }): ReactNode {
   switch (props.view) {
+    case 'chat':
+      return <Chat />
     case 'plugins':
       return <Plugins />
     case 'inventory':
       return <Inventory />
+    case 'settings':
+      return <Settings />
+    case 'about':
+      return <About />
   }
 }
 
 export function App(): ReactNode {
-  const [view, setView] = useState<ViewId>('inventory')
+  const [view, setView] = useState<ViewId>('chat')
   return (
     <div className="min-h-screen text-gray-900 dark:text-gray-100">
       <Nav current={view} onSelect={setView} />
