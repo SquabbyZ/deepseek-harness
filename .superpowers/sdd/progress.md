@@ -34,3 +34,7 @@ Spec: docs/superpowers/specs/2026-08-19-dsh-client-architecture-refactor-design.
 | 2.7.2 | subagent-acp → Tauri cwd bridge | DONE | ef5e943 | Pending |
 
 **S7 in progress (2/6 tasks).** `subagent-acp` removed its `node:fs`/`node:path` cwd validation and now routes through a new `bridge.cwdApi.resolve` → Tauri `cwd_resolve` command. The host owns the filesystem; the renderer only does sync string-shape checks.
+| 2.7.2 | subagent-acp → Tauri shell | DONE | b662fc7 | Approved |
+| 2.7.3 | subagent-codex → Tauri shell | DONE | (this commit) | Pending |
+
+**S7 in progress (3/6 tasks).** `subagent-codex` removed its `node:crypto.randomUUID` / `process.platform` / `node:stream` (type) imports. Platform detection moved to a new `bridge.ts` module that reads `navigator.userAgent` (WebView2-safe); `codexAppServerArgv` and `CodexRunSpec` now take the host platform as an explicit input. Subprocess pipe communication with the `codex app-server` child still flows through the shared `@deepseek-ai/dsh-subprocess` seam — `shell_spawn` (Phase 1 Task 1.7) is not extended in this slice (see Concerns).

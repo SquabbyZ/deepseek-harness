@@ -7,7 +7,6 @@
  * @module @deepseek-ai/dsh-subagent-codex/run
  */
 
-import { randomUUID } from 'node:crypto'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {
@@ -21,6 +20,12 @@ import {
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { CodexAppServerWire } from './wire.ts'
 
+/** Generate an RFC 4122 v4 UUID using the Web Crypto API. Works in Node and browsers. */
+function newUuid(): string {
+  /* v8 ignore next -- browsers and Node 19+ both expose randomUUID on crypto. */
+  return globalThis.crypto.randomUUID()
+}
+
 /** Default POSIX grace between subprocess termination tiers. */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
@@ -29,13 +34,14 @@ export const DEFAULT_DISPOSE_GRACE_MS = 3_000
  *
  * Windows npm and pnpm installs expose `codex.cmd`, which requires `cmd.exe`;
  * the argv is constant so no task or configuration text enters the
- * shell boundary.
+ * shell boundary. The platform is supplied by the caller so the package does
+ * not need to touch `process.platform` (a Node-only global that is undefined
+ * inside WebView2); production callers thread the platform through from the
+ * Tauri host via {@link ./bridge.ts}.
  * @param platform - host platform used to select the executable boundary.
  * @returns argv for the fixed Codex app-server command.
  */
-export function codexAppServerArgv(
-  platform: NodeJS.Platform = process.platform,
-): string[] {
+export function codexAppServerArgv(platform: string): string[] {
   return platform === 'win32'
     ? ['cmd.exe', '/d', '/s', '/c', 'codex', 'app-server', '--stdio']
     : ['codex', 'app-server', '--stdio']
@@ -43,6 +49,8 @@ export function codexAppServerArgv(
 
 /** Fully resolved inputs for one Codex app-server run. */
 export interface CodexRunSpec {
+  /** Host platform used to select the fixed app-server argv (no `process.platform` in WebView2). */
+  readonly platform: string
   /** Parent Session workspace, also supplied to `thread/start`. */
   readonly cwd: string
   /** Explicit deployment/test environment layered after the shared scrub. */
@@ -123,7 +131,7 @@ export async function startCodexRun(
   }
 
   const child = spec.spawn({
-    argv: codexAppServerArgv(),
+    argv: codexAppServerArgv(spec.platform),
     cwd: spec.cwd,
     stdio: { stdin: 'pipe', stdout: 'pipe', stderr: 'inherit' },
     graceMs: spec.disposeGraceMs,
@@ -190,7 +198,7 @@ export async function startCodexRun(
   })
 
   return subprocessRunHandle({
-    id: SessionId(randomUUID()),
+    id: SessionId(newUuid()),
     result,
     signal: request.signal,
     onAbort,

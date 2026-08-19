@@ -17,6 +17,7 @@ import {
   type SubagentCapabilities,
   type SubagentProvider,
 } from '@deepseek-ai/dsh-subagent'
+import { detectHostPlatform } from './bridge.ts'
 import {
   DEFAULT_DISPOSE_GRACE_MS,
   startCodexRun,
@@ -54,14 +55,16 @@ class CodexProvider implements SubagentProvider {
     private readonly config: ResolvedConfig,
   ) {}
 
-  start(request: ResolvedSubagentStartRequest) {
+  async start(request: ResolvedSubagentStartRequest) {
     const parentCwd = request.parent.session.header.cwd
     if (parentCwd === undefined) {
       throw new Error(
         'subagent-codex: no working directory for the child — delegate from a parent session that has one',
       )
     }
+    const platform = await detectHostPlatform()
     const spec: CodexRunSpec = {
+      platform,
       cwd: resolveChildCwd(
         'subagent-codex',
         undefined,
