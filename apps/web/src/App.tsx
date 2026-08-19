@@ -15,8 +15,15 @@ import { Inventory } from './routes/Inventory.tsx'
 import { Chat } from './routes/Chat.tsx'
 import { Settings } from './routes/Settings.tsx'
 import { About } from './routes/About.tsx'
+import { Agents } from './routes/Agents.tsx'
 
-export type ViewId = 'chat' | 'plugins' | 'inventory' | 'settings' | 'about'
+export type ViewId =
+  | 'chat'
+  | 'plugins'
+  | 'inventory'
+  | 'agents'
+  | 'settings'
+  | 'about'
 
 interface NavItem {
   readonly id: ViewId
@@ -27,6 +34,7 @@ const NAV: readonly NavItem[] = [
   { id: 'chat', label: 'Chat' },
   { id: 'plugins', label: 'Plugins' },
   { id: 'inventory', label: 'Inventory' },
+  { id: 'agents', label: 'Agents' },
   { id: 'settings', label: 'Settings' },
   { id: 'about', label: 'About' },
 ]
@@ -65,6 +73,8 @@ function CurrentView(props: { readonly view: ViewId }): ReactNode {
       return <Plugins />
     case 'inventory':
       return <Inventory />
+    case 'agents':
+      return <Agents />
     case 'settings':
       return <Settings />
     case 'about':
