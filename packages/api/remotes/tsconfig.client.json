@@ -34,9 +34,6 @@
       "path": "../../feedback/message-feedback"
     },
     {
-      "path": "../../host/mcp-inventory"
-    },
-    {
       "path": "../../host/agent-inventory"
     },
     {

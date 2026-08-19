@@ -95,10 +95,6 @@
     - id: directory-picker
       name: '@deepseek-ai/dsh-host-directory-picker-auto'
 
-    # User-toggleable Remote projection of MCP-client Loader entries.
-    - id: mcp-inventory
-      name: '@deepseek-ai/dsh-host-mcp-inventory'
-
     # User-toggleable Remote projection of filesystem-discovered agent presets.
     - id: agent-inventory
       name: '@deepseek-ai/dsh-host-agent-inventory'

@@ -27,6 +27,5 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   'llm/adapters-updated',
   'plugin-inventory/changed',
   'settings/document-updated',
-  'mcp-inventory/changed',
   'agent-inventory/changed',
 ] as const

@@ -38,7 +38,6 @@
     "tests/details-session-lifecycle.e2e.ts",
     "tests/plugin-config.e2e.ts",
     "tests/plugin-inventory-toggle.e2e.ts",
-    "tests/mcp-inventory-toggle.e2e.ts",
     "tests/agent-inventory-toggle.e2e.ts",
     "tests/settings-chrome.e2e.ts",
     "tests/models-settings.e2e.ts",

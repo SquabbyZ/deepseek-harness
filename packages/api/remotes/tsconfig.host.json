@@ -44,9 +44,6 @@
       "path": "../../settings/settings"
     },
     {
-      "path": "../../host/mcp-inventory"
-    },
-    {
       "path": "../../host/agent-inventory"
     },
     {
