@@ -17,6 +17,7 @@ use crate::commands::settings::{settings_get, settings_update};
 use crate::commands::shell::shell_spawn;
 use crate::services::crash;
 use crate::services::platform::Platform;
+use crate::services::plugin_registry::PluginRegistry;
 use crate::services::settings::SettingsStore;
 use crate::state::AppState;
 use parking_lot::RwLock;
@@ -45,6 +46,7 @@ pub fn run() {
             {
                 let conn = db.lock().expect("db mutex poisoned");
                 SettingsStore::new(&*conn).init_schema()?;
+                PluginRegistry::new(&*conn).init_schema()?;
             }
             let http = Arc::new(
                 reqwest::Client::builder()
