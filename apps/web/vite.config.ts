@@ -1,24 +1,9 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
-import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const src = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url))
-const STANDALONE_ERROR = 'apps/web is not a standalone application: bare Vite cannot inject window.__DSH_BOOT__. '
-  + 'From a repository checkout, run `pnpm dsh web`; an installed package uses `dsh web`. '
-  + 'For client-plugin HMR, run `pnpm dsh web` together with `pnpm run dev:web`.'
-
-/** Fail before a Vite dev or preview server can expose the boot-manifest-free shell. */
-function rejectStandaloneServe(): Plugin {
-  return {
-    name: 'dsh-reject-standalone-web-serve',
-    config(_config, env) {
-      if (env.command === 'serve') throw new Error(STANDALONE_ERROR)
-    },
-  }
-}
-
 /**
  * Vendor-chunk membership, by exact npm package name — the heavy render
  * families (math, highlight, markdown) that change only on dependency bumps.
@@ -91,7 +76,7 @@ function npmPackageOf(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [rejectStandaloneServe(), react(), tailwindcss()],
+  plugins: [react(), tailwindcss()],
   build: {
     sourcemap: true,
     rollupOptions: {
@@ -140,6 +125,10 @@ export default defineConfig({
       // Browserization of the vendored cordis Loader: its only node-only
       // import; the two process probes are mapped by `define` below.
       { find: /^node:module$/, replacement: src('./src/node-module-stub.ts') },
+      { find: /^@deepseek-ai\/cordis-plugin-loader$/, replacement: src('../../vendor/loader/src/index.ts') },
+      { find: /^@deepseek-ai\/cordis$/, replacement: src('../../vendor/cordis/src/index.ts') },
+      { find: /^@deepseek-ai\/cosmokit$/, replacement: src('../../vendor/cosmokit/src/index.ts') },
+      { find: /^@deepseek-ai\/schemastery$/, replacement: src('../../vendor/schemastery/src/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-web$/, replacement: src('../../packages/client/web/src/boot.tsx') },
       { find: /^@deepseek-ai\/dsh-client-web-react$/, replacement: src('../../packages/client/web-react/src/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-ui-slots$/, replacement: src('../../packages/client/ui-slots/src/index.ts') },

@@ -1,104 +1,73 @@
 mod commands;
-mod config;
-mod lifecycle;
-mod menu;
+mod error;
+mod services;
+mod state;
 
+use crate::commands::app::{app_version, crash_log_path};
+use crate::commands::credentials::{credentials_delete, credentials_get, credentials_set};
+use crate::commands::deeplink::{deeplink_import, deeplink_parse};
+use crate::commands::dialog::{dialog_message, dialog_open, dialog_save};
+use crate::commands::fs::{fs_exists, fs_list, fs_read, fs_write};
+use crate::commands::http::http_request;
+use crate::commands::plugin::{
+    plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload,
+    plugin_uninstall,
+};
+use crate::commands::settings::{settings_get, settings_update};
+use crate::commands::shell::shell_spawn;
+use crate::services::crash;
+use crate::services::platform::Platform;
+use crate::services::plugin_registry::PluginRegistry;
+use crate::services::settings::SettingsStore;
+use crate::state::AppState;
+use parking_lot::RwLock;
+use std::sync::Arc;
 use tauri::Manager;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-
-/// Build the pre-webview theme bootstrap: resolve the durable preference and
-/// drive `prefers-color-scheme` on the placeholder (and the shell) before the
-/// sidecar injects the same value into the real shell HTML.
-fn theme_boot_script(preference: &str) -> String {
-    format!(
-        "(() => {{ const p = {p:?}; const dark = p === 'dark' || (p === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.style.colorScheme = dark ? 'dark' : 'light'; }})();",
-        p = preference,
-    )
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let theme_script = theme_boot_script(&config::theme_preference());
     tauri::Builder::default()
-        .on_page_load(move |window, _payload| {
-            let _ = window.eval(&theme_script);
-        })
+        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
+        .plugin(tauri_plugin_log::Builder::default().build())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }))
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            menu::setup_tray(&app.handle())?;
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_title(&config::product_name());
+            let config_dir = app
+                .path()
+                .app_config_dir()
+                .map_err(|e| format!("config_dir: {e}"))?;
+            std::fs::create_dir_all(&config_dir)?;
+            crash::init_panic_hook(&config_dir);
+            let db_path = config_dir.join("config.sqlite");
+            let db = Arc::new(std::sync::Mutex::new(rusqlite::Connection::open(&db_path)?));
+            {
+                let conn = db.lock().expect("db mutex poisoned");
+                SettingsStore::new(&*conn).init_schema()?;
+                PluginRegistry::new(&*conn).init_schema()?;
             }
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                loop {
-                    match lifecycle::spawn_sidecar(&handle).await {
-                        Ok(sidecar) => {
-                            let url = format!("http://127.0.0.1:{}", sidecar.port);
-                            if let Some(window) = handle.get_webview_window("main") {
-                                if let Ok(url) = tauri::Url::parse(&url) {
-                                    let _ = window.navigate(url);
-                                }
-                            }
-                            break;
-                        }
-                        Err(e) => {
-                            eprintln!("sidecar failed: {e}");
-                            if !show_spawn_error(&handle, &e) {
-                                handle.exit(0);
-                                break;
-                            }
-                        }
-                    }
-                }
-            });
+            let http = Arc::new(
+                reqwest::Client::builder()
+                    .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
+                    .build()?,
+            );
+            let state = AppState {
+                config_dir,
+                db,
+                http,
+                platform: Platform::current(),
+            };
+            app.manage(Arc::new(RwLock::new(state)));
+
+            // Show window on first paint
+            if let Some(window) = app.get_webview_window("main") {
+                window.show()?;
+            }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::pick_directory])
-        .build(tauri::generate_context!())
-        .expect("error while building dsh-desktop")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                if let Some(state) = app.try_state::<lifecycle::SidecarState>() {
-                    if let Ok(mut child) = state.0.lock() {
-                        let _ = child.kill();
-                    }
-                }
-            }
-        });
-}
-
-/// Show a blocking error dialog for a failed sidecar spawn, with Retry/Quit buttons.
-///
-/// Returns true when the user picks "Retry" (re-attempt the spawn) and false when
-/// they pick "Quit". Uses the non-blocking `show` API (which dispatches to the main
-/// thread internally) and blocks the caller on a channel until the user responds.
-fn show_spawn_error(app: &tauri::AppHandle, err: &str) -> bool {
-    let product_name = config::product_name();
-    let (tx, rx) = std::sync::mpsc::channel();
-    app.dialog()
-        .message(format!("Failed to start the {product_name} backend:\n\n{err}"))
-        .title(product_name)
-        .kind(MessageDialogKind::Error)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Retry".into(),
-            "Quit".into(),
-        ))
-        .show(move |retry| {
-            let _ = tx.send(retry);
-        });
-    rx.recv().unwrap_or(false)
+        .invoke_handler(tauri::generate_handler![app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, shell_spawn])
+        .run(tauri::generate_context!())
+        .expect("error while running DSH desktop");
 }

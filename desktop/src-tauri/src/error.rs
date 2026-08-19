@@ -1,0 +1,73 @@
+use serde::Serialize;
+
+#[derive(thiserror::Error, Debug, Serialize)]
+#[serde(tag = "code", content = "detail")]
+pub enum AppError {
+    #[error("Internal error: {message}")]
+    Internal { message: String },
+
+    #[error("Filesystem permission denied: {path} not in allowlist")]
+    FsPermissionDenied { path: String },
+
+    #[error("Filesystem IO error: {message}")]
+    FsIo { message: String },
+
+    #[error("Network error: {message}")]
+    Network { message: String, status: Option<u16> },
+
+    #[error("Shell permission denied: {cmd}")]
+    PermissionDenied { cmd: String },
+
+    #[error("Shell error: {message}")]
+    Shell { message: String },
+
+    #[error("Deeplink parse failed: {url} - {reason}")]
+    DeeplinkParse { url: String, reason: String },
+
+    #[error("Plugin manifest invalid: {field} - {hint}")]
+    InvalidManifest { field: String, hint: String },
+
+    #[error("Plugin code not browser-safe: {issue}")]
+    PluginNotBrowserSafe { issue: String, file: String },
+
+    #[error("Plugin hash mismatch - file tampered: {path}")]
+    PluginHashMismatch { path: String, expected: String, actual: String },
+
+    #[error("Plugin permission denied: {permission} not in manifest")]
+    PluginPermissionDenied { permission: String },
+}
+
+impl From<rusqlite::Error> for AppError {
+    fn from(e: rusqlite::Error) -> Self {
+        AppError::Internal {
+            message: format!("db: {e}"),
+        }
+    }
+}
+
+impl From<std::io::Error> for AppError {
+    fn from(e: std::io::Error) -> Self {
+        AppError::Internal {
+            message: format!("io: {e}"),
+        }
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(e: reqwest::Error) -> Self {
+        AppError::Network {
+            message: format!("http: {e}"),
+            status: e.status().map(|s| s.as_u16()),
+        }
+    }
+}
+
+impl From<keyring::Error> for AppError {
+    fn from(e: keyring::Error) -> Self {
+        AppError::Internal {
+            message: format!("keyring: {e}"),
+        }
+    }
+}
+
+pub type AppResult<T> = Result<T, AppError>;
