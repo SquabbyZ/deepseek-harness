@@ -1,0 +1,33 @@
+name: CI Phase 2
+on: [push, pull_request]
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cd desktop/src-tauri && cargo fmt --check
+      - run: cd desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+      - run: cd desktop/src-tauri && cargo test --workspace
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - run: cd apps/web && pnpm tsc --noEmit
+      - run: cd apps/web && pnpm test
+  web-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium
+      - name: Run inbox-load smoke
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright test
