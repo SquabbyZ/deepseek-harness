@@ -11,7 +11,7 @@ no longer touches any Node built-in.
 ## Commit
 
 - Branch: `feature/phase2`
-- Short SHA: `(this commit — pending)`
+- Short SHA: `ef5e943`
 - Subject: `feat(subagent-acp): route cwd validation through Tauri host`
 
 ## Tests

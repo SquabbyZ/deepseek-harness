@@ -31,6 +31,6 @@ Spec: docs/superpowers/specs/2026-08-19-dsh-client-architecture-refactor-design.
 
 **S7 in progress (1/6 tasks).** First subagent backend rewired through Tauri's `shell_spawn` (Phase 1 Task 1.7) via a new `SubagentSpawnInProcess` service + bridge module.
 | 2.7.1 | subagent-spawn → Tauri shell | DONE | 38c61e7 | Approved |
-| 2.7.2 | subagent-acp → Tauri cwd bridge | DONE | (this commit) | Pending |
+| 2.7.2 | subagent-acp → Tauri cwd bridge | DONE | ef5e943 | Pending |
 
 **S7 in progress (2/6 tasks).** `subagent-acp` removed its `node:fs`/`node:path` cwd validation and now routes through a new `bridge.cwdApi.resolve` → Tauri `cwd_resolve` command. The host owns the filesystem; the renderer only does sync string-shape checks.
