@@ -182,4 +182,20 @@ export default defineConfig({
     // vendored loader index.ts: envData falls to its default branch.
     'process.env.CORDIS_SHARED': 'undefined',
   },
+  // Dev-mode TS transform target. Several in-box packages use the
+  // TypeScript 5.2+ `using` declaration (`using d = deadline(...)` in
+  // bash-local / jobs-local / timeout-policy) and a stage-3 class
+  // decorator (`@Remote` on commands/index.ts). esbuild's default
+  // esnext target keeps those as-is in the transform output, which the
+  // browser then rejects with `SyntaxError: Invalid or unexpected token`
+  // and breaks the entire `import * as dsh_X` graph in apps/web's
+  // in-box barrel. Targeting es2024 forces esbuild to downlevel both
+  // features to their polyfilled forms — the polyfilled `using` lives
+  // inline in the same file (no extra runtime dep) and works in every
+  // evergreen browser. Production builds run through Rollup and handle
+  // these features via their own plugin chain, so this only constrains
+  // the dev-server transform.
+  esbuild: {
+    target: 'es2024',
+  },
 })

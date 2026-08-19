@@ -42,3 +42,10 @@ Spec: docs/superpowers/specs/2026-08-19-dsh-client-architecture-refactor-design.
 | 2.7.4 | subagent-claude-code → Tauri shell | DONE | 42f9aa8 | Pending |
 
 **S7 in progress (4/6 tasks).** `subagent-claude-code` removed its `node:crypto.randomUUID` / `node:events.EventEmitter` / `node:path.extname` / `process.platform` imports. Platform detection moved to a new `bridge.ts` module that reads `navigator.userAgent` (WebView2-safe); `claudeSpawnSpec` and `ClaudeCodeRunSpec` now take the host platform as an explicit input. `ManagedClaudeCodeProcess` now uses a small in-file `LifecycleEmitter` instead of `node:events`. The package still talks to the real Claude Code CLI through the shared `@deepseek-ai/dsh-subprocess` seam — `shell_spawn` (Phase 1 Task 1.7) is not extended in this slice (see Concerns).
+| 2.7.4 | subagent-claude-code → Tauri shell | DONE | bb020ad | Approved |
+| 2.7.5 | Subagent integration tests | DONE | 4aa945c | Approved |
+| 2.7.6 | Subagent UI panel | DONE | d55e943 | Approved |
+
+**S7 COMPLETE (6/6 tasks).** All subagent drivers browser-safe via Tauri shell.
+
+## PHASE 2 COMPLETE — 21/21 tasks ✅
