@@ -208,7 +208,7 @@ function ensureSymlink(link: string, target: string): void {
  * explicit re-rooted walk of every bundle's own closure — a bundle is any
  * package the app installs transitively that declares `dsh.bundle` in its
  * manifest, and its `cordis.patch.yml` rows name plugins like
- * `@deepseek-ai/dsh-host-skill-inventory` whose packages must be linked too;
+ * `dsh-host-mcp-inventory` whose packages must be linked too;
  * the re-rooted walk handles bundles whose deps are installed at the
  * workspace root rather than under the bundle's own node_modules, where a
  * single BFS from the app would still pick them up but a future change to
@@ -260,7 +260,7 @@ export function healProfilesModuleFallback(installAnchor: string, home: string =
   // reached, walk its `dependencies` and `peerDependencies` starting from
   // the bundle's own manifest as the resolution anchor. Each bundle's
   // `cordis.patch.yml` is the user's plugin roster (e.g. web-app's patch
-  // names `@deepseek-ai/dsh-host-skill-inventory`, `dsh-host-mcp-inventory`,
+  // names `dsh-host-mcp-inventory`,
   // `dsh-host-agent-inventory`), and the re-rooted walk makes the bundle's
   // plugin deps link to `profiles/node_modules` even if a future walker
   // shape skips transitive hops. The first BFS already covers the closure;

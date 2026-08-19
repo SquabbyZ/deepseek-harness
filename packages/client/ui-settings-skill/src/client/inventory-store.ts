@@ -10,10 +10,27 @@
  */
 
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type {
-  SkillEntryId,
-  SkillInventorySnapshot,
-} from '@deepseek-ai/dsh-host-skill-inventory/types'
+
+/** Stable kebab-case skill identifier. Locally branded string. */
+export type SkillEntryId = string & { readonly __brand: 'SkillEntryId' }
+
+/** Local mirror of the host's skill-inventory snapshot shape. */
+export interface SkillInventorySnapshot {
+  readonly entries: readonly SkillInventoryEntry[]
+}
+
+/** Local mirror of one inventory entry. */
+export interface SkillInventoryEntry {
+  readonly entryId: SkillEntryId
+  readonly name: string
+  readonly description: string
+  readonly whenToUse?: string
+  readonly source: string
+  readonly provider: string
+  readonly modelInvocable: boolean
+  readonly userInvocable: boolean
+  readonly enabled: boolean
+}
 
 /** Snapshot shape the tab reads; adds a `read` flag and optional error. */
 export interface SkillInventoryPanelSnapshot {

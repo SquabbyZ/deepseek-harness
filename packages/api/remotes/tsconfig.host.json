@@ -44,9 +44,6 @@
       "path": "../../settings/settings"
     },
     {
-      "path": "../../host/skill-inventory"
-    },
-    {
       "path": "../../host/mcp-inventory"
     },
     {

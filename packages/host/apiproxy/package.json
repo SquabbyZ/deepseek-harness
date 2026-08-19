@@ -81,7 +81,6 @@
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-agent-presets": "workspace:^",
     "@deepseek-ai/dsh-cordis-host-runner": "workspace:^",
-    "@deepseek-ai/dsh-host-skill-inventory": "workspace:^",
     "@deepseek-ai/dsh-host-mcp-inventory": "workspace:^",
     "@deepseek-ai/dsh-host-agent-inventory": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^"
@@ -90,7 +89,6 @@
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-agent-presets": "workspace:^",
     "@deepseek-ai/dsh-cordis-host-runner": "workspace:^",
-    "@deepseek-ai/dsh-host-skill-inventory": "workspace:^",
     "@deepseek-ai/dsh-host-mcp-inventory": "workspace:^",
     "@deepseek-ai/dsh-host-agent-inventory": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",

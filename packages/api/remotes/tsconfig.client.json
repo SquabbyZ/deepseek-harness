@@ -34,9 +34,6 @@
       "path": "../../feedback/message-feedback"
     },
     {
-      "path": "../../host/skill-inventory"
-    },
-    {
       "path": "../../host/mcp-inventory"
     },
     {

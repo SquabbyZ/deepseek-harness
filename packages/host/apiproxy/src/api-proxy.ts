@@ -78,7 +78,6 @@ import type {} from '@deepseek-ai/dsh-commands'
 // merges `ctx.dynamicCordisRunner`, and a dependency on that package would
 // rebuild the api-remotes cycle this direction exists to avoid.
 import type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
-import type {} from '@deepseek-ai/dsh-host-skill-inventory/types'
 import type {} from '@deepseek-ai/dsh-host-mcp-inventory/types'
 import type {} from '@deepseek-ai/dsh-host-agent-inventory/types'
 import type {} from '@deepseek-ai/dsh-skill'
