@@ -4,7 +4,7 @@
   "version": "0.5.0",
   "identifier": "ai.deepseek.harness.desktop",
   "build": {
-    "frontendDist": "../dist",
+    "frontendDist": "../../apps/web/dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm --dir ../apps/web dev",
     "beforeBuildCommand": "pnpm --dir ../apps/web build"
