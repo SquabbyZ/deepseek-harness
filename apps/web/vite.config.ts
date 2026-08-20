@@ -188,6 +188,19 @@ export default defineConfig({
       { find: /^node:stream$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
     ],
   },
+  // Vite's optimizeDeps pre-bundles dev-time tools discovered via the
+  // dependency graph. chokidar is Vite's own dev file-watcher and is
+  // intentionally pulled in by the dev-server transform pipeline, NOT
+  // runtime client code. The node-shims alias (above) only covers path
+  // helpers — chokidar calls `node:fs` for `stat` / `Stats` / `watch` /
+  // `watchFile` / `unwatchFile`, none of which the shim exports, so
+  // letting optimizeDeps pre-bundle it through this alias would produce
+  // a broken dev pre-bundle. fsevents and readdirp are chokidar's own
+  // optional transitive deps — exclude them so the pre-bundler doesn't
+  // try to walk their node:fs-touching paths either.
+  optimizeDeps: {
+    exclude: ['chokidar', 'fsevents', 'readdirp'],
+  },
   define: {
     // vendored loader internal.ts: fromInternal() probes the Node major —
     // "0.0.0" takes neither branch, returning undefined (exactly the empty
