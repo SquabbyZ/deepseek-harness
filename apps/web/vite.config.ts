@@ -50,6 +50,11 @@ const VENDOR_PACKAGE_ALIASES: ReadonlyArray<{ find: RegExp; replacement: string 
   { find: /^@deepseek-ai\/cordis-plugin-include$/, replacement: src('../../vendor/include/src/index.ts') },
   { find: /^@deepseek-ai\/cordis-plugin-group$/, replacement: src('../../vendor/group/src/index.ts') },
   { find: /^@deepseek-ai\/cordis-plugin-logger-console$/, replacement: src('../../vendor/logger-console/src/index.ts') },
+  // The `apps/web` routes import specific master UI components directly
+  // (not through the inbox barrel). Bypass the workspace-resolver's
+  // subpath restriction by aliasing the deep src paths here.
+  { find: /^@deepseek-ai\/dsh-client-ui-conversation$/, replacement: src('../../packages/client/ui-conversation/src/client/index.ts') },
+  { find: /^@deepseek-ai\/dsh-client-ui-settings-plugins$/, replacement: src('../../packages/client/ui-settings-plugins/src/client/index.ts') },
 ]
 /**
  * Vendor-chunk membership, by exact npm package name — the heavy render

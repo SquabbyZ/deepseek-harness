@@ -17,6 +17,7 @@ export type {} from './conversation-nodes/turn-tail.ts'
 export { apply, inject } from './apply.ts'
 export { ConversationController } from './service.ts'
 export type { IConversation } from './service.ts'
+export { ChatView } from './chat/ChatView.tsx'
 export type { DraftAttachmentId } from './input/contract.ts'
 
 export type {

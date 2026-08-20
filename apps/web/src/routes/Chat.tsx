@@ -1,82 +1,60 @@
 /**
- * Chat — Phase 2 task 2.6.3 placeholder.
+ * Chat — official DSH conversation view, reused from
+ * `@deepseek-ai/dsh-client-ui-conversation` (master `ChatView`).
  *
- * Deliberately minimal: a composer mock (textarea + send button) plus an
- * echo of the messages typed so far. No Tauri command, no real LLM call —
- * the real conversation UI rides the in-box `dsh_client_ui_conversation`
- * plugin and lands in Phase 2 S6 (session runtime) once `dsh_storage` /
- * `dsh_session_persistence` land in the inbox via the spec §6.4 work.
+ * `ChatView` expects `ChatViewSlotProps` — a large bundle of host-observable
+ * hooks (`useSession`, `useSessions`, `useStore`, `renderSlot`, ...) and
+ * imperative callbacks (`openFile`, `loadOlder`, `loadImage`, `inspectCall`,
+ * `chatScroll`, `forkAt`, `fileMentions`, `t`). Most of those come from
+ * the master `dsh_session_persistence` + `dsh_jobs_local` + `dsh_workspace`
+ * services that aren't in the vite-dev barrel yet (Phase 2 S5/S6 work per
+ * spec §6.4). We wire minimal stubs that satisfy the destructured
+ * shapes so the component renders its empty-state layout.
  */
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import { type ReactNode } from 'react'
+import { ChatView } from '@deepseek-ai/dsh-client-ui-conversation'
 
-interface Message {
-  readonly id: number
-  readonly role: 'user'
-  readonly text: string
+/** Empty-state session: a queue with no items, an empty chat ledger,
+ * a finished run state, and a no-op openState. Each field is read by
+ * ChatView at render time; the exact shape mirrors `ConversationTimelineSnapshot`
+ * from `@deepseek-ai/dsh-client-runtime`. */
+const emptySession = {
+  chat: { order: [], nodes: new Map(), timeline: { order: [] } },
+  queue: [] as Array<{ id: string; placement: 'queued' | 'running' }>,
+  running: undefined,
+  openState: { kind: 'idle' as const },
 }
 
 export function Chat(): ReactNode {
-  const [draft, setDraft] = useState<string>('')
-  const [messages, setMessages] = useState<readonly Message[]>([])
-
-  function handleSend(): void {
-    const trimmed = draft.trim()
-    if (trimmed.length === 0) return
-    setMessages(prev => [
-      ...prev,
-      { id: prev.length + 1, role: 'user', text: trimmed },
-    ])
-    setDraft('')
-  }
-
+  // ChatView passes selectors like `s => s.queue` — emulate the host by
+  // calling the selector against an empty-state stub so reads like
+  // `s.chat.order` / `s.queue` / `s.byId[sessionId]?.cwd` resolve to
+  // sensible empty values.
+  const sessionSelector = (sel: (s: typeof emptySession) => unknown) => sel(emptySession)
+  const sessionsSelector = (sel: (s: { byId: Record<string, unknown> }) => unknown) =>
+    sel({ byId: {} })
+  const noopSnapshot = (sel: (s: unknown) => unknown) => sel({
+    selection: undefined,
+    context: undefined,
+    intake: { value: '', placeholder: '' },
+  })
   return (
-    <div className="p-4 max-w-3xl mx-auto flex flex-col h-[calc(100vh-3rem)]">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold">Chat</h1>
-        <p className="text-sm text-gray-500">
-          Placeholder composer — the real conversation UI lands in Phase 2 S6.
-        </p>
-      </header>
-
-      <ul className="flex-1 overflow-y-auto mb-3 space-y-2">
-        {messages.length === 0 && (
-          <li className="text-gray-500 text-sm">No messages yet.</li>
-        )}
-        {messages.map(m => (
-          <li
-            key={m.id}
-            className="rounded bg-white/5 px-3 py-2 text-sm whitespace-pre-wrap"
-          >
-            <span className="text-xs text-gray-500 mr-2 font-mono">user</span>
-            {m.text}
-          </li>
-        ))}
-      </ul>
-
-      <form
-        className="flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          handleSend()
-        }}
-      >
-        <textarea
-          aria-label="Message draft"
-          value={draft}
-          onChange={event => setDraft(event.target.value)}
-          rows={2}
-          placeholder="Type a message…"
-          className="flex-1 resize-none rounded border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        <button
-          type="submit"
-          disabled={draft.trim().length === 0}
-          className="px-4 rounded bg-blue-600 text-white text-sm disabled:opacity-50"
-        >
-          Send
-        </button>
-      </form>
+    <div data-testid="chat-root" data-conversation-scroll="" className="flex-1 min-h-0">
+      <ChatView
+        useSession={sessionSelector}
+        useSessions={sessionsSelector}
+        useStore={noopSnapshot}
+        renderSlot={() => null}
+        sessionId={''}
+        openFile={() => undefined}
+        loadOlder={() => undefined}
+        loadImage={() => undefined}
+        inspectCall={() => undefined}
+        chatScroll={{ canPrepend: false, canScroll: false, scrollToBottom: () => undefined }}
+        forkAt={() => undefined}
+        fileMentions={[]}
+        t={(label: string) => label}
+      />
     </div>
   )
 }
