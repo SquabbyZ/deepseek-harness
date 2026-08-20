@@ -1,203 +1,155 @@
 /**
- * Settings — Phase 2 task 2.6.4 placeholder.
+ * Settings — mounts the official DSH settings shell from
+ * `@deepseek-ai/dsh-client-ui-settings-general/client`.
  *
- * Lists the three known settings (theme, language, autoLaunch) and binds each
- * to the existing `useSettings` / `useUpdateSettings` TanStack Query hooks.
- * The settings API is the in-place Tauri `settings_get` / `settings_update`
- * pair bridged in `apps/web/src/dsh/bridge/settings.ts` — no new commands.
+ * The shell (`SettingsRoot`) expects a full SettingsRootComponentProps
+ * bundle: `wide` (sidebar owner share), `renderSlot` (read adapter for
+ * the sub-slots it reads internally), and an `InjectFace` that resolves
+ * `{ hooks: { sections, onboardingSteps, nav } }` into per-key
+ * `useSections` / `useOnboardingSteps` / `useNav` props plus
+ * `navActions` for imperative calls. Each `useXxx` is a host-observable
+ * subscription bound to `ctx.slots.getVersion()`; we wrap them with
+ * `useSyncExternalStore` so the shell rerenders when the ledger ticks.
  *
- * The full `SettingsRoot` shell (nav + chrome + sidebar.trigger + every
- * ui-settings-* section in a tab list) lives in
- * `dsh-client-ui-settings-general`. Wiring it back in is a Phase 2 S5 task
- * that needs the master bundle layer (`dsh_client_modules` + per-key
- * `ui-stores`) ported into the vite-dev inbox first — see plan §6.4.
+ * The component composition here is the exact one the master DSH web
+ * app uses (after the bundle's `sidebar.settings` declare). Once the
+ * in-box barrel mounts `dsh_client_ui_settings_general`, this route
+ * becomes a one-liner.
  */
+import { useSyncExternalStore, type ReactNode } from 'react'
+import { useHost } from '../dsh/host-context.tsx'
+import type { StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 
-import { useEffect } from 'react'
-import type { ReactNode } from 'react'
-import { useSettings, useUpdateSettings } from '../dsh/query/queries'
-
-type ThemeValue = 'light' | 'dark' | 'auto'
-type LanguageValue = 'en' | 'zh'
-type AutoLaunchValue = boolean
-
-const THEME_OPTIONS: readonly { readonly value: ThemeValue; readonly label: string }[] = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'auto', label: 'Auto' },
-]
-
-const LANGUAGE_OPTIONS: readonly { value: LanguageValue; readonly label: string }[] = [
-  { value: 'en', label: 'English' },
-  { value: 'zh', label: '中文' },
-]
-
-function readValue<T>(value: T | null | undefined, fallback: T): T {
-  return value === null || value === undefined ? fallback : value
+interface HostObservable<T> {
+  getSnapshot(): T
+  subscribe(fn: () => void): () => void
 }
 
-function applyTheme(theme: ThemeValue): void {
-  const root = document.documentElement
-  if (theme === 'auto') {
-    delete root.dataset.theme
-  } else {
-    root.dataset.theme = theme
+interface SidebarSettingsEntry extends StoredEntry {
+  inject?: () => Record<string, unknown>
+}
+
+/** Wrap a `HostObservable` as a `useSyncExternalStore` snapshot selector. */
+function useObservable<T>(observable: HostObservable<T> | undefined): T | undefined {
+  return useSyncExternalStore(
+    onStoreChange => observable?.subscribe(onStoreChange) ?? (() => undefined),
+    () => observable?.getSnapshot() as T | undefined,
+    () => observable?.getSnapshot() as T | undefined,
+  )
+}
+
+/** Turn the shell's `{ hooks: { sections, onboardingSteps, nav } }`
+ * inject face into the per-key hook functions SettingsRoot expects. */
+function makeHooksFromInject(hooks: Record<string, unknown> | undefined): {
+  useSections: <S>(selector: (s: unknown) => S) => S
+  useOnboardingSteps: <S>(selector: (s: unknown) => S) => S
+  useNav: <S>(selector: (s: unknown) => S) => S
+  useSessions: <S>(selector: (s: unknown) => S) => S
+  useWorkspaces: <S>(selector: (s: unknown) => S) => S
+} {
+  const sections = hooks?.['sections'] as HostObservable<unknown> | undefined
+  const onboardingSteps = hooks?.['onboardingSteps'] as HostObservable<unknown> | undefined
+  const nav = hooks?.['nav'] as HostObservable<unknown> | undefined
+  return {
+    useSections: (selector) => {
+      const snap = useObservable(sections) as Parameters<typeof selector>[0] | undefined
+      return snap === undefined ? (undefined as never) : selector(snap)
+    },
+    useOnboardingSteps: (selector) => {
+      const snap = useObservable(onboardingSteps) as Parameters<typeof selector>[0] | undefined
+      return snap === undefined ? (undefined as never) : selector(snap)
+    },
+    useNav: (selector) => {
+      const snap = useObservable(nav) as Parameters<typeof selector>[0] | undefined
+      return snap === undefined ? (undefined as never) : selector(snap)
+    },
+    // Sessions / workspaces aren't in the inject face in vite dev (those
+    // services aren't mounted yet). Return a stable empty object so the
+    // shell's `useSessions(state => state.phase === 'ready')` and similar
+    // reads return a falsy / non-blocking value.
+    useSessions: ((_selector: (s: unknown) => unknown) => undefined) as never,
+    useWorkspaces: ((_selector: (s: unknown) => unknown) => undefined) as never,
   }
 }
 
 export function Settings(): ReactNode {
-  const themeQ = useSettings<ThemeValue>('theme')
-  const updateTheme = useUpdateSettings<ThemeValue>('theme')
-  const theme = readValue<ThemeValue>(themeQ.data, 'auto')
-
-  const languageQ = useSettings<LanguageValue>('language')
-  const updateLanguage = useUpdateSettings<LanguageValue>('language')
-  const language = readValue<LanguageValue>(languageQ.data, 'en')
-
-  const autoLaunchQ = useSettings<AutoLaunchValue>('autoLaunch')
-  const updateAutoLaunch = useUpdateSettings<AutoLaunchValue>('autoLaunch')
-  const autoLaunch = readValue<AutoLaunchValue>(autoLaunchQ.data, false)
-
-  useEffect(() => {
-    applyTheme(theme)
-  }, [theme])
-
-  function selectTheme(next: ThemeValue): void {
-    applyTheme(next)
-    updateTheme.mutate(next)
+  const { ctx } = useHost()
+  const entries = ctx.slots.entries('sidebar.settings') as readonly SidebarSettingsEntry[]
+  const entry = entries[0]
+  if (entry === undefined) {
+    return (
+      <div className="p-4 max-w-3xl mx-auto" data-testid="settings-root">
+        <h1 className="text-2xl font-semibold">Settings</h1>
+        <p className="text-sm text-gray-500">
+          The DSH settings shell (ui-settings-general) hasn&apos;t registered
+          the <code className="font-mono">sidebar.settings</code> slot yet —
+          check that the package is in the inbox barrel and its services
+          (settingsScope, locale, connection) are mounted.
+        </p>
+      </div>
+    )
+  }
+  const Component = entry.component as React.ComponentType<Record<string, unknown>>
+  const injected = typeof entry.inject === 'function' ? entry.inject() : {}
+  const hooks = makeHooksFromInject(
+    (injected['hooks'] ?? {}) as Record<string, unknown>,
+  )
+  const navActions = (injected['navActions'] ?? { openSection: () => undefined, close: () => undefined }) as {
+    openSection: (id: string) => void
+    close: () => void
   }
 
-  function selectLanguage(next: LanguageValue): void {
-    updateLanguage.mutate(next)
-  }
-
-  function toggleAutoLaunch(): void {
-    updateAutoLaunch.mutate(!autoLaunch)
+  const renderSlot: SettingsRenderSlot = (key, owner, opts) => {
+    const items = ctx.slots.entries(key)
+    const filtered = opts?.only !== undefined
+      ? items.filter((e: { options: { id?: string } }) => e.options.id === opts.only)
+      : items
+    // Chrome slots read `t` (locale) and a few read `controller` +
+    // `useSnapshot` from the document store. We don't have a real
+    // settingsScope / document store in vite dev, so we hand the shell
+    // safe no-ops — components render their fallback state instead of
+    // throwing on missing service bindings.
+    const t = (label: string) => label
+    const fallbackProps: Record<string, unknown> = { t }
+    if (key === 'settings.action') {
+      fallbackProps['controller'] = { isAvailable: false }
+      fallbackProps['useSnapshot'] = <T,>(selector: (s: never) => T): T => selector({} as never)
+    }
+    if (key === 'settings.close') {
+      fallbackProps['onClose'] = () => undefined
+    }
+    return (
+      <>
+        {filtered.map((e: { options: { id?: string }; component: unknown }) => {
+          const Sub = e.component as React.ComponentType<Record<string, unknown>>
+          const id = typeof e.options.id === 'string' ? e.options.id : 'item'
+          // The shell passes its own owner/data as the second arg; we
+          // forward the chrome fallback props first so they can be
+          // overridden by the shell-supplied data.
+          return <Sub key={`${key}:${id}`} {...fallbackProps} {...(owner as Record<string, unknown>)} />
+        })}
+      </>
+    )
   }
 
   return (
-    <div className="p-4 max-w-3xl mx-auto" data-testid="settings-root">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="text-sm text-gray-500">
-          Theme, language, and startup preferences.
-        </p>
-      </header>
-
-      <section
-        aria-label="Theme"
-        data-setting-key="theme"
-        className="rounded border border-white/10 p-4 mb-3"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="font-medium">Theme</h2>
-            <p className="text-xs text-gray-500">Color scheme used across the app.</p>
-          </div>
-          <span className="text-xs text-gray-500 font-mono">{theme}</span>
-        </div>
-        <div role="radiogroup" aria-label="Theme" className="flex gap-1">
-          {THEME_OPTIONS.map((option) => {
-            const selected = theme === option.value
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                data-theme-option={option.value}
-                onClick={() => selectTheme(option.value)}
-                disabled={updateTheme.isPending}
-                className={`px-3 py-1 rounded text-sm border ${
-                  selected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-transparent text-gray-300 border-white/10 hover:bg-white/5'
-                } disabled:opacity-50`}
-              >
-                {option.label}
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <section
-        aria-label="Language"
-        data-setting-key="language"
-        className="rounded border border-white/10 p-4 mb-3"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="font-medium">Language</h2>
-            <p className="text-xs text-gray-500">Interface text language.</p>
-          </div>
-          <span className="text-xs text-gray-500 font-mono">{language}</span>
-        </div>
-        <div role="radiogroup" aria-label="Language" className="flex gap-1">
-          {LANGUAGE_OPTIONS.map((option) => {
-            const selected = language === option.value
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                data-language-option={option.value}
-                onClick={() => selectLanguage(option.value)}
-                disabled={updateLanguage.isPending}
-                className={`px-3 py-1 rounded text-sm border ${
-                  selected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-transparent text-gray-300 border-white/10 hover:bg-white/5'
-                } disabled:opacity-50`}
-              >
-                {option.label}
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <section
-        aria-label="Auto launch"
-        data-setting-key="autoLaunch"
-        className="rounded border border-white/10 p-4 mb-3"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-medium">Launch on system startup</h2>
-            <p className="text-xs text-gray-500">Start the app when you log in.</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoLaunch}
-            aria-label="Auto launch"
-            data-auto-launch
-            onClick={toggleAutoLaunch}
-            disabled={updateAutoLaunch.isPending}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
-              autoLaunch ? 'bg-blue-600' : 'bg-white/20'
-            } disabled:opacity-50`}
-          >
-            <span
-              className={`inline-block h-3 w-3 transform rounded-full bg-white transition ${
-                autoLaunch ? 'translate-x-5' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-      </section>
-
-      {(themeQ.isError || languageQ.isError || autoLaunchQ.isError) && (
-        <div
-          role="alert"
-          className="mt-2 text-red-600 text-sm"
-          data-testid="settings-error"
-        >
-          Failed to load settings.
-        </div>
-      )}
+    <div data-testid="settings-root">
+      <Component
+        wide
+        renderSlot={renderSlot as unknown}
+        navActions={navActions}
+        useSections={hooks.useSections}
+        useOnboardingSteps={hooks.useOnboardingSteps}
+        useNav={hooks.useNav}
+        useSessions={hooks.useSessions}
+        useWorkspaces={hooks.useWorkspaces}
+      />
     </div>
   )
 }
+
+type SettingsRenderSlot = (
+  key: string,
+  owner: unknown,
+  opts?: { only?: string },
+) => ReactNode
