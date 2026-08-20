@@ -40,6 +40,7 @@ import type { RequestPayload, ResponseValue, RpcMethodMap } from '@deepseek-ai/d
 import { AbstractApiClient, RpcId, SESSION_SEARCH_RESULT_LIMIT } from './api.ts'
 import { randomUuid } from './random-uuid.ts'
 import { callRealLlm, tauriCredentialBackend } from './real-llm.ts'
+import z from '@deepseek-ai/schemastery'
 import type { ClientConnectionRpc } from '../rpc.ts'
 
 /** The fake carrier mints like a real one (business code never mints). */
@@ -1592,6 +1593,63 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   const WELCOME_NOTICE_VERSION = '2026-08-13.1'
   let fixtureWelcomeAck: string = WELCOME_NOTICE_VERSION
   /**
+   * The DeepSeek provider profile served under the `llm-deepseek` settings
+   * namespace. Held as layered state (base value + user layer + revision) so
+   * the official Models editor's describe→rehydrate→mutate round-trip works:
+   * the editor rehydrates `schema` (must be a real schemastery envelope — an
+   * empty `{}` throws "unsupported type undefined") and writes profile edits
+   * back through `settings.mutate`.
+   */
+  const LLM_DEEPSEEK_NS = 'llm-deepseek'
+  const llmDeepseekBase: Record<string, unknown> = { apiKeyEnv: 'DEEPSEEK_API_KEY' }
+  let llmDeepseekUser: Record<string, unknown> = {}
+  let llmDeepseekRevision = 0
+  /**
+   * Serialized schemastery envelope for the `llm-deepseek` namespace, built
+   * through the real schema library and `.toJSON()`ed — exactly what the host's
+   * settings service serves — so the official Models editor's
+   * `new Schema(json)` rehydrates a node tree with working `.meta.default`
+   * (the DeepSeek profile's `models` default feeds `inheritedModels`).
+   */
+  const LLM_DEEPSEEK_SCHEMA = z.object({
+    apiKeyEnv: z.string().default('DEEPSEEK_API_KEY'),
+    baseURL: z.string(),
+    models: z.array(z.object({
+      id: z.string().required(),
+      name: z.string(),
+      contextWindow: z.number().min(1),
+    })).default([
+      { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', contextWindow: 1_000_000 },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
+    ]),
+  }).toJSON()
+  /** Set a value at a path (creating intermediate objects), mutating `target`. */
+  const setPath = (target: Record<string, unknown>, path: readonly string[], value: unknown): void => {
+    let node: Record<string, unknown> = target
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = path[i] as string
+      const existing = node[key]
+      if (typeof existing !== 'object' || existing === null || Array.isArray(existing)) {
+        node[key] = {}
+      }
+      node = node[key] as Record<string, unknown>
+    }
+    node[path[path.length - 1] as string] = value
+  }
+  /** Remove a value at a path (Reflect avoids the dynamic-delete lint). */
+  const deletePath = (target: Record<string, unknown>, path: readonly string[]): void => {
+    if (path.length === 0) return
+    const parentPath = path.slice(0, -1)
+    const key = path[path.length - 1] as string
+    let node: Record<string, unknown> = target
+    for (const segment of parentPath) {
+      const next = node[segment]
+      if (typeof next !== 'object' || next === null || Array.isArray(next)) return
+      node = next as Record<string, unknown>
+    }
+    Reflect.deleteProperty(node, key)
+  }
+  /**
    * Preset compositions the fixture serves. Held as state rather than
    * constants so the settings editor's save and delete are exercisable: the
    * roster a GUI journey sees after writing is the text it wrote.
@@ -3036,20 +3094,21 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       },
     },
     settings: {
-      // Only the resolved DeepSeek address needed by first-run readiness and
-      // the welcome-notice acknowledgement are represented here. Fixture-backed
-      // journeys do not open the Models editor; real schema-driven forms ride
-      // the HTTP transport.
+      // The DeepSeek provider profile and the welcome-notice acknowledgement
+      // are represented here; the former carries a real schemastery envelope
+      // so the official Models editor can rehydrate and write it back. Other
+      // journeys keep their minimal readiness descriptor.
       describe: request => ok(request, {
         writable: true,
         hasDocument: true,
         namespaces: [{
-          ns: 'llm-deepseek',
-          schema: {},
-          value: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
+          ns: LLM_DEEPSEEK_NS,
+          schema: LLM_DEEPSEEK_SCHEMA,
+          value: { ...llmDeepseekBase, ...llmDeepseekUser },
+          user: { ...llmDeepseekUser },
           applies: 'live',
           secrets: [{ path: ['apiKey'], set: false }],
-          revision: 0,
+          revision: llmDeepseekRevision,
         }, {
           ns: WELCOME_NOTICE_NS,
           schema: {},
@@ -3072,6 +3131,25 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         details: { ns: request.payload.ns },
       }),
       mutate: (request) => {
+        if (request.payload.ns === LLM_DEEPSEEK_NS) {
+          // Apply the patch into the user layer (validate-free: the editor's
+          // schema-rehydrated draft already validated), bump the revision.
+          const next: Record<string, unknown> = structuredClone(llmDeepseekUser)
+          for (const op of request.payload.ops) {
+            if (op.op === 'set') {
+              setPath(next, op.path, op.value)
+            } else if (op.op === 'unset') {
+              deletePath(next, op.path)
+            }
+          }
+          llmDeepseekUser = next
+          llmDeepseekRevision += 1
+          return ok(request, {
+            value: { ...llmDeepseekBase, ...llmDeepseekUser },
+            user: { ...llmDeepseekUser },
+            revision: llmDeepseekRevision,
+          })
+        }
         if (request.payload.ns === WELCOME_NOTICE_NS) {
           for (const op of request.payload.ops) {
             if (op.op === 'set' && op.path[0] === WELCOME_NOTICE_ACK_FIELD && typeof op.value === 'string') {
