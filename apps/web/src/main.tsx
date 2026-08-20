@@ -26,8 +26,15 @@ interface DshBootWindow extends Window {
 async function main(): Promise<void> {
   // Fixture transport default: standalone web/dev/desktop boot has no host
   // API yet, and the connection plugin keys its transport off the page URL.
+  // The desktop shell additionally defaults to real model calls (realLlm):
+  // the fixture's prompt reaches the real DeepSeek endpoint through the Rust
+  // http_request invoke (no CORS). A dev/test URL that already pins these
+  // (e.g. ?fixture&llmUrl=http://…&realLlm=1) is left untouched.
   if (typeof location !== 'undefined' && !new URLSearchParams(location.search).has('fixture')) {
-    history.replaceState(null, '', `${location.pathname}?fixture`)
+    const params = new URLSearchParams()
+    params.set('fixture', '')
+    if ('__TAURI_INTERNALS__' in globalThis) params.set('realLlm', '1')
+    history.replaceState(null, '', `${location.pathname}?${params.toString()}`)
   }
 
   ;(globalThis as DshBootWindow).__DSH_BOOT__ = officialGraph
