@@ -39,6 +39,7 @@ import type {
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { AbstractApiClient, RpcId, SESSION_SEARCH_RESULT_LIMIT } from './api.ts'
 import { randomUuid } from './random-uuid.ts'
+import { callRealLlm } from './real-llm.ts'
 import type { ClientConnectionRpc } from '../rpc.ts'
 
 /** The fake carrier mints like a real one (business code never mints). */
@@ -1438,6 +1439,14 @@ export interface FixtureOptions {
   dropSessionCreateResponse?: boolean
   /** Order of the two successful create frames. */
   createFrameOrder?: 'session-first' | 'workspace-first'
+  /**
+   * Real-LLM mode: `session.prompt` reaches a real chat-completions endpoint
+   * (via `callRealLlm`) instead of the canned echo replay, and credentials
+   * persist their actual values. Opt-in only — keyless lanes never set it.
+   */
+  realLlm?: boolean
+  /** Override the completions base URL (real-LLM testing against a local mock). */
+  llmUrl?: string
 }
 
 /** Inbox pump shared by both stream generators (FrameQueue pattern: ONE abort listener hung
@@ -1532,6 +1541,34 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     // DeepSeek route so unrelated GUI journeys do not enter first-run setup.
     ['DEEPSEEK_API_KEY', true],
   ])
+  /**
+   * Real credential values (realLlm mode): the credentials UI's `set` writes
+   * the actual secret here and persists it in localStorage (durable in the
+   * WebView2), and `session.prompt` reads the DeepSeek key back for the real
+   * call. Keyless lanes never touch this — `options.realLlm` gates it.
+   */
+  const CREDENTIAL_STORAGE_KEY = 'dsh:fixture:credentials'
+  const realCredentialValues = new Map<string, string>()
+  if (options.realLlm) {
+    try {
+      const raw = localStorage.getItem(CREDENTIAL_STORAGE_KEY)
+      if (raw !== null) {
+        for (const [ref, value] of Object.entries(JSON.parse(raw) as Record<string, unknown>)) {
+          if (typeof value === 'string') realCredentialValues.set(ref, value)
+        }
+      }
+    } catch {
+      // Ignore malformed/blocked storage — real mode still works per-session.
+    }
+  }
+  const persistRealCredentials = (): void => {
+    if (!options.realLlm) return
+    try {
+      localStorage.setItem(CREDENTIAL_STORAGE_KEY, JSON.stringify(Object.fromEntries(realCredentialValues)))
+    } catch {
+      // storage quota / privacy mode: keep the in-memory value for this session.
+    }
+  }
   /**
    * Welcome-notice acknowledgement double. Mirrors the host's `ui-onboarding`
    * settings namespace (ui-settings-models onboarding-copy.ts): describe
@@ -2188,6 +2225,83 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     replays.set(id, { timer: setTimeout(tick, 80), finish })
   }
 
+  /** Fold the durable session log into the chat-completions message list. */
+  const buildChatMessages = (id: SessionId): { role: 'system' | 'user' | 'assistant'; content: string }[] => {
+    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = []
+    for (const seq of foldSurface(logOf(id)).nodes) {
+      const event = logOf(id)[seq]
+      if (event === undefined) continue
+      const message = deriveEventMessage(event)
+      if (message === null) continue
+      const text = message.content
+        .map(block => (block.type === 'text' ? block.text : ''))
+        .join('')
+        .trim()
+      if (text === '') continue
+      if (event.type === 'user/message') {
+        messages.push({ role: 'user', content: text })
+      } else if (event.type === 'assistant/message') {
+        messages.push({ role: 'assistant', content: text })
+      }
+    }
+    return messages
+  }
+
+  /**
+   * Real-LLM reply path (realLlm mode): accepts the prompt (the RPC returns
+   * immediately, as the host does) and streams the real completions response
+   * through the same turn/step/assistant-event machinery as the canned replay.
+   */
+  const startRealReply = (id: SessionId, turn: number): void => {
+    const step = 0
+    const apiKey = realCredentialValues.get('DEEPSEEK_API_KEY')
+    const selection = modelSelections.get(id) ?? { provider: 'deepseek', model: 'deepseek-v4-flash' }
+    append(id, { type: 'step/start', data: { turn, step } })
+    const finish = (aborted: boolean, replyText: string, usage?: TokenUsage): void => {
+      replays.delete(id)
+      append(id, {
+        type: 'assistant/chunk',
+        data: { turn, step, chunk: { type: 'block-end', index: 0, block: { type: 'text', text: replyText } } },
+      })
+      append(id, {
+        type: 'assistant/message',
+        surfaceOp: 'append',
+        data: { turn, step, message: assistantMessage(text(aborted ? `${replyText}（已中断）` : replyText)), usage: usage ?? fixtureUsage(turn, step) },
+      })
+      append(id, { type: 'step/end', data: { turn, step } })
+      append(id, { type: 'turn/end', data: { turn, reason: { kind: aborted ? 'cancelled' : 'completed' } } })
+      setRunning(id, false)
+    }
+    append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'block-start', index: 0, blockType: 'text' } } })
+    if (apiKey === undefined || apiKey === '') {
+      const notice = '未配置 DeepSeek API Key：请在 设置 → 模型 的凭据中填写后重试。'
+      append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: notice } } })
+      finish(true, notice)
+      return
+    }
+    const messages = buildChatMessages(id)
+    void callRealLlm({
+      apiKey,
+      model: selection.model,
+      messages,
+      baseUrl: options.llmUrl,
+    })
+      .then((reply) => {
+        append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: reply.text } } })
+        finish(false, reply.text, reply.usage === undefined ? undefined : {
+          inputTokens: reply.usage.inputTokens,
+          outputTokens: reply.usage.outputTokens,
+          cacheReadTokens: reply.usage.cacheReadTokens ?? 0,
+          cacheWriteTokens: reply.usage.cacheWriteTokens ?? 0,
+        })
+      })
+      .catch((error) => {
+        const message = `模型调用失败：${error instanceof Error ? error.message : String(error)}`
+        append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: message } } })
+        finish(true, message)
+      })
+  }
+
   const api: ApiProxy = {
     sessions: {
       list: request => ok(request, { items: [...sessions].sort((a, b) => b.updatedAt - a.updatedAt) }),
@@ -2467,6 +2581,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             type: 'request/context',
             data: { provider: selection.provider, model: selection.model, contextWindow: 128_000 },
           })
+        }
+        if (options.realLlm) {
+          // Real model reply: stream the completions response through the same
+          // turn/step events (the RPC still returns `accepted` immediately).
+          startRealReply(id, turn)
+          return ok(request, { accepted: true as const })
         }
         startReply(
           id,
@@ -2961,24 +3081,40 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     credentials: {
       describe: request => ok(request, {
         credentials: Object.fromEntries(request.payload.refs.map(ref => [ref, {
-          configured: fixtureCredentials.has(ref),
-          ...fixtureCredentials.has(ref) ? { source: 'file' } : {},
+          configured: options.realLlm
+            ? realCredentialValues.has(ref)
+            : fixtureCredentials.has(ref),
+          ...(options.realLlm
+            ? realCredentialValues.has(ref) ? { source: 'file' } : {}
+            : fixtureCredentials.has(ref) ? { source: 'file' } : {}),
           writable: true,
         }])),
       }),
       set: (request) => {
-        fixtureCredentials.set(request.payload.ref, true)
+        if (options.realLlm && typeof request.payload.value === 'string') {
+          realCredentialValues.set(request.payload.ref, request.payload.value)
+          persistRealCredentials()
+        } else {
+          fixtureCredentials.set(request.payload.ref, true)
+        }
         return ok(request, {})
       },
       unset: (request) => {
+        if (options.realLlm) {
+          realCredentialValues.delete(request.payload.ref)
+          persistRealCredentials()
+        }
         fixtureCredentials.delete(request.payload.ref)
         return ok(request, {})
       },
       // Fixture reveal: nothing real, but unconfigured references return null
       // so the Models editor can render the same "no stored value" branch it
-      // would in production.
+      // would in production. Real mode returns the stored secret (the Models
+      // editor only ever shows a "stored"/"unset" badge, never the value).
       reveal: request => ok(request, {
-        value: fixtureCredentials.has(request.payload.ref) ? 'fixture-key' : null,
+        value: options.realLlm
+          ? realCredentialValues.get(request.payload.ref) ?? null
+          : fixtureCredentials.has(request.payload.ref) ? 'fixture-key' : null,
       }),
     },
     llm: {
@@ -3233,5 +3369,10 @@ function fixtureOptionsFromLocation(): FixtureOptions {
     failWorkspaceAttach: query.get('fixtureAttach') === 'fail',
     dropSessionCreateResponse: query.get('fixtureSessionCreate') === 'drop-response',
     createFrameOrder: query.get('fixtureFrames') === 'workspace-first' ? 'workspace-first' : 'session-first',
+    // Real mode is opt-in (keyless lanes never set it): the fixture reaches a
+    // real chat-completions endpoint. `llmUrl` overrides the base URL (tests /
+    // self-hosted providers); the WebView2 shell sets both via the URL.
+    realLlm: query.get('realLlm') === '1',
+    ...(query.get('llmUrl') !== null ? { llmUrl: query.get('llmUrl') as string } : {}),
   }
 }
