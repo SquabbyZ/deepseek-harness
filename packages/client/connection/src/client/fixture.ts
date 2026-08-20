@@ -1533,6 +1533,18 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     ['DEEPSEEK_API_KEY', true],
   ])
   /**
+   * Welcome-notice acknowledgement double. Mirrors the host's `ui-onboarding`
+   * settings namespace (ui-settings-models onboarding-copy.ts): describe
+   * serves it (pre-acknowledged, same "already onboarded" posture as the
+   * shipped credential above), mutate accepts a set on its ack field. A
+   * pre-acknowledged fixture keeps the official welcome dialog from wedging
+   * a standalone boot that has no host settings backend to persist to.
+   */
+  const WELCOME_NOTICE_NS = 'ui-onboarding'
+  const WELCOME_NOTICE_ACK_FIELD = 'welcomeNoticeVersion'
+  const WELCOME_NOTICE_VERSION = '2026-08-13.1'
+  let fixtureWelcomeAck: string = WELCOME_NOTICE_VERSION
+  /**
    * Preset compositions the fixture serves. Held as state rather than
    * constants so the settings editor's save and delete are exercisable: the
    * roster a GUI journey sees after writing is the text it wrote.
@@ -2895,9 +2907,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       },
     },
     settings: {
-      // Only the resolved DeepSeek address needed by first-run readiness is
-      // represented here. Fixture-backed journeys do not open its Models
-      // editor; real schema-driven forms ride the HTTP transport.
+      // Only the resolved DeepSeek address needed by first-run readiness and
+      // the welcome-notice acknowledgement are represented here. Fixture-backed
+      // journeys do not open the Models editor; real schema-driven forms ride
+      // the HTTP transport.
       describe: request => ok(request, {
         writable: true,
         hasDocument: true,
@@ -2907,6 +2920,13 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           value: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
           applies: 'live',
           secrets: [{ path: ['apiKey'], set: false }],
+          revision: 0,
+        }, {
+          ns: WELCOME_NOTICE_NS,
+          schema: {},
+          value: { [WELCOME_NOTICE_ACK_FIELD]: fixtureWelcomeAck },
+          applies: 'live',
+          secrets: [],
           revision: 0,
         }],
       }),
@@ -2922,11 +2942,21 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         message: 'fixture: the minimal readiness settings descriptor is read-only',
         details: { ns: request.payload.ns },
       }),
-      mutate: request => err(request, {
-        code: 'settings-rejected',
-        message: 'fixture: no settings namespaces are registered',
-        details: { ns: request.payload.ns },
-      }),
+      mutate: (request) => {
+        if (request.payload.ns === WELCOME_NOTICE_NS) {
+          for (const op of request.payload.ops) {
+            if (op.op === 'set' && op.path[0] === WELCOME_NOTICE_ACK_FIELD && typeof op.value === 'string') {
+              fixtureWelcomeAck = op.value
+            }
+          }
+          return ok(request, {})
+        }
+        return err(request, {
+          code: 'settings-rejected',
+          message: 'fixture: no settings namespaces are registered',
+          details: { ns: request.payload.ns },
+        })
+      },
     },
     credentials: {
       describe: request => ok(request, {

@@ -1,4 +1,7 @@
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -35,6 +38,75 @@ function nodeShimPlugin(): Plugin {
         return src('./src/dsh/inbox/node-shims.ts')
       }
       return null
+    },
+  }
+}
+
+/**
+ * The official client-plugin bundle server. AppWebEntry's module system
+ * fetches each graph row's bundle from `/plugins/<id>/client.js?rev=<rev>`
+ * (default classic `<script src>` loadBundle). On the real host the
+ * ClientModuleRegistry node half serves those from the workspace; the
+ * client-first shell has no host, so this middleware serves the same built
+ * `lib/client.js` artifact from the package's `exports["./client"]`.
+ *
+ * The bundle map is scanned once at config load (same source the roster
+ * generator uses), so a package added after server start needs a dev-server
+ * restart. Built bundles only — regenerate the roster and restart the server
+ * after `pnpm run build:lib:client` changes a bundle's content hash.
+ */
+function officialBundleServer(): Plugin {
+  // package name -> built client bundle path.
+  const bundles = new Map<string, string>()
+  for (const area of readdirSync(src('../../packages'))) {
+    const areaDir = join(src('../../packages'), area)
+    if (!statSync(areaDir).isDirectory()) continue
+    for (const name of readdirSync(areaDir)) {
+      const pjPath = join(areaDir, name, 'package.json')
+      if (!existsSync(pjPath)) continue
+      const pkg = JSON.parse(readFileSync(pjPath, 'utf8')) as {
+        name: string
+        dsh?: { client?: { platform?: string } }
+        exports?: Record<string, string | { default?: string }>
+      }
+      if (pkg.dsh?.client?.platform !== 'web') continue
+      const client = pkg.exports?.['./client']
+      const rel = typeof client === 'string' ? client : client?.default
+      if (typeof rel !== 'string') continue
+      const bundlePath = join(dirname(pjPath), rel)
+      if (existsSync(bundlePath)) bundles.set(pkg.name, bundlePath)
+    }
+  }
+  return {
+    name: 'dsh-official-bundles',
+    configureServer(server) {
+      server.middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
+        const url = req.url ?? ''
+        const match = /^\/plugins\/(.+)\/client\.js(?:\?.*)?$/.exec(url)
+        if (match === null) {
+          next()
+          return
+        }
+        // The graph id may carry a scope slash (@deepseek-ai/dsh-…), which is
+        // a literal path segment, so the captured group is already decoded.
+        const id = match[1] as string
+        const bundlePath = bundles.get(id)
+        if (bundlePath === undefined) {
+          res.statusCode = 404
+          res.end(`unknown client bundle ${id}`)
+          return
+        }
+        try {
+          const code = readFileSync(bundlePath, 'utf8')
+          res.statusCode = 200
+          res.setHeader('content-type', 'text/javascript; charset=utf-8')
+          res.setHeader('cache-control', 'no-cache')
+          res.end(code)
+        } catch (error) {
+          res.statusCode = 500
+          res.end(`failed to serve ${id}: ${String(error)}`)
+        }
+      })
     },
   }
 }
@@ -149,6 +221,7 @@ export default defineConfig({
     // that one id.
     nodeShimPlugin(),
     workspaceResolver(),
+    officialBundleServer(),
   ],
   server: {
     port: 5173,

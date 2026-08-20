@@ -5,6 +5,7 @@
     "rootDir": "../..",
     "outDir": "lib/types",
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
     "lib": [
       "ES2024",
       "DOM",
