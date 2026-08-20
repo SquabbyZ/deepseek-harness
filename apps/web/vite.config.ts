@@ -30,8 +30,8 @@ function nodeShimPlugin(): Plugin {
   return {
     name: 'dsh-node-shim',
     enforce: 'pre',
-    resolveId(source) {
-      if (source.startsWith('node:')) {
+    resolveId(id, importer) {
+      if (id.startsWith('node:')) {
         return src('./src/dsh/inbox/node-shims.ts')
       }
       return null
