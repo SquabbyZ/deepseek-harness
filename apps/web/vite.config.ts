@@ -91,6 +91,10 @@ function npmPackageOf(id: string): string | undefined {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), workspaceResolver()],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   build: {
     sourcemap: true,
     rollupOptions: {
@@ -171,6 +175,17 @@ export default defineConfig({
       // (`src/client.ts`, `src/fetch/client.ts`, …) the wildcard table
       // would miss.
       ...VENDOR_PACKAGE_ALIASES,
+      // Browser shims for Node built-ins. Some in-box plugins accidentally
+      // `import 'node:path'` (or fs/os/url/crypto/stream) at top-level even
+      // though they're classified browser-safe; map those to a tiny browser
+      // stub instead of letting Rollup externalize them and throw at
+      // runtime when the bundle calls e.g. `nodePath.isAbsolute(...)`.
+      { find: /^node:path$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
+      { find: /^node:fs$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
+      { find: /^node:os$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
+      { find: /^node:url$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
+      { find: /^node:crypto$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
+      { find: /^node:stream$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
     ],
   },
   define: {
