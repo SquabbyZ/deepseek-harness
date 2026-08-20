@@ -6,7 +6,6 @@
  * business errors are always 200 + ServerResponse.
  */
 
-import { randomUUID } from 'node:crypto'
 import type { z } from 'zod'
 import type { ApiProxy, MuxFrame, HostFrame } from '../api/index.ts'
 import { sessionLogQuerySchema } from '../api/downloads.schema.ts'
@@ -223,7 +222,7 @@ function sseResponse(frames: AsyncIterable<RpcRequest<MuxFrame | HostFrame>>): R
         // rpcId is minted — this is a server-initiated push like any other frame.
         const failure: MuxFrame | HostFrame = { type: 'stream/error', error: { code: 'internal', message: String(error), details: {} } }
         try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(fullFrame({ rpcId: RpcId(randomUUID()), payload: failure }))}\n\n`))
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(fullFrame({ rpcId: RpcId(crypto.randomUUID()), payload: failure }))}\n\n`))
         } catch {
           // Consumer already cancelled the stream: enqueue-after-cancel is the
           // only reachable error, and there is no one left to tell.
@@ -257,10 +256,10 @@ export function toFetchHandler(api: ApiProxy): { fetch: typeof fetch } {
       // No-envelope read channels (SSE GET streams + host-only download):
       // physical routes that answer directly, without a wire envelope.
       if (path === '/api/events.mux' && req.method === 'GET') {
-        return sseResponse(api.events.mux({ rpcId: RpcId(randomUUID()), payload: {} }, req.signal))
+        return sseResponse(api.events.mux({ rpcId: RpcId(crypto.randomUUID()), payload: {} }, req.signal))
       }
       if (path === '/api/events.host' && req.method === 'GET') {
-        return sseResponse(api.events.host({ rpcId: RpcId(randomUUID()), payload: {} }, req.signal))
+        return sseResponse(api.events.host({ rpcId: RpcId(crypto.randomUUID()), payload: {} }, req.signal))
       }
       if (path === '/api/session.export' && (req.method === 'GET' || req.method === 'HEAD')) {
         // Query params are a different boundary from the POST envelope, but

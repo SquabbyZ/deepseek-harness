@@ -14,6 +14,19 @@ pub fn crash_log_path(state: State<'_, SharedState>) -> AppResult<String> {
     Ok(crash::crash_log_path(&s.config_dir).to_string_lossy().into_owned())
 }
 
+/// Tauri command that returns the resolved per-OS app config directory
+/// (e.g. `%APPDATA%/ai.deepseek.harness.desktop` on Windows,
+/// `~/Library/Application Support/ai.deepseek.harness.desktop` on macOS).
+/// Spec §7.1 mandates that web-side path resolution go through Tauri; the
+/// returned path is the canonical `$DSH_HOME` equivalent on desktop and
+/// replaces the legacy Node `os.homedir()` + `.dsh` fallback for in-box
+/// plugins that need a host home in the WebView2 runtime.
+#[tauri::command]
+pub fn app_config_dir(state: State<'_, SharedState>) -> AppResult<String> {
+    let s = state.read();
+    Ok(s.config_dir.to_string_lossy().into_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,15 +9,18 @@
 // pure packages import from the bare name. Explicit imports — Vite glob
 // imports are fragile across workspace packages with custom `exports`.
 
-/* eslint-disable @typescript-eslint/consistent-type-imports */
-
 import * as dsh_agent_default_model from '@deepseek-ai/dsh-agent-default-model'
-import * as dsh_agent_spine_demo from '@deepseek-ai/dsh-agent-spine-demo'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-agent-spine-demo transitively pulls in dsh-skill-filesystem (chokidar) +
+// dsh-subprocess-local (node:child_process) + dsh-fs-local (node:fs).
+// import * as dsh_agent_spine_demo from '@deepseek-ai/dsh-agent-spine-demo'
 import * as dsh_agent_tool_presentation from '@deepseek-ai/dsh-agent-tool-presentation'
 import * as dsh_api_gateway from '@deepseek-ai/dsh-api-gateway/client'
 import * as dsh_api_remotes from '@deepseek-ai/dsh-api-remotes'
 import * as dsh_attachment from '@deepseek-ai/dsh-attachment'
-import * as dsh_bash_local from '@deepseek-ai/dsh-bash-local'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-bash-local depends on dsh-subprocess-local (node:child_process).
+// import * as dsh_bash_local from '@deepseek-ai/dsh-bash-local'
 import * as dsh_client_locale from '@deepseek-ai/dsh-client-locale/client'
 import * as dsh_client_runtime from '@deepseek-ai/dsh-client-runtime/client'
 import * as dsh_client_ui_account from '@deepseek-ai/dsh-client-ui-account/client'
@@ -68,13 +71,29 @@ import * as dsh_fs from '@deepseek-ai/dsh-fs'
 import * as dsh_fs_observation_policy from '@deepseek-ai/dsh-fs-observation-policy'
 import * as dsh_host_directory_picker from '@deepseek-ai/dsh-host-directory-picker'
 import * as dsh_invariants from '@deepseek-ai/dsh-invariants'
-import * as dsh_jobs from '@deepseek-ai/dsh-jobs'
+// dsh_jobs: abstract JobRegistry seam; dsh_jobs_local extends it with the local implementation
 import * as dsh_jobs_local from '@deepseek-ai/dsh-jobs-local'
 import * as dsh_llm from '@deepseek-ai/dsh-llm'
 import * as dsh_llm_deepseek from '@deepseek-ai/dsh-llm-deepseek'
-import * as dsh_llm_pi_ai from '@deepseek-ai/dsh-llm-pi-ai'
+// TODO(phase3): re-enable when pi-ai provider is gated behind a feature flag that
+// requires a polyfilled browser fetch. `@earendil-works/pi-ai` keeps a
+// `NODE_FS_SPECIFIER = "node:fs"` style env-probe string at module scope and
+// `await import(NODE_FS_SPECIFIER)` at runtime, which is not statically
+// analyzable and therefore not rewritable by `nodeShimPlugin` — both
+// pre-bundled and raw-source paths end up at CORS-failing browser requests
+// for `node:fs` / `node:os` / `node:path`. The provider stays available in
+// Node / Tauri via the apiproxy; the browser inbox only mounts browser-safe
+// LLM providers.
+// import * as dsh_llm_pi_ai from '@deepseek-ai/dsh-llm-pi-ai'
 import * as dsh_lsp from '@deepseek-ai/dsh-lsp'
-import * as dsh_network from '@deepseek-ai/dsh-network'
+// TODO(phase3): re-enable when proxy migrate lands (Tauri invoke → Rust reqwest per spec 6.4)
+// dsh-network depends on undici (Node-only HTTP dispatcher) — esbuild's cjs-to-esm pass
+// inlines `import('node:fs')`/`util.debuglog` from undici before nodeShimPlugin can rewrite
+// them, so the dev console surfaces CORS for node:fs + TypeError util.debuglog. Production
+// build is unaffected (Rollup externalizes node:*) but the browser bundle has no use for it:
+// client-first routes proxy through `httpApi.setProxy` → Rust reqwest, not undici. Re-enable
+// only if we re-introduce a Node-side undici path.
+// import * as dsh_network from '@deepseek-ai/dsh-network'
 import * as dsh_permission_presets from '@deepseek-ai/dsh-permission-presets'
 import * as dsh_persona from '@deepseek-ai/dsh-persona'
 import * as dsh_plan_mode from '@deepseek-ai/dsh-plan-mode'
@@ -96,8 +115,9 @@ import * as dsh_shell_env from '@deepseek-ai/dsh-shell-env'
 import * as dsh_skill from '@deepseek-ai/dsh-skill'
 import * as dsh_spill from '@deepseek-ai/dsh-spill'
 import * as dsh_spill_policy from '@deepseek-ai/dsh-spill-policy'
-import * as dsh_storage from '@deepseek-ai/dsh-storage'
-import * as dsh_storage_domain from '@deepseek-ai/dsh-storage-domain'
+// dsh_storage / dsh_storage_domain: see registration comment below; needs Tauri commands + Config injection
+// import * as dsh_storage from '@deepseek-ai/dsh-storage'
+// import * as dsh_storage_domain from '@deepseek-ai/dsh-storage-domain'
 import * as dsh_system_prompt from '@deepseek-ai/dsh-system-prompt'
 import * as dsh_terminal from '@deepseek-ai/dsh-terminal'
 import * as dsh_time_context from '@deepseek-ai/dsh-time-context'
@@ -107,13 +127,18 @@ import * as dsh_tool_ask_user from '@deepseek-ai/dsh-tool-ask-user'
 import * as dsh_tool_call_timeout_policy from '@deepseek-ai/dsh-tool-call-timeout-policy'
 import * as dsh_tool_goal from '@deepseek-ai/dsh-tool-goal'
 import * as dsh_tool_jobs from '@deepseek-ai/dsh-tool-jobs'
-import * as dsh_tool_lsp from '@deepseek-ai/dsh-tool-lsp'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-tool-lsp depends on dsh-subprocess-local (node:child_process) +
+// dsh-fs-local (node:fs), and its render.ts imports node:path/node:url directly.
+// import * as dsh_tool_lsp from '@deepseek-ai/dsh-tool-lsp'
 import * as dsh_tool_ralph from '@deepseek-ai/dsh-tool-ralph'
 import * as dsh_tool_session_query from '@deepseek-ai/dsh-tool-session-query'
 import * as dsh_tool_subagent from '@deepseek-ai/dsh-tool-subagent'
 import * as dsh_tool_subagent_control from '@deepseek-ai/dsh-tool-subagent-control'
 import * as dsh_tool_subagent_report from '@deepseek-ai/dsh-tool-subagent-report'
-import * as dsh_tool_terminal from '@deepseek-ai/dsh-tool-terminal'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-tool-terminal depends on dsh-subprocess-local (node:child_process).
+// import * as dsh_tool_terminal from '@deepseek-ai/dsh-tool-terminal'
 import * as dsh_tool_todo from '@deepseek-ai/dsh-tool-todo'
 import * as dsh_tool_web from '@deepseek-ai/dsh-tool-web'
 import * as dsh_tool_workflow from '@deepseek-ai/dsh-tool-workflow'
@@ -123,7 +148,9 @@ import * as dsh_usage_stats from '@deepseek-ai/dsh-usage-stats'
 import * as dsh_user_questions from '@deepseek-ai/dsh-user-questions'
 import * as dsh_web from '@deepseek-ai/dsh-web'
 import * as dsh_web_fetch_http from '@deepseek-ai/dsh-web-fetch-http'
-import * as dsh_web_search_deepseek from '@deepseek-ai/dsh-web-search-deepseek'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-web-search-deepseek depends on dsh-credentials-local (chokidar).
+// import * as dsh_web_search_deepseek from '@deepseek-ai/dsh-web-search-deepseek'
 import * as dsh_web_search_exa from '@deepseek-ai/dsh-web-search-exa'
 import * as dsh_web_search_perplexity from '@deepseek-ai/dsh-web-search-perplexity'
 import * as dsh_workflow from '@deepseek-ai/dsh-workflow'
@@ -137,12 +164,12 @@ import * as dsh_workflow from '@deepseek-ai/dsh-workflow'
  */
 export const inboxPlugins = [
   dsh_agent_default_model,
-  dsh_agent_spine_demo,
+  // dsh_agent_spine_demo: commented — pulls in dsh-skill-filesystem (chokidar) + dsh-subprocess-local
   dsh_agent_tool_presentation,
   dsh_api_gateway,
   dsh_api_remotes,
   dsh_attachment,
-  dsh_bash_local,
+  // dsh_bash_local: commented — depends on dsh-subprocess-local (node:child_process)
   dsh_client_locale,
   dsh_client_runtime,
   dsh_client_ui_account,
@@ -193,13 +220,14 @@ export const inboxPlugins = [
   dsh_fs_observation_policy,
   dsh_host_directory_picker,
   dsh_invariants,
-  dsh_jobs,
+  // dsh_jobs: commented — JobRegistry is the abstract seam; dsh_jobs_local extends it with the local implementation
   dsh_jobs_local,
   dsh_llm,
   dsh_llm_deepseek,
-  dsh_llm_pi_ai,
+  // dsh_llm_pi_ai: commented — see import block above; pi-ai env-probe strings trip CORS in browser
+  // dsh_llm_pi_ai,
   dsh_lsp,
-  dsh_network,
+  // dsh_network: commented — depends on undici (Node-only HTTP dispatcher); client-first proxy goes through Rust reqwest (spec 6.4)
   dsh_permission_presets,
   dsh_persona,
   dsh_plan_mode,
@@ -221,8 +249,10 @@ export const inboxPlugins = [
   dsh_skill,
   dsh_spill,
   dsh_spill_policy,
-  dsh_storage,
-  dsh_storage_domain,
+  // dsh_storage: see import block — needs Tauri Config + KV backends (spec §6.4)
+  // dsh_storage,
+  // dsh_storage_domain: depends on dsh_storage (Config.backend injection)
+  // dsh_storage_domain,
   dsh_system_prompt,
   dsh_terminal,
   dsh_time_context,
@@ -232,13 +262,13 @@ export const inboxPlugins = [
   dsh_tool_call_timeout_policy,
   dsh_tool_goal,
   dsh_tool_jobs,
-  dsh_tool_lsp,
+  // dsh_tool_lsp: commented — depends on dsh-subprocess-local + dsh-fs-local + node:path in render.ts
   dsh_tool_ralph,
   dsh_tool_session_query,
   dsh_tool_subagent,
   dsh_tool_subagent_control,
   dsh_tool_subagent_report,
-  dsh_tool_terminal,
+  // dsh_tool_terminal: commented — depends on dsh-subprocess-local
   dsh_tool_todo,
   dsh_tool_web,
   dsh_tool_workflow,
@@ -248,13 +278,13 @@ export const inboxPlugins = [
   dsh_user_questions,
   dsh_web,
   dsh_web_fetch_http,
-  dsh_web_search_deepseek,
+  // dsh_web_search_deepseek: commented — depends on dsh-credentials-local (chokidar)
   dsh_web_search_exa,
   dsh_web_search_perplexity,
   dsh_workflow,
 ] as const
 
 /** Number of in-box plugins the shell boot wires into the host context. */
-export const inboxPluginsCount = 116
+export const inboxPluginsCount = 109
 
 export type InboxPlugin = (typeof inboxPlugins)[number]

@@ -3,7 +3,6 @@
  * narrow RpcRequest<P> and echoes request.rpcId on the RpcResponse<T>.
  */
 
-import { randomUUID } from 'node:crypto'
 import { mkdir, stat } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -478,7 +477,7 @@ class FrameQueue<F> {
  * pending registries instead).
  */
 function frame<F>(payload: F): RpcRequest<F> {
-  return { rpcId: RpcId(randomUUID()), payload }
+  return { rpcId: RpcId(crypto.randomUUID()), payload }
 }
 
 /**
@@ -1402,7 +1401,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           'web user interaction requires an agent-owned session', 'ASK_MISSING_AGENT'))
       }
       return new Promise<AskUserQuestionAnswer>((resolve, reject) => {
-        const rpcId = RpcId(randomUUID())
+        const rpcId = RpcId(crypto.randomUUID())
         const pending: PendingQuestion = {
           rpcId, sessionId, questions: request.questions, resolve, reject,
           ...(request.signal === undefined ? {} : { signal: request.signal }),
@@ -1500,7 +1499,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
         const onAbort = (): void => { settle('cancelled') }
         const pending: PendingApproval = {
-          rpcId: RpcId(randomUUID()),
+          rpcId: RpcId(crypto.randomUUID()),
           sessionId: req.agent.session.id,
           approvalId: id,
           toolName: req.toolName,
@@ -2193,7 +2192,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
 
       async create(request) {
-        const sessionId = request.payload.sessionId ?? `session-${randomUUID()}` as SessionId
+        const sessionId = request.payload.sessionId ?? `session-${crypto.randomUUID()}` as SessionId
         let workspace: Workspace | undefined
         if (request.payload.workspaceId !== undefined) {
           workspace = ctx.workspaceRegistry.get(brandWorkspaceId(request.payload.workspaceId))
@@ -2440,7 +2439,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             details: {},
           })
         }
-        const childId = `session-${randomUUID()}` as SessionId
+        const childId = `session-${crypto.randomUUID()}` as SessionId
         // The child inherits the parent's composition for the same reason a
         // resumed session keeps its own: the seeded history was produced under
         // those tools, and composing anything else would strand the tool calls

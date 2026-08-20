@@ -95,10 +95,14 @@ export class ShellEnvRegistry extends Service {
    * Create and install the `ctx.shellEnv` service.
    * @param ctx - Cordis context that owns the service and registrations.
    * @param config - home-directory configuration for the built-in variables.
+   * @param homedir - absolute OS home directory. Node callers pass
+   * `os.homedir()`; the WebView2 host (per spec §7.1) passes the value of
+   * `appApi.configDir()`. Required because `@deepseek-ai/dsh-home-paths`
+   * no longer reaches for `node:os` on the caller's behalf.
    */
-  constructor(ctx: Context, config: Config = {}) {
+  constructor(ctx: Context, config: Config = {}, homedir: string) {
     super(ctx, 'shellEnv')
-    this.dshHome = resolveDshHome(config.dshHome)
+    this.dshHome = resolveDshHome(homedir, config.dshHome)
   }
 
   /**
@@ -197,9 +201,13 @@ export class ShellEnvRegistry extends Service {
  * shell-agnostic persistence contributor (`DSH_SESSION_JSONL`).
  * @param ctx - Cordis context that owns the service and registrations.
  * @param config - home-directory configuration for the built-in variables.
+ * @param homedir - absolute OS home directory. Node callers pass
+ * `os.homedir()`; the WebView2 host (per spec §7.1) passes the value of
+ * `appApi.configDir()`. Required because `@deepseek-ai/dsh-home-paths`
+ * no longer reaches for `node:os` on the caller's behalf.
  */
-export function apply(ctx: Context, config: Config = {}): void {
-  const registry = new ShellEnvRegistry(ctx, config)
+export function apply(ctx: Context, config: Config = {}, homedir: string): void {
+  const registry = new ShellEnvRegistry(ctx, config, homedir)
   registry.register({
     name: 'session-persistence',
     variables: {
@@ -215,3 +223,14 @@ export function apply(ctx: Context, config: Config = {}): void {
     },
   })
 }
+
+/**
+ * Default export = the cordis plugin entry (the `apply` function). The
+ * inbox barrel's `import * as dsh_shell_env` exposes this as
+ * `dsh_shell_env.default`, which `host.ts` then resolves with
+ * `plugin.default ?? plugin` so cordis treats it as a function plugin
+ * (rather than `{ apply, Config, ... }` namespace where `new apply(ctx, config)`
+ * would skip the third argument). Node callers continue to invoke
+ * `apply(ctx, config, homedir)` directly.
+ */
+export default apply
