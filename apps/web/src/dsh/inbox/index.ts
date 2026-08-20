@@ -117,8 +117,10 @@ import * as dsh_skill from '@deepseek-ai/dsh-skill'
 import * as dsh_spill from '@deepseek-ai/dsh-spill'
 import * as dsh_spill_policy from '@deepseek-ai/dsh-spill-policy'
 // dsh_storage / dsh_storage_domain: see registration comment below; needs Tauri commands + Config injection
-// import * as dsh_storage from '@deepseek-ai/dsh-storage'
-// import * as dsh_storage_domain from '@deepseek-ai/dsh-storage-domain'
+import * as dsh_storage from '@deepseek-ai/dsh-storage'
+import * as dsh_storage_json from '@deepseek-ai/dsh-storage-json'
+import * as dsh_storage_domain from '@deepseek-ai/dsh-storage-domain'
+import * as dsh_workspace from '@deepseek-ai/dsh-workspace'
 import * as dsh_system_prompt from '@deepseek-ai/dsh-system-prompt'
 import * as dsh_terminal from '@deepseek-ai/dsh-terminal'
 import * as dsh_time_context from '@deepseek-ai/dsh-time-context'
@@ -256,9 +258,10 @@ export const inboxPlugins = [
   dsh_spill,
   dsh_spill_policy,
   // dsh_storage: see import block — needs Tauri Config + KV backends (spec §6.4)
-  // dsh_storage,
-  // dsh_storage_domain: depends on dsh_storage (Config.backend injection)
-  // dsh_storage_domain,
+  dsh_storage,
+  dsh_storage_json,
+  dsh_storage_domain,
+  dsh_workspace,
   dsh_system_prompt,
   dsh_terminal,
   dsh_time_context,

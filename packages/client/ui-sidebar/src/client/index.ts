@@ -11,6 +11,7 @@ export type {
   SidebarSectionOwnerProps, SidebarSettingsOwnerProps,
 } from './contract/slots.ts'
 export type { SidebarKey } from './locales.ts'
+export { SidebarRoot } from './SidebarRoot.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {

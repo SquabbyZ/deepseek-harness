@@ -4,6 +4,11 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { inboxPlugins } from './inbox/index.ts'
 import { appApi } from './bridge/app.ts'
 import * as dsh_shell_env from '@deepseek-ai/dsh-shell-env'
+import * as dsh_storage from '@deepseek-ai/dsh-storage'
+import * as dsh_storage_domain from '@deepseek-ai/dsh-storage-domain'
+import * as dsh_storage_json from '@deepseek-ai/dsh-storage-json'
+import * as dsh_storage_sqlite from '@deepseek-ai/dsh-storage-sqlite'
+import * as dsh_workspace from '@deepseek-ai/dsh-workspace'
 
 /** Cordis services initialized for the browser runtime. */
 export interface Host {
@@ -98,6 +103,23 @@ export async function startHost(): Promise<Host> {
     // whose only export is the plugin) arrive as the plugin directly. Unwrap
     // `.default` when present so the barrel can mix both shapes.
     const resolved = (plugin as { default?: unknown }).default ?? plugin
+    // Storage backends want real config in production; in vite dev the
+    // Tauri services are stubbed (Tauri commands 404), so the files we
+    // point at are never actually written. The values just have to satisfy
+    // the schema so the plugin applies without throwing — the in-process
+    // mock bridge in `apps/web/src/dsh/bridge/env.ts` handles the rest.
+    let devConfig: unknown = undefined
+    if (resolved === (dsh_storage_json as { default?: unknown }).default ?? dsh_storage_json) {
+      devConfig = { root: '/tmp/.dsh-dev/storage-json' }
+    } else if (resolved === (dsh_storage_domain as { default?: unknown }).default ?? dsh_storage_domain) {
+      devConfig = { backend: 'json' }
+    } else if (resolved === (dsh_storage as { default?: unknown }).default ?? dsh_storage) {
+      devConfig = { path: '/tmp/.dsh-dev/storage.sqlite' }
+    } else if (resolved === (dsh_storage_sqlite as { default?: unknown }).default ?? dsh_storage_sqlite) {
+      devConfig = { path: '/tmp/.dsh-dev/storage.sqlite' }
+    } else if (resolved === (dsh_workspace as { default?: unknown }).default ?? dsh_workspace) {
+      devConfig = {}
+    }
     if (resolved === dsh_shell_env.default) {
       // Per spec §7.1 the WebView2 host resolves its home through Tauri
       // `app.path().app_config_dir()`. shell-env is the one inbox plugin
@@ -113,7 +135,8 @@ export async function startHost(): Promise<Host> {
       await ctx.plugin(wrapped)
     } else {
       try {
-        await ctx.plugin(resolved)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await ctx.plugin(resolved, devConfig as any)
       } catch (error) {
         const tag = (resolved as { name?: string }).name ?? (plugin as { name?: string }).name ?? 'unknown'
         console.error('[host] plugin apply failed:', tag, error)
