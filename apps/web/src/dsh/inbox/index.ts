@@ -10,12 +10,17 @@
 // imports are fragile across workspace packages with custom `exports`.
 
 import * as dsh_agent_default_model from '@deepseek-ai/dsh-agent-default-model'
-import * as dsh_agent_spine_demo from '@deepseek-ai/dsh-agent-spine-demo'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-agent-spine-demo transitively pulls in dsh-skill-filesystem (chokidar) +
+// dsh-subprocess-local (node:child_process) + dsh-fs-local (node:fs).
+// import * as dsh_agent_spine_demo from '@deepseek-ai/dsh-agent-spine-demo'
 import * as dsh_agent_tool_presentation from '@deepseek-ai/dsh-agent-tool-presentation'
 import * as dsh_api_gateway from '@deepseek-ai/dsh-api-gateway/client'
 import * as dsh_api_remotes from '@deepseek-ai/dsh-api-remotes'
 import * as dsh_attachment from '@deepseek-ai/dsh-attachment'
-import * as dsh_bash_local from '@deepseek-ai/dsh-bash-local'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-bash-local depends on dsh-subprocess-local (node:child_process).
+// import * as dsh_bash_local from '@deepseek-ai/dsh-bash-local'
 import * as dsh_client_locale from '@deepseek-ai/dsh-client-locale/client'
 import * as dsh_client_runtime from '@deepseek-ai/dsh-client-runtime/client'
 import * as dsh_client_ui_account from '@deepseek-ai/dsh-client-ui-account/client'
@@ -105,13 +110,18 @@ import * as dsh_tool_ask_user from '@deepseek-ai/dsh-tool-ask-user'
 import * as dsh_tool_call_timeout_policy from '@deepseek-ai/dsh-tool-call-timeout-policy'
 import * as dsh_tool_goal from '@deepseek-ai/dsh-tool-goal'
 import * as dsh_tool_jobs from '@deepseek-ai/dsh-tool-jobs'
-import * as dsh_tool_lsp from '@deepseek-ai/dsh-tool-lsp'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-tool-lsp depends on dsh-subprocess-local (node:child_process) +
+// dsh-fs-local (node:fs), and its render.ts imports node:path/node:url directly.
+// import * as dsh_tool_lsp from '@deepseek-ai/dsh-tool-lsp'
 import * as dsh_tool_ralph from '@deepseek-ai/dsh-tool-ralph'
 import * as dsh_tool_session_query from '@deepseek-ai/dsh-tool-session-query'
 import * as dsh_tool_subagent from '@deepseek-ai/dsh-tool-subagent'
 import * as dsh_tool_subagent_control from '@deepseek-ai/dsh-tool-subagent-control'
 import * as dsh_tool_subagent_report from '@deepseek-ai/dsh-tool-subagent-report'
-import * as dsh_tool_terminal from '@deepseek-ai/dsh-tool-terminal'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-tool-terminal depends on dsh-subprocess-local (node:child_process).
+// import * as dsh_tool_terminal from '@deepseek-ai/dsh-tool-terminal'
 import * as dsh_tool_todo from '@deepseek-ai/dsh-tool-todo'
 import * as dsh_tool_web from '@deepseek-ai/dsh-tool-web'
 import * as dsh_tool_workflow from '@deepseek-ai/dsh-tool-workflow'
@@ -121,7 +131,9 @@ import * as dsh_usage_stats from '@deepseek-ai/dsh-usage-stats'
 import * as dsh_user_questions from '@deepseek-ai/dsh-user-questions'
 import * as dsh_web from '@deepseek-ai/dsh-web'
 import * as dsh_web_fetch_http from '@deepseek-ai/dsh-web-fetch-http'
-import * as dsh_web_search_deepseek from '@deepseek-ai/dsh-web-search-deepseek'
+// TODO(phase3): re-enable when ported to browser-safe
+// dsh-web-search-deepseek depends on dsh-credentials-local (chokidar).
+// import * as dsh_web_search_deepseek from '@deepseek-ai/dsh-web-search-deepseek'
 import * as dsh_web_search_exa from '@deepseek-ai/dsh-web-search-exa'
 import * as dsh_web_search_perplexity from '@deepseek-ai/dsh-web-search-perplexity'
 import * as dsh_workflow from '@deepseek-ai/dsh-workflow'
@@ -135,12 +147,12 @@ import * as dsh_workflow from '@deepseek-ai/dsh-workflow'
  */
 export const inboxPlugins = [
   dsh_agent_default_model,
-  dsh_agent_spine_demo,
+  // dsh_agent_spine_demo: commented — pulls in dsh-skill-filesystem (chokidar) + dsh-subprocess-local
   dsh_agent_tool_presentation,
   dsh_api_gateway,
   dsh_api_remotes,
   dsh_attachment,
-  dsh_bash_local,
+  // dsh_bash_local: commented — depends on dsh-subprocess-local (node:child_process)
   dsh_client_locale,
   dsh_client_runtime,
   dsh_client_ui_account,
@@ -230,13 +242,13 @@ export const inboxPlugins = [
   dsh_tool_call_timeout_policy,
   dsh_tool_goal,
   dsh_tool_jobs,
-  dsh_tool_lsp,
+  // dsh_tool_lsp: commented — depends on dsh-subprocess-local + dsh-fs-local + node:path in render.ts
   dsh_tool_ralph,
   dsh_tool_session_query,
   dsh_tool_subagent,
   dsh_tool_subagent_control,
   dsh_tool_subagent_report,
-  dsh_tool_terminal,
+  // dsh_tool_terminal: commented — depends on dsh-subprocess-local
   dsh_tool_todo,
   dsh_tool_web,
   dsh_tool_workflow,
@@ -246,13 +258,13 @@ export const inboxPlugins = [
   dsh_user_questions,
   dsh_web,
   dsh_web_fetch_http,
-  dsh_web_search_deepseek,
+  // dsh_web_search_deepseek: commented — depends on dsh-credentials-local (chokidar)
   dsh_web_search_exa,
   dsh_web_search_perplexity,
   dsh_workflow,
 ] as const
 
 /** Number of in-box plugins the shell boot wires into the host context. */
-export const inboxPluginsCount = 116
+export const inboxPluginsCount = 111
 
 export type InboxPlugin = (typeof inboxPlugins)[number]
