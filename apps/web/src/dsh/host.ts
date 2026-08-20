@@ -41,8 +41,17 @@ export async function startHost(): Promise<Host> {
     invalidate: () => {},
   } as never
 
-  for (const plugin of inboxPlugins) {
-    await ctx.plugin(plugin)
+  // In-box plugin auto-load is disabled in Phase 2 follow-up #9. The 116
+  // barrel entries trigger Vite optimizeDeps to pre-bundle every plugin,
+  // which pulls in `vite-plugin-node-polyfills` and its broken
+  // `undici/lib/mock/snapshot-recorder.js` resolution. Users install
+  // plugins through the Phase 1 + Phase 2 UI flow instead. Loop is a no-op
+  // when `inboxPlugins` is empty, but we keep it so re-enabling the barrel
+  // is a one-line change in `./inbox/index.ts`.
+  if (inboxPlugins.length > 0) {
+    for (const plugin of inboxPlugins) {
+      await ctx.plugin(plugin)
+    }
   }
 
   return { ctx, loader }
