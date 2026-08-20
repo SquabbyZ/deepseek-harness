@@ -39,7 +39,7 @@ import type {
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { AbstractApiClient, RpcId, SESSION_SEARCH_RESULT_LIMIT } from './api.ts'
 import { randomUuid } from './random-uuid.ts'
-import { callRealLlm } from './real-llm.ts'
+import { callRealLlm, tauriCredentialBackend } from './real-llm.ts'
 import type { ClientConnectionRpc } from '../rpc.ts'
 
 /** The fake carrier mints like a real one (business code never mints). */
@@ -1569,6 +1569,16 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       // storage quota / privacy mode: keep the in-memory value for this session.
     }
   }
+  /** Tauri keyring backend (real mode only); undefined outside the desktop shell. */
+  const tauriCreds = options.realLlm ? tauriCredentialBackend() : undefined
+  /** Read one real credential value: Rust keyring first (Tauri), then localStorage. */
+  const readRealCredential = async (ref: string): Promise<string | null> => {
+    if (tauriCreds !== undefined) {
+      const value = await tauriCreds.get(ref)
+      if (value !== null) return value
+    }
+    return realCredentialValues.get(ref) ?? null
+  }
   /**
    * Welcome-notice acknowledgement double. Mirrors the host's `ui-onboarding`
    * settings namespace (ui-settings-models onboarding-copy.ts): describe
@@ -2254,7 +2264,6 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
    */
   const startRealReply = (id: SessionId, turn: number): void => {
     const step = 0
-    const apiKey = realCredentialValues.get('DEEPSEEK_API_KEY')
     const selection = modelSelections.get(id) ?? { provider: 'deepseek', model: 'deepseek-v4-flash' }
     append(id, { type: 'step/start', data: { turn, step } })
     const finish = (aborted: boolean, replyText: string, usage?: TokenUsage): void => {
@@ -2273,33 +2282,33 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       setRunning(id, false)
     }
     append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'block-start', index: 0, blockType: 'text' } } })
-    if (apiKey === undefined || apiKey === '') {
-      const notice = '未配置 DeepSeek API Key：请在 设置 → 模型 的凭据中填写后重试。'
-      append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: notice } } })
-      finish(true, notice)
-      return
-    }
-    const messages = buildChatMessages(id)
-    void callRealLlm({
-      apiKey,
-      model: selection.model,
-      messages,
-      baseUrl: options.llmUrl,
+    void readRealCredential('DEEPSEEK_API_KEY').then((apiKey) => {
+      if (apiKey === null || apiKey === '') {
+        const notice = '未配置 DeepSeek API Key：请在 设置 → 模型 的凭据中填写后重试。'
+        append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: notice } } })
+        finish(true, notice)
+        return
+      }
+      return callRealLlm({
+        apiKey,
+        model: selection.model,
+        messages: buildChatMessages(id),
+        baseUrl: options.llmUrl,
+      })
+    }).then((reply) => {
+      if (reply === undefined) return
+      append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: reply.text } } })
+      finish(false, reply.text, reply.usage === undefined ? undefined : {
+        inputTokens: reply.usage.inputTokens,
+        outputTokens: reply.usage.outputTokens,
+        cacheReadTokens: reply.usage.cacheReadTokens ?? 0,
+        cacheWriteTokens: reply.usage.cacheWriteTokens ?? 0,
+      })
+    }).catch((error) => {
+      const message = `模型调用失败：${error instanceof Error ? error.message : String(error)}`
+      append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: message } } })
+      finish(true, message)
     })
-      .then((reply) => {
-        append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: reply.text } } })
-        finish(false, reply.text, reply.usage === undefined ? undefined : {
-          inputTokens: reply.usage.inputTokens,
-          outputTokens: reply.usage.outputTokens,
-          cacheReadTokens: reply.usage.cacheReadTokens ?? 0,
-          cacheWriteTokens: reply.usage.cacheWriteTokens ?? 0,
-        })
-      })
-      .catch((error) => {
-        const message = `模型调用失败：${error instanceof Error ? error.message : String(error)}`
-        append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: message } } })
-        finish(true, message)
-      })
   }
 
   const api: ApiProxy = {
@@ -3079,19 +3088,23 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       },
     },
     credentials: {
-      describe: request => ok(request, {
-        credentials: Object.fromEntries(request.payload.refs.map(ref => [ref, {
-          configured: options.realLlm
-            ? realCredentialValues.has(ref)
-            : fixtureCredentials.has(ref),
-          ...(options.realLlm
-            ? realCredentialValues.has(ref) ? { source: 'file' } : {}
-            : fixtureCredentials.has(ref) ? { source: 'file' } : {}),
-          writable: true,
-        }])),
-      }),
-      set: (request) => {
+      describe: async (request) => {
+        const entries: Record<string, { configured: boolean; source?: string; writable: boolean }> = {}
+        for (const ref of request.payload.refs) {
+          const value = options.realLlm ? await readRealCredential(ref) : (fixtureCredentials.has(ref) ? 'fixture-key' : null)
+          entries[ref] = {
+            configured: value !== null,
+            ...(value !== null ? { source: 'file' } : {}),
+            writable: true,
+          }
+        }
+        return ok(request, { credentials: entries })
+      },
+      set: async (request) => {
         if (options.realLlm && typeof request.payload.value === 'string') {
+          if (tauriCreds !== undefined) {
+            await tauriCreds.set(request.payload.ref, request.payload.value)
+          }
           realCredentialValues.set(request.payload.ref, request.payload.value)
           persistRealCredentials()
         } else {
@@ -3099,8 +3112,11 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         }
         return ok(request, {})
       },
-      unset: (request) => {
+      unset: async (request) => {
         if (options.realLlm) {
+          if (tauriCreds !== undefined) {
+            await tauriCreds.delete(request.payload.ref)
+          }
           realCredentialValues.delete(request.payload.ref)
           persistRealCredentials()
         }
@@ -3111,11 +3127,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       // so the Models editor can render the same "no stored value" branch it
       // would in production. Real mode returns the stored secret (the Models
       // editor only ever shows a "stored"/"unset" badge, never the value).
-      reveal: request => ok(request, {
-        value: options.realLlm
-          ? realCredentialValues.get(request.payload.ref) ?? null
-          : fixtureCredentials.has(request.payload.ref) ? 'fixture-key' : null,
-      }),
+      reveal: async (request) => {
+        if (!options.realLlm) {
+          return ok(request, { value: fixtureCredentials.has(request.payload.ref) ? 'fixture-key' : null })
+        }
+        return ok(request, { value: await readRealCredential(request.payload.ref) })
+      },
     },
     llm: {
       providers: request => ok(request, {

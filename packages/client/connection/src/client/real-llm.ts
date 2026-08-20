@@ -67,6 +67,35 @@ function tauriInvoke(): TauriInvoke | undefined {
     : undefined
 }
 
+/** Credential transport backed by the Rust OS-keyring commands. */
+export interface CredentialBackend {
+  get(ref: string): Promise<string | null>
+  set(ref: string, value: string): Promise<void>
+  delete(ref: string): Promise<void>
+}
+
+/** The Tauri credential backend (Rust keyring), or undefined outside Tauri. */
+export function tauriCredentialBackend(): CredentialBackend | undefined {
+  const invoke = tauriInvoke()
+  if (invoke === undefined) return undefined
+  return {
+    get: async (ref) => {
+      try {
+        const value = await invoke<string | null>('credentials_get', { key: ref })
+        return typeof value === 'string' ? value : null
+      } catch {
+        return null
+      }
+    },
+    set: async (ref, value) => {
+      await invoke<void>('credentials_set', { key: ref, value })
+    },
+    delete: async (ref) => {
+      await invoke<void>('credentials_delete', { key: ref })
+    },
+  }
+}
+
 /** Decode the Tauri buffered byte body (Rust reqwest returns Vec<u8>). */
 function decodeBytes(body: number[]): string {
   return new TextDecoder().decode(new Uint8Array(body))
