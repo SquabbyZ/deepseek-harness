@@ -1627,6 +1627,17 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
     ]),
   }).toJSON()
+  /**
+   * The `llm-pi-ai` namespace schema: the Models editor reads the custom-provider
+   * protocol union out of `providers.<route>.api` (protocolChoices) to enable
+   * the 添加自定义提供方 flow. Mirror the adapter's Config shape so the choices
+   * match what a declared route may name.
+   */
+  const LLM_PI_AI_SCHEMA = z.object({
+    providers: z.dict(z.object({
+      api: z.union(['openai-completions', 'openai-responses', 'anthropic-messages']),
+    })).default({}),
+  }).toJSON()
   /** Set a value at a path (creating intermediate objects), mutating `target`. */
   const setPath = (target: Record<string, unknown>, path: readonly string[], value: unknown): void => {
     let node: Record<string, unknown> = target
@@ -3113,6 +3124,14 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           applies: 'live',
           secrets: [{ path: ['apiKey'], set: false }],
           revision: llmDeepseekRevision,
+        }, {
+          ns: 'llm-pi-ai',
+          schema: LLM_PI_AI_SCHEMA,
+          value: { providers: {} },
+          user: { providers: {} },
+          applies: 'live',
+          secrets: [],
+          revision: 0,
         }, {
           ns: PROXY_SETTINGS_NS,
           schema: { type: 'object', dict: { url: { type: 'string' } } },
