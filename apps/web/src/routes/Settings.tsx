@@ -1,211 +1,153 @@
 /**
- * Settings — Phase 2 task 2.6.4.
+ * Settings — renders every `settings.section` slot entry that the in-box
+ * `dsh_client_ui_settings_*` plugins register at boot.
  *
- * Lists the three known settings (theme, language, autoLaunch) and binds each
- * to the existing `useSettings` / `useUpdateSettings` TanStack Query hooks.
- * The settings API is the in-place Tauri `settings_get` / `settings_update`
- * pair bridged in `apps/web/src/dsh/bridge/settings.ts` — no new commands.
+ * The full `SettingsRoot` shell from `ui-settings-general` is the
+ * production target (it owns the nav, the chrome content, the section
+ * ordering, the personalisation overlay, the onboarding wizard, etc.). That
+ * shell wants a half-dozen framework services (sessions, workspaces,
+ * settingsScope, locale, connection, remote, slots) plus a renderSlot
+ * adapter. We don't have all of those — `dsh_session_persistence`,
+ * `dsh_storage`, `dsh_session_query`, etc. are still in the Node sidecar
+ * phase — so this route stops short of `SettingsRoot` and instead just
+ * mounts the registered section components in `settings.section` order.
  *
- * Theme choice is mirrored to `document.documentElement.dataset.theme` so the
- * attribute sits on the root element. `auto` clears the attribute (and lets
- * `prefers-color-scheme` drive the look), while `light` / `dark` pin the
- * explicit value.
+ * Each section is a self-contained React component (it reads its own slot
+ * children via `ctx.slots.entries('settings.general.item')` and the like);
+ * we just need to provide a `renderSlot` adapter that maps slot keys to
+ * their component entries. The host-context provider already exposes the
+ * cordis `ctx`, so the adapter closes over it once.
  */
+import { useEffect, useState, type ReactNode } from 'react'
+import { useHost } from '../dsh/host-context.tsx'
 
-import { useEffect } from 'react'
-import type { ReactNode } from 'react'
-import { useSettings, useUpdateSettings } from '../dsh/query/queries'
-
-/** Shape of the three settings this route knows how to render. */
-type ThemeValue = 'light' | 'dark' | 'auto'
-type LanguageValue = 'en' | 'zh'
-type AutoLaunchValue = boolean
-
-const THEME_OPTIONS: readonly { readonly value: ThemeValue; readonly label: string }[] = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'auto', label: 'Auto' },
-]
-
-const LANGUAGE_OPTIONS: readonly { readonly value: LanguageValue; readonly label: string }[] = [
-  { value: 'en', label: 'English' },
-  { value: 'zh', label: '中文' },
-]
-
-/** Read a value defensively — the Tauri command can return null until seeded. */
-function readValue<T>(value: T | null | undefined, fallback: T): T {
-  return value === null || value === undefined ? fallback : value
+interface SectionEntry {
+  component: unknown
+  options: {
+    id?: string
+    order?: number
+    label?: unknown
+    [key: string]: unknown
+  }
 }
 
-/** Apply the resolved theme to the root element. */
-function applyTheme(theme: ThemeValue): void {
-  const root = document.documentElement
-  if (theme === 'auto') {
-    // Drop the attribute entirely so `prefers-color-scheme` drives the look.
-    delete root.dataset.theme
-  } else {
-    root.dataset.theme = theme
+/** A renderSlot adapter for the slots each section reads internally. */
+function makeRenderSlot(
+  ctx: ReturnType<typeof useHost>['ctx'],
+): (key: string, owner: unknown, opts?: { only?: string }) => ReactNode {
+  return (key, _owner, opts) => {
+    const entries = ctx.slots.entries(key) as readonly SectionEntry[]
+    const filtered = opts?.only !== undefined
+      ? entries.filter(entry => entry.options.id === opts.only)
+      : entries
+    return (
+      <>
+        {filtered.map((entry) => {
+          const Component = entry.component as React.ComponentType<Record<string, unknown>>
+          const id = typeof entry.options.id === 'string' ? entry.options.id : 'item'
+          return <Component key={`${key}:${id}`} />
+        })}
+      </>
+    )
   }
+}
+
+/** No-op selector hook. The full SettingsRoot would return a typed slice
+ * of a settings-namespace document; in vite dev without `dsh-storage` we
+ * have no document, so sections see an empty map and render their fallback
+ * state. */
+function useEmptySelector<T>(selector: (state: never) => T): T {
+  return selector({} as never)
+}
+
+interface SettingsSectionProps {
+  readonly entry: SectionEntry
+  readonly renderSlot: ReturnType<typeof makeRenderSlot>
+}
+
+/**
+ * Wrap a single slot entry's component so we can pass the `renderSlot` /
+ * `use*` props it expects. Section components ship as `SettingsGeneral` etc.
+ * and destructure `useSections`, `useSessions`, `renderSlot`, etc. off their
+ * props object; we provide reasonable stand-ins for vite dev where the
+ * backend services aren't mounted.
+ */
+function SettingsSection({ entry, renderSlot }: SettingsSectionProps): ReactNode {
+  const Component = entry.component as React.ComponentType<Record<string, unknown>>
+  const id = typeof entry.options.id === 'string' ? entry.options.id : 'section'
+  // The slot label is a thunk: `() => t('...')`. We don't have t, so fall
+  // back to the section id in either branch.
+  const label = id
+  return (
+    <section
+      key={id}
+      data-section-id={id}
+      aria-label={label}
+      className="rounded border border-white/10 p-4"
+    >
+      <h2 className="text-lg font-medium mb-3">{label}</h2>
+      <Component
+        renderSlot={renderSlot}
+        useSections={useEmptySelector}
+        useNav={useEmptySelector}
+        useSessions={useEmptySelector}
+        useWorkspaces={useEmptySelector}
+        useOnboardingSteps={useEmptySelector}
+        wide
+        navActions={{ openSection: () => undefined, close: () => undefined }}
+      />
+    </section>
+  )
+}
+
+/** Read every `settings.section` slot entry registered at boot. */
+function useSettingsSections(): readonly SectionEntry[] {
+  const { ctx } = useHost()
+  const [entries, setEntries] = useState<readonly SectionEntry[]>(() =>
+    ctx.slots.entries('settings.section') as readonly SectionEntry[],
+  )
+  useEffect(() => {
+    const off = ctx.on('slots/changed', (key) => {
+      if (key === 'settings.section') {
+        setEntries(ctx.slots.entries('settings.section') as readonly SectionEntry[])
+      }
+    })
+    return () => { void off }
+  }, [ctx])
+  return entries
 }
 
 export function Settings(): ReactNode {
-  const themeQ = useSettings<ThemeValue>('theme')
-  const updateTheme = useUpdateSettings<ThemeValue>('theme')
-  const theme = readValue<ThemeValue>(themeQ.data, 'auto')
-
-  const languageQ = useSettings<LanguageValue>('language')
-  const updateLanguage = useUpdateSettings<LanguageValue>('language')
-  const language = readValue<LanguageValue>(languageQ.data, 'en')
-
-  const autoLaunchQ = useSettings<AutoLaunchValue>('autoLaunch')
-  const updateAutoLaunch = useUpdateSettings<AutoLaunchValue>('autoLaunch')
-  const autoLaunch = readValue<AutoLaunchValue>(autoLaunchQ.data, false)
-
-  // Mirror the persisted theme onto the root element so the rest of the
-  // app can react to it via CSS (`html[data-theme="dark"] { ... }`).
-  // Effect re-runs whenever the resolved value changes (including the
-  // initial fallback before the query resolves).
-  useEffect(() => {
-    applyTheme(theme)
-  }, [theme])
-
-  function selectTheme(next: ThemeValue): void {
-    // Optimistic — flip the attribute first, then persist.
-    applyTheme(next)
-    updateTheme.mutate(next)
-  }
-
-  function selectLanguage(next: LanguageValue): void {
-    updateLanguage.mutate(next)
-  }
-
-  function toggleAutoLaunch(): void {
-    updateAutoLaunch.mutate(!autoLaunch)
-  }
+  const { ctx } = useHost()
+  const sections = useSettingsSections()
+  const renderSlot = makeRenderSlot(ctx)
+  // Stable sort by `order` (then id) so the visual order matches the
+  // ui-settings-* plugin authors' intent.
+  const sorted = [...sections].sort((a, b) => {
+    const ao = typeof a.options.order === 'number' ? a.options.order : 0
+    const bo = typeof b.options.order === 'number' ? b.options.order : 0
+    if (ao !== bo) return ao - bo
+    const ai = typeof a.options.id === 'string' ? a.options.id : ''
+    const bi = typeof b.options.id === 'string' ? b.options.id : ''
+    return ai.localeCompare(bi)
+  })
 
   return (
     <div className="p-4 max-w-3xl mx-auto" data-testid="settings-root">
       <header className="mb-4">
         <h1 className="text-2xl font-semibold">Settings</h1>
         <p className="text-sm text-gray-500">
-          Theme, language, and startup preferences.
+          {sorted.length === 0
+            ? 'No settings sections registered — in-box ui-settings-* plugins may still be booting.'
+            : `${sorted.length} section${sorted.length === 1 ? '' : 's'} from in-box ui-settings-* plugins.`}
         </p>
       </header>
 
-      <section
-        aria-label="Theme"
-        data-setting-key="theme"
-        className="rounded border border-white/10 p-4 mb-3"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="font-medium">Theme</h2>
-            <p className="text-xs text-gray-500">Color scheme used across the app.</p>
-          </div>
-          <span className="text-xs text-gray-500 font-mono">{theme}</span>
-        </div>
-        <div role="radiogroup" aria-label="Theme" className="flex gap-1">
-          {THEME_OPTIONS.map((option) => {
-            const selected = theme === option.value
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                data-theme-option={option.value}
-                onClick={() => selectTheme(option.value)}
-                disabled={updateTheme.isPending}
-                className={`px-3 py-1 rounded text-sm border ${
-                  selected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-transparent text-gray-300 border-white/10 hover:bg-white/5'
-                } disabled:opacity-50`}
-              >
-                {option.label}
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <section
-        aria-label="Language"
-        data-setting-key="language"
-        className="rounded border border-white/10 p-4 mb-3"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="font-medium">Language</h2>
-            <p className="text-xs text-gray-500">Interface text language.</p>
-          </div>
-          <span className="text-xs text-gray-500 font-mono">{language}</span>
-        </div>
-        <div role="radiogroup" aria-label="Language" className="flex gap-1">
-          {LANGUAGE_OPTIONS.map((option) => {
-            const selected = language === option.value
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                data-language-option={option.value}
-                onClick={() => selectLanguage(option.value)}
-                disabled={updateLanguage.isPending}
-                className={`px-3 py-1 rounded text-sm border ${
-                  selected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-transparent text-gray-300 border-white/10 hover:bg-white/5'
-                } disabled:opacity-50`}
-              >
-                {option.label}
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <section
-        aria-label="Auto launch"
-        data-setting-key="autoLaunch"
-        className="rounded border border-white/10 p-4 mb-3"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-medium">Launch on system startup</h2>
-            <p className="text-xs text-gray-500">Start the app when you log in.</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoLaunch}
-            aria-label="Auto launch"
-            data-auto-launch
-            onClick={toggleAutoLaunch}
-            disabled={updateAutoLaunch.isPending}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
-              autoLaunch ? 'bg-blue-600' : 'bg-white/20'
-            } disabled:opacity-50`}
-          >
-            <span
-              className={`inline-block h-3 w-3 transform rounded-full bg-white transition ${
-                autoLaunch ? 'translate-x-5' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-      </section>
-
-      {(themeQ.isError || languageQ.isError || autoLaunchQ.isError) && (
-        <div
-          role="alert"
-          className="mt-2 text-red-600 text-sm"
-          data-testid="settings-error"
-        >
-          Failed to load settings.
-        </div>
-      )}
+      <div className="space-y-6">
+        {sorted.map(entry => (
+          <SettingsSection key={String(entry.options.id ?? 'section')} entry={entry} renderSlot={renderSlot} />
+        ))}
+      </div>
     </div>
   )
 }

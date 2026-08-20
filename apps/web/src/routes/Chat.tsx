@@ -1,15 +1,24 @@
 /**
- * Chat — Phase 2 task 2.6.3 placeholder route.
+ * Chat — composer mock + slot registry dump.
  *
- * Deliberately minimal: a composer mock (textarea + send button) plus an
- * echo of the messages typed so far. No Tauri command, no real LLM call —
- * the real conversation UI rides the in-box `dsh_client_ui_conversation`
- * plugin and lands in a later task. This stub exists so the App router has
- * a `chat` view id to navigate to.
+ * The original DSH Chat (`ui-conversation/ChatView`) needs a fully-mounted
+ * session runtime (current session id, session list store, conversation
+ * timeline). Those plugins (`dsh_session_*`, `dsh_jobs_local`) are
+ * commented out of the inbox while their Tauri-side equivalents land,
+ * so we can't drive a real conversation here yet.
+ *
+ * What this route DOES render: every `conversation.*` slot registered by the
+ * in-box ui plugins (ui-goal's chat-node slot, ui-model-selection's input
+ * slot, ui-trajectory's view slot, etc.). That way the dev loop confirms
+ * each plugin's apply() actually ran, even before sessions land.
+ *
+ * The composer mock (textarea + echo) is preserved from the 2.6.3 stub so
+ * the route is still usable for typing-tests once sessions land.
  */
-
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useHost } from '../dsh/host-context.tsx'
+import type { StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 
 interface Message {
   readonly id: number
@@ -17,26 +26,61 @@ interface Message {
   readonly text: string
 }
 
+/** Pull every slot entry whose key starts with `conversation.`. */
+function useConversationSlots(): readonly { key: string; entries: readonly StoredEntry[] }[] {
+  const { ctx } = useHost()
+  // The SlotRegistry keeps a private map of declared slots. We don't have
+  // an "all keys" accessor, so list the candidate keys the ui-* plugins
+  // document and read each one. Adding a new plugin slot here is intentional.
+  const keys = [
+    'conversation.chat.node',
+    'conversation.input.model',
+    'conversation.input.dock',
+    'conversation.input.overlay',
+    'conversation.input.plan',
+    'conversation.chat.assistant-actions',
+    'conversation.view',
+    'conversation.hero.workspace.directoryFlow',
+  ] as const
+  const [slots, setSlots] = useState(() => readAll())
+  function readAll(): readonly { key: string; entries: readonly StoredEntry[] }[] {
+    return keys.map(key => ({
+      key,
+      entries: ctx.slots.entries(key) as readonly StoredEntry[],
+    }))
+  }
+  useEffect(() => {
+    const offs = keys.map(key => ctx.on('slots/changed', (changed: string) => {
+      if (changed === key) setSlots(readAll())
+    }))
+    return () => { offs.forEach((off) => { void off }) }
+  }, [ctx])
+  return slots
+}
+
 export function Chat(): ReactNode {
   const [draft, setDraft] = useState<string>('')
   const [messages, setMessages] = useState<readonly Message[]>([])
+  const slots = useConversationSlots()
 
   function handleSend(): void {
     const trimmed = draft.trim()
     if (trimmed.length === 0) return
-    setMessages(prev => [
-      ...prev,
-      { id: prev.length + 1, role: 'user', text: trimmed },
-    ])
+    setMessages(prev => [...prev, { id: prev.length + 1, role: 'user', text: trimmed }])
     setDraft('')
   }
 
+  const registeredSlots = slots.filter(s => s.entries.length > 0)
+  const total = registeredSlots.reduce((n, s) => n + s.entries.length, 0)
+
   return (
-    <div className="p-4 max-w-3xl mx-auto flex flex-col h-[calc(100vh-3rem)]">
+    <div className="p-4 max-w-3xl mx-auto flex flex-col h-[calc(100vh-3rem)]" data-testid="chat-root">
       <header className="mb-4">
         <h1 className="text-2xl font-semibold">Chat</h1>
         <p className="text-sm text-gray-500">
-          Placeholder composer — the real conversation UI lands in a later task.
+          {total === 0
+            ? 'No conversation slots registered yet — the session runtime (Phase 2 S6) is the gate for a real chat timeline.'
+            : `${total} conversation slot entry${total === 1 ? '' : 'ies'} registered by in-box ui-* plugins (Phase 2 S9 wiring TBD).`}
         </p>
       </header>
 
@@ -55,9 +99,22 @@ export function Chat(): ReactNode {
         ))}
       </ul>
 
+      {registeredSlots.length > 0 && (
+        <details className="mb-3 text-xs text-gray-500">
+          <summary className="cursor-pointer">Registered slots ({total})</summary>
+          <ul className="mt-2 space-y-1 pl-3">
+            {registeredSlots.map(s => (
+              <li key={s.key}>
+                <code className="font-mono">{s.key}</code> · {s.entries.length} entr{s.entries.length === 1 ? 'y' : 'ies'}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <form
         className="flex gap-2"
-        onSubmit={event => {
+        onSubmit={(event) => {
           event.preventDefault()
           handleSend()
         }}

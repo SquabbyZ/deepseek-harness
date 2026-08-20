@@ -23,6 +23,7 @@ import * as dsh_attachment from '@deepseek-ai/dsh-attachment'
 // import * as dsh_bash_local from '@deepseek-ai/dsh-bash-local'
 import * as dsh_client_locale from '@deepseek-ai/dsh-client-locale/client'
 import * as dsh_client_runtime from '@deepseek-ai/dsh-client-runtime/client'
+import * as dsh_client_connection from '@deepseek-ai/dsh-client-connection/client'
 import * as dsh_client_ui_account from '@deepseek-ai/dsh-client-ui-account/client'
 import * as dsh_client_ui_agent_preset from '@deepseek-ai/dsh-client-ui-agent-preset/client'
 import * as dsh_client_ui_commands from '@deepseek-ai/dsh-client-ui-commands/client'
@@ -170,7 +171,13 @@ export const inboxPlugins = [
   dsh_api_remotes,
   dsh_attachment,
   // dsh_bash_local: commented — depends on dsh-subprocess-local (node:child_process)
+  // dsh_client_ui_settings: must boot before ui-locale and every other ui-*
+  // plugin that reads `ctx.settingsScope.bind(...)` — provides the
+  // settings-namespace transport (no Tauri / no fs; the persistence path
+  // hooks in once `dsh-storage` lands).
+  dsh_client_ui_settings,
   dsh_client_locale,
+  dsh_client_connection,
   dsh_client_runtime,
   dsh_client_ui_account,
   dsh_client_ui_agent_preset,
@@ -188,7 +195,6 @@ export const inboxPlugins = [
   dsh_client_ui_model_selection,
   dsh_client_ui_permission_presets,
   dsh_client_ui_plan,
-  dsh_client_ui_settings,
   dsh_client_ui_settings_agent,
   dsh_client_ui_settings_general,
   dsh_client_ui_settings_mcp,

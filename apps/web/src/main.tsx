@@ -238,14 +238,18 @@ async function main(): Promise<void> {
   }
 
   try {
-    await startHost()
+    const host = await startHost()
     const element = document.getElementById('root')
     if (!element) throw new Error('#root not found in index.html')
 
+    const { HostProvider } = await import('./dsh/host-context.tsx')
+
     ReactDOM.createRoot(element).render(
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>,
+      <HostProvider value={host}>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </HostProvider>,
     )
   } catch (err) {
     const e = err as Error & { cause?: unknown }
@@ -261,6 +265,5 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   // already rendered by the try/catch above; re-throw for devtools
-  // eslint-disable-next-line no-console
   console.error('main() failed:', err)
 })

@@ -43,7 +43,7 @@ const NAV: readonly NavItem[] = [
 function Nav(props: { readonly current: ViewId; readonly onSelect: (id: ViewId) => void }): ReactNode {
   return (
     <nav className="flex gap-2 p-2 border-b border-white/10 bg-black/20">
-      {NAV.map(item => {
+      {NAV.map((item) => {
         const selected = props.current === item.id
         return (
           <button
@@ -65,12 +65,12 @@ function Nav(props: { readonly current: ViewId; readonly onSelect: (id: ViewId) 
 }
 
 /** Route the current view id to its component. */
-function CurrentView(props: { readonly view: ViewId }): ReactNode {
+function CurrentView(props: { readonly view: ViewId; readonly onNavigate: (view: ViewId) => void }): ReactNode {
   switch (props.view) {
     case 'chat':
       return <Chat />
     case 'plugins':
-      return <Plugins />
+      return <Plugins onNavigate={props.onNavigate} />
     case 'inventory':
       return <Inventory />
     case 'agents':
@@ -88,7 +88,7 @@ export function App(): ReactNode {
     <div className="min-h-screen text-gray-900 dark:text-gray-100">
       <Nav current={view} onSelect={setView} />
       <main>
-        <CurrentView view={view} />
+        <CurrentView view={view} onNavigate={setView} />
       </main>
     </div>
   )
