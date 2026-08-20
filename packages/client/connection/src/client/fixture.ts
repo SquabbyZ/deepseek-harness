@@ -1604,6 +1604,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   const llmDeepseekBase: Record<string, unknown> = { apiKeyEnv: 'DEEPSEEK_API_KEY' }
   let llmDeepseekUser: Record<string, unknown> = {}
   let llmDeepseekRevision = 0
+  /** Outbound-proxy settings (`ui-settings-proxy` reads the `proxy` namespace). */
+  const PROXY_SETTINGS_NS = 'proxy'
+  let proxyUrl: string | undefined
+  let proxyRevision = 0
   /**
    * Serialized schemastery envelope for the `llm-deepseek` namespace, built
    * through the real schema library and `.toJSON()`ed — exactly what the host's
@@ -3110,6 +3114,14 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           secrets: [{ path: ['apiKey'], set: false }],
           revision: llmDeepseekRevision,
         }, {
+          ns: PROXY_SETTINGS_NS,
+          schema: { type: 'object', dict: { url: { type: 'string' } } },
+          value: proxyUrl === undefined ? {} : { url: proxyUrl },
+          user: proxyUrl === undefined ? {} : { url: proxyUrl },
+          applies: 'live',
+          secrets: [],
+          revision: proxyRevision,
+        }, {
           ns: WELCOME_NOTICE_NS,
           schema: {},
           value: { [WELCOME_NOTICE_ACK_FIELD]: fixtureWelcomeAck },
@@ -3148,6 +3160,21 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             value: { ...llmDeepseekBase, ...llmDeepseekUser },
             user: { ...llmDeepseekUser },
             revision: llmDeepseekRevision,
+          })
+        }
+        if (request.payload.ns === PROXY_SETTINGS_NS) {
+          for (const op of request.payload.ops) {
+            if (op.op === 'set' && op.path[0] === 'url' && typeof op.value === 'string') {
+              proxyUrl = op.value
+            } else if (op.op === 'unset' && op.path[0] === 'url') {
+              proxyUrl = undefined
+            }
+          }
+          proxyRevision += 1
+          return ok(request, {
+            value: proxyUrl === undefined ? {} : { url: proxyUrl },
+            user: proxyUrl === undefined ? {} : { url: proxyUrl },
+            revision: proxyRevision,
           })
         }
         if (request.payload.ns === WELCOME_NOTICE_NS) {
