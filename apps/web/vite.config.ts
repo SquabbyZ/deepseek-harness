@@ -1,10 +1,37 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import { workspaceResolver } from './src/dsh/inbox/workspace-resolver.ts'
 
 const src = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url))
+
+/**
+ * Subpath gap left by `vite-plugin-node-polyfills`: node-stdlib-browser
+ * ships no `util/types` mapping, and the npm `util` polyfill exposes
+ * `util.types` as a *property*, not a subpath file. undici's web/fetch /
+ * web/websocket code does `const { isUint8Array } = require('node:util/types')`,
+ * which the commonjs plugin's internal resolver (it has its own AST-level
+ * require walker that bypasses user-plugin resolveId hooks) tries to
+ * resolve as a file path under the `util` package and fails with
+ * `ENOENT .../util/types`. Both the `node:util/types` and bare `util/types`
+ * ids are listed here so any code path the cjs walker might call hits our
+ * stub instead. `enforce: 'pre'` puts the hook before Vite's
+ * `resolve.alias` pass.
+ */
+function nodePrePlugins(): Plugin {
+  return {
+    name: 'dsh-node-pre-plugins',
+    enforce: 'pre',
+    resolveId(source) {
+      if (source === 'node:util/types' || source === 'util/types') {
+        return src('./src/dsh/inbox/util-types-stub.ts')
+      }
+      return null
+    },
+  }
+}
 
 /**
  * Vendored cordis / dsh packages whose main/module exports don't point at
@@ -90,7 +117,39 @@ function npmPackageOf(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), workspaceResolver()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Browser-safe polyfills for Node built-ins. Several in-box plugins
+    // accidentally `import 'node:fs'` (or path/os/url/crypto/stream) at
+    // top-level even though they're classified browser-safe. The plugin
+    // rewrites both bare (`fs`) and protocol-prefixed (`node:fs`) imports
+    // to its bundled browser shims. `protocolImports: true` is the
+    // default in v0.28+ but set explicitly so the intent is visible.
+    // `globals.process: false` keeps the `define` block below authoritative
+    // for `process.versions.node`/`process.execArgv`/`process.env.CORDIS_SHARED`
+    // — the plugin's runtime `process` polyfill would otherwise shadow the
+    // build-time string substitutions the vendored loader expects.
+    // `exclude: ['module']` keeps the vendored cordis Loader's
+    // `import { createRequire } from 'node:module'` from being
+    // redirected to node-stdlib-browser's empty-module mock (which
+    // has no `createRequire` named export). The static `node:module`
+    // alias below redirects to a hand-written stub instead.
+    // (`node:fs` doesn't need an exclude because `external: [/^node:fs/]`
+    // below wins against the plugin's alias and keeps the literal
+    // import out of the named-export check — see the comment above
+    // the external block.)
+    nodePolyfills({
+      protocolImports: true,
+      globals: { process: false, Buffer: false, global: false },
+      exclude: ['module'],
+    }),
+    // Resolves the `node:util/types` subpath that node-stdlib-browser
+    // doesn't polyfill (see `nodeUtilTypesShim` above). Runs before
+    // Vite's alias pass via `enforce: 'pre'`.
+    nodePrePlugins(),
+    workspaceResolver(),
+  ],
   server: {
     port: 5173,
     strictPort: true,
@@ -98,12 +157,50 @@ export default defineConfig({
   build: {
     sourcemap: true,
     rollupOptions: {
-      // The in-box plugin graph (audit task 2.6.1) imports `node:*` modules
-      // transitively. Mark them all external so Rollup's static analysis
-      // doesn't try to resolve each named export — at runtime the bundle
-      // will throw on the first call to a Node-only helper, which is the
-      // correct posture for code that the audit classified as "needs port".
-      external: [/^node:/],
+      // Leave a handful of `node:*` subpaths / modules external so the
+      // build succeeds on paths `vite-plugin-node-polyfills` (and its
+      // underlying `node-stdlib-browser`) doesn't cover:
+      //   - `node:fs` (and its `node:fs/promises` subpath):
+      //     node-stdlib-browser ships an empty mock as its `fs`
+      //     polyfill. Anything that does a NAMED import from
+      //     `node:fs` — chokidar, the in-box plugins that pull
+      //     chokidar (credentials-local, settings-file,
+      //     skill-filesystem), the subagent out-of-process shim, etc.
+      //     — fails Rollup's named-export check the moment it tries
+      //     to bind `accessSync`, `statSync`, `writeFileSync`, etc.
+      //     against the empty module. Externalizing leaves the
+      //     literal import text in the bundle; runtime fails with
+      //     a clear "module not found" in the browser, which is the
+      //     same posture the previous `external: [/^node:/]` produced.
+      //   - `node:util/types` is a subpath import the plugin's alias
+      //     table doesn't list; the npm `util` polyfill exposes
+      //     `util.types` as a *property*, not a subpath file, so the
+      //     commonjs resolver fails on it. The alias for this id
+      //     lives in `nodePrePlugins` above but the cjs resolver runs
+      //     its own AST-level require walker and bypasses user
+      //     plugins, so we also list it here so Rollup leaves the
+      //     literal `require('node:util/types')` in the output.
+      //   - The undici-internal `node:diagnostics_channel`,
+      //     `node:sqlite`, `node:async_hooks`, `node:worker_threads`,
+      //     `node:perf_hooks` modules have no polyfill entry.
+      // Leaving these external preserves the previous build's
+      // runtime-failure posture: misclassified plugin code surfaces
+      // via the error overlay instead of silently producing wrong
+      // results. `vite-plugin-node-polyfills` still owns the
+      // `node:path`, `node:os`, `node:url`, `node:crypto`,
+      // `node:stream`, `node:buffer`, `node:assert`, `node:events`,
+      // `node:util`, `node:querystring`, `node:timers`, `node:zlib`,
+      // etc. aliases through `resolve.alias` (which runs before this
+      // external pass).
+      external: [
+        /^node:fs(\/.*)?$/,
+        /^node:util\/types$/,
+        /^node:diagnostics_channel$/,
+        /^node:sqlite$/,
+        /^node:async_hooks$/,
+        /^node:worker_threads$/,
+        /^node:perf_hooks$/,
+      ],
       output: {
         // Output layout: the two main chunks stay at assets/ root; lazy
         // @shikijs/langs grammar chunks group under assets/langs/; fonts
@@ -148,7 +245,19 @@ export default defineConfig({
     alias: [
       // Browserization of the vendored cordis Loader: its only node-only
       // import; the two process probes are mapped by `define` below.
+      // Aliased directly because `exclude: ['module']` in the
+      // `nodePolyfills` call above removes the plugin's competing alias
+      // for `node:module` — without that exclude, the plugin wins
+      // (Vite's `mergeAlias` prepends plugin object-form aliases).
       { find: /^node:module$/, replacement: src('./src/node-module-stub.ts') },
+      // Subpath gap left by `vite-plugin-node-polyfills`: node-stdlib-
+      // browser ships no `util/types` mapping, so undici's
+      // `require('node:util/types')` calls fail at cjs-resolve time.
+      // Stub file provides the four symbols undici / fetch-util destructure.
+      // Both prefixes are listed — the commonjs resolver sometimes strips
+      // the `node:` before matching, so the bare-name form is also caught.
+      { find: /^node:util\/types$/, replacement: src('./src/dsh/inbox/util-types-stub.ts') },
+      { find: /^util\/types$/, replacement: src('./src/dsh/inbox/util-types-stub.ts') },
       // In-box workspace plugins: every @deepseek-ai/dsh-* package's src entry
       // (./client for dual-half packages whose host entry is Node-only). The
       // shell boot calls ctx.plugin() on these in apps/web/src/dsh/inbox.
@@ -175,29 +284,18 @@ export default defineConfig({
       // (`src/client.ts`, `src/fetch/client.ts`, …) the wildcard table
       // would miss.
       ...VENDOR_PACKAGE_ALIASES,
-      // Browser shims for Node built-ins. Some in-box plugins accidentally
-      // `import 'node:path'` (or fs/os/url/crypto/stream) at top-level even
-      // though they're classified browser-safe; map those to a tiny browser
-      // stub instead of letting Rollup externalize them and throw at
-      // runtime when the bundle calls e.g. `nodePath.isAbsolute(...)`.
-      { find: /^node:path$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
-      { find: /^node:fs$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
-      { find: /^node:os$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
-      { find: /^node:url$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
-      { find: /^node:crypto$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
-      { find: /^node:stream$/, replacement: src('./src/dsh/inbox/node-shims.ts') },
     ],
   },
   // Vite's optimizeDeps pre-bundles dev-time tools discovered via the
   // dependency graph. chokidar is Vite's own dev file-watcher and is
   // intentionally pulled in by the dev-server transform pipeline, NOT
-  // runtime client code. The node-shims alias (above) only covers path
-  // helpers — chokidar calls `node:fs` for `stat` / `Stats` / `watch` /
-  // `watchFile` / `unwatchFile`, none of which the shim exports, so
-  // letting optimizeDeps pre-bundle it through this alias would produce
-  // a broken dev pre-bundle. fsevents and readdirp are chokidar's own
-  // optional transitive deps — exclude them so the pre-bundler doesn't
-  // try to walk their node:fs-touching paths either.
+  // runtime client code. `vite-plugin-node-polyfills` rewrites `node:fs`
+  // to a browser-only shim that uses virtual modules — chokidar's *stat*
+  // calls would resolve against the browser shim and break real file
+  // watching, so we keep it excluded from pre-bundling. fsevents and
+  // readdirp are chokidar's own optional transitive deps — exclude them
+  // so the pre-bundler doesn't try to walk their node:fs-touching paths
+  // either.
   optimizeDeps: {
     exclude: ['chokidar', 'fsevents', 'readdirp'],
   },
