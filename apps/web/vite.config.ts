@@ -139,10 +139,56 @@ export default defineConfig({
     // below wins against the plugin's alias and keeps the literal
     // import out of the named-export check — see the comment above
     // the external block.)
+    //
+    // `exclude` (Phase 2 follow-up #10): tells `vite-plugin-node-polyfills`
+    // to skip its bundled browser shim for these broken internals. The
+    // polyfill wraps `undici` (used by `node:fetch`) and `util/types`, which
+    // in turn require subpaths the plugin's resolver can't satisfy (e.g.
+    // `undici/lib/mock/snapshot-recorder.js` -> `node:fs/promises`,
+    // `util/types`). Excluding them tells the polyfill "do not alias these
+    // modules" so they fall through to the `external` list below (which
+    // leaves them as literal imports — runtime fails with a clear
+    // "module not found" instead of a pre-bundle crash). The in-box barrel
+    // boots because the in-box plugins don't touch any of these at
+    // evaluation time; the boot error overlay surfaces anything that
+    // accidentally does.
+    // `paths` reroutes the polyfill's own bundled shims to our hand-written
+    // stub for the modules that ARE used at evaluation time. Without it,
+    // `vite-plugin-node-polyfills`'s bundled `path.js` ships named exports
+    // missing from the in-box plugins' named-import list (e.g.
+    // `relative`, `normalize`) and Rollup's named-export check rejects
+    // them silently. Pointing `path`/`fs`/`os`/`url`/`crypto`/`stream`/
+    // `string_decoder`/`util` at the hand-written stubs makes the bundle
+    // resolve without surprising empty-export errors.
+    //
+    // `include` is intentionally broad: every Node built-in that any
+    // transitive dependency (chokidar via settings/credentials, undici via
+    // node-fetch, …) might reach. The default polyfill bundles browser
+    // shims for these; without `include`, a narrower list would let
+    // Rollup externalize `node:events` (etc.) and fail the named-export
+    // check. `exclude` below still wins for the broken modules.
     nodePolyfills({
+      name: 'dsh-node-polyfills',
       protocolImports: true,
+      include: [
+        'node:assert', 'node:buffer', 'node:console', 'node:crypto',
+        'node:dns', 'node:events', 'node:fs', 'node:http', 'node:http2',
+        'node:net', 'node:os', 'node:path', 'node:querystring',
+        'node:stream', 'node:string_decoder', 'node:timers', 'node:tls',
+        'node:url', 'node:util', 'node:zlib',
+      ],
+      exclude: ['undici', 'util', 'fs', 'path', 'string_decoder', 'buffer', 'buffer_ieee754', 'ieee754'],
       globals: { process: false, Buffer: false, global: false },
-      exclude: ['module'],
+      paths: {
+        path: src('./src/dsh/inbox/node-shims.ts'),
+        fs: src('./src/dsh/inbox/node-shims.ts'),
+        os: src('./src/dsh/inbox/node-shims.ts'),
+        url: src('./src/dsh/inbox/node-shims.ts'),
+        crypto: src('./src/dsh/inbox/node-shims.ts'),
+        stream: src('./src/dsh/inbox/node-shims.ts'),
+        string_decoder: src('./src/dsh/inbox/node-shims.ts'),
+        util: src('./src/dsh/inbox/node-shims.ts'),
+      },
     }),
     // Resolves the `node:util/types` subpath that node-stdlib-browser
     // doesn't polyfill (see `nodeUtilTypesShim` above). Runs before
