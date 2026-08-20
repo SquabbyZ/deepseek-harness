@@ -1669,9 +1669,47 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
    * constants so the settings editor's save and delete are exercisable: the
    * roster a GUI journey sees after writing is the text it wrote.
    */
+  const STANDARD_PRESET_CONTENT = [
+    "- id: persona\n  name: '@deepseek-ai/dsh-persona'",
+    "- id: agent-instructions\n  name: '@deepseek-ai/dsh-agent-instructions'",
+    "- id: tool-bash\n  name: '@deepseek-ai/dsh-tool-bash'",
+    "- id: tool-pwsh\n  name: '@deepseek-ai/dsh-tool-pwsh'",
+    "- id: tool-fs\n  name: '@deepseek-ai/dsh-tool-fs'",
+    "- id: tool-fs-search\n  name: '@deepseek-ai/dsh-tool-fs-search'",
+    "- id: tool-jobs\n  name: '@deepseek-ai/dsh-tool-jobs'",
+    "- id: skill-filesystem\n  name: '@deepseek-ai/dsh-skill-filesystem'",
+    "- id: tool-skill\n  name: '@deepseek-ai/dsh-tool-skill'",
+    "- id: tool-goal\n  name: '@deepseek-ai/dsh-tool-goal'",
+    "- id: tool-ask-user\n  name: '@deepseek-ai/dsh-tool-ask-user'",
+    "- id: tool-todo\n  name: '@deepseek-ai/dsh-tool-todo'",
+    "- id: tool-web\n  name: '@deepseek-ai/dsh-tool-web'",
+  ].join('\n') + '\n'
+  /**
+   * The shipped preset roster, mirroring the deployment's four defaults
+   * (display copy lives in ui-agent-preset's BUILT_IN_PRESET_KEYS): standard,
+   * code (PTC 模式: standard + Code Mode presentation), minimal, cordis
+   * (创造模式: standard + preset-authoring tool). `my-agent` demonstrates a
+   * locally authored user preset.
+   */
   const fixturePresets = new Map<string, { trust: 'system' | 'user'; content: string }>([
-    ['standard', { trust: 'system', content: "- id: tool-bash\n  name: '@deepseek-ai/dsh-tool-bash'\n" }],
-    ['minimal', { trust: 'system', content: "- id: tool-web-search\n  name: '@deepseek-ai/dsh-tool-web-search'\n" }],
+    ['standard', { trust: 'system', content: STANDARD_PRESET_CONTENT }],
+    ['code', {
+      trust: 'system',
+      content: STANDARD_PRESET_CONTENT
+        + "- id: tool-presentation\n  name: '@deepseek-ai/dsh-tool-presentation'\n"
+        + "- id: tool-code-runtime\n  name: '@deepseek-ai/dsh-code-runtime-worker-thread'\n",
+    }],
+    ['minimal', { trust: 'system', content: [
+      "- id: persona\n  name: '@deepseek-ai/dsh-persona'",
+      "- id: tool-bash\n  name: '@deepseek-ai/dsh-tool-bash'",
+      "- id: tool-str-replace-editor\n  name: '@deepseek-ai/dsh-tool-str-replace-editor'",
+    ].join('\n') + '\n' }],
+    ['cordis', {
+      trust: 'system',
+      content: STANDARD_PRESET_CONTENT
+        + "- id: tool-cordis\n  name: '@deepseek-ai/dsh-tool-cordis'\n"
+        + "- id: agent-presets\n  name: '@deepseek-ai/dsh-agent-presets'\n",
+    }],
     ['my-agent', { trust: 'user', content: "- id: tool-read\n  name: '@deepseek-ai/dsh-tool-read'\n" }],
   ])
   let fixtureDefaultPreset = 'standard'
