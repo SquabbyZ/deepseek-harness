@@ -256,7 +256,17 @@ export default defineConfig({
   // own optional transitive deps — exclude them so the pre-bundler
   // doesn't try to walk their node:fs-touching paths either.
   optimizeDeps: {
-    exclude: ['chokidar', 'fsevents', 'readdirp'],
+    exclude: [
+      'chokidar', 'fsevents', 'readdirp',
+      // LLM SDKs bundle dynamic `import('node:buffer')` for image / byte
+      // payloads. Esbuild pre-bundling preserves the string literal so
+      // `nodeShimPlugin` never sees it; serve them as raw source instead so
+      // the dynamic `node:*` specifier is rewritten through the same
+      // resolveId hook as every other import.
+      '@anthropic-ai/sdk',
+      '@google/generative-ai',
+      '@google-cloud/vertexai',
+    ],
   },
   define: {
     // vendored loader internal.ts: fromInternal() probes the Node major —

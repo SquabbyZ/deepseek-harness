@@ -71,13 +71,29 @@ import * as dsh_fs from '@deepseek-ai/dsh-fs'
 import * as dsh_fs_observation_policy from '@deepseek-ai/dsh-fs-observation-policy'
 import * as dsh_host_directory_picker from '@deepseek-ai/dsh-host-directory-picker'
 import * as dsh_invariants from '@deepseek-ai/dsh-invariants'
-import * as dsh_jobs from '@deepseek-ai/dsh-jobs'
+// dsh_jobs: abstract JobRegistry seam; dsh_jobs_local extends it with the local implementation
 import * as dsh_jobs_local from '@deepseek-ai/dsh-jobs-local'
 import * as dsh_llm from '@deepseek-ai/dsh-llm'
 import * as dsh_llm_deepseek from '@deepseek-ai/dsh-llm-deepseek'
-import * as dsh_llm_pi_ai from '@deepseek-ai/dsh-llm-pi-ai'
+// TODO(phase3): re-enable when pi-ai provider is gated behind a feature flag that
+// requires a polyfilled browser fetch. `@earendil-works/pi-ai` keeps a
+// `NODE_FS_SPECIFIER = "node:fs"` style env-probe string at module scope and
+// `await import(NODE_FS_SPECIFIER)` at runtime, which is not statically
+// analyzable and therefore not rewritable by `nodeShimPlugin` — both
+// pre-bundled and raw-source paths end up at CORS-failing browser requests
+// for `node:fs` / `node:os` / `node:path`. The provider stays available in
+// Node / Tauri via the apiproxy; the browser inbox only mounts browser-safe
+// LLM providers.
+// import * as dsh_llm_pi_ai from '@deepseek-ai/dsh-llm-pi-ai'
 import * as dsh_lsp from '@deepseek-ai/dsh-lsp'
-import * as dsh_network from '@deepseek-ai/dsh-network'
+// TODO(phase3): re-enable when proxy migrate lands (Tauri invoke → Rust reqwest per spec 6.4)
+// dsh-network depends on undici (Node-only HTTP dispatcher) — esbuild's cjs-to-esm pass
+// inlines `import('node:fs')`/`util.debuglog` from undici before nodeShimPlugin can rewrite
+// them, so the dev console surfaces CORS for node:fs + TypeError util.debuglog. Production
+// build is unaffected (Rollup externalizes node:*) but the browser bundle has no use for it:
+// client-first routes proxy through `httpApi.setProxy` → Rust reqwest, not undici. Re-enable
+// only if we re-introduce a Node-side undici path.
+// import * as dsh_network from '@deepseek-ai/dsh-network'
 import * as dsh_permission_presets from '@deepseek-ai/dsh-permission-presets'
 import * as dsh_persona from '@deepseek-ai/dsh-persona'
 import * as dsh_plan_mode from '@deepseek-ai/dsh-plan-mode'
@@ -99,8 +115,9 @@ import * as dsh_shell_env from '@deepseek-ai/dsh-shell-env'
 import * as dsh_skill from '@deepseek-ai/dsh-skill'
 import * as dsh_spill from '@deepseek-ai/dsh-spill'
 import * as dsh_spill_policy from '@deepseek-ai/dsh-spill-policy'
-import * as dsh_storage from '@deepseek-ai/dsh-storage'
-import * as dsh_storage_domain from '@deepseek-ai/dsh-storage-domain'
+// dsh_storage / dsh_storage_domain: see registration comment below; needs Tauri commands + Config injection
+// import * as dsh_storage from '@deepseek-ai/dsh-storage'
+// import * as dsh_storage_domain from '@deepseek-ai/dsh-storage-domain'
 import * as dsh_system_prompt from '@deepseek-ai/dsh-system-prompt'
 import * as dsh_terminal from '@deepseek-ai/dsh-terminal'
 import * as dsh_time_context from '@deepseek-ai/dsh-time-context'
@@ -203,13 +220,14 @@ export const inboxPlugins = [
   dsh_fs_observation_policy,
   dsh_host_directory_picker,
   dsh_invariants,
-  dsh_jobs,
+  // dsh_jobs: commented — JobRegistry is the abstract seam; dsh_jobs_local extends it with the local implementation
   dsh_jobs_local,
   dsh_llm,
   dsh_llm_deepseek,
-  dsh_llm_pi_ai,
+  // dsh_llm_pi_ai: commented — see import block above; pi-ai env-probe strings trip CORS in browser
+  // dsh_llm_pi_ai,
   dsh_lsp,
-  dsh_network,
+  // dsh_network: commented — depends on undici (Node-only HTTP dispatcher); client-first proxy goes through Rust reqwest (spec 6.4)
   dsh_permission_presets,
   dsh_persona,
   dsh_plan_mode,
@@ -231,8 +249,10 @@ export const inboxPlugins = [
   dsh_skill,
   dsh_spill,
   dsh_spill_policy,
-  dsh_storage,
-  dsh_storage_domain,
+  // dsh_storage: see import block — needs Tauri Config + KV backends (spec §6.4)
+  // dsh_storage,
+  // dsh_storage_domain: depends on dsh_storage (Config.backend injection)
+  // dsh_storage_domain,
   dsh_system_prompt,
   dsh_terminal,
   dsh_time_context,
@@ -265,6 +285,6 @@ export const inboxPlugins = [
 ] as const
 
 /** Number of in-box plugins the shell boot wires into the host context. */
-export const inboxPluginsCount = 111
+export const inboxPluginsCount = 109
 
 export type InboxPlugin = (typeof inboxPlugins)[number]

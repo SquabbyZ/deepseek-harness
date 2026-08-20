@@ -214,6 +214,29 @@ window.addEventListener('unhandledrejection', (e) => {
 })
 
 async function main(): Promise<void> {
+  // vite dev runs without a Tauri runtime; install a per-command bridge
+  // override so `pnpm dev` keeps a usable boot loop while `pnpm tauri dev`
+  // (and the production MSI) get the real Rust-side `invoke` for free.
+  if (!('__TAURI_INTERNALS__' in window)) {
+    const { setDevInvokeOverride } = await import('./dsh/bridge/env.ts')
+    setDevInvokeOverride((cmd, args) => {
+      switch (cmd) {
+        case 'app_config_dir': return Promise.resolve('/tmp/.dsh-dev')
+        case 'app_version': return Promise.resolve('0.0.0-dev')
+        case 'crash_log_path': return Promise.resolve('/tmp/.dsh-dev/crash.log')
+        default:
+          if (process.env.NODE_ENV !== 'production') {
+            return Promise.reject(new Error(
+              `bridge: dev invoke of "${cmd}" has no stub — ` +
+              'add one to setDevInvokeOverride() in main.tsx. ' +
+              `(args=${JSON.stringify(args ?? {})})`,
+            ))
+          }
+          return Promise.reject(new Error(`bridge: dev invoke of "${cmd}" without Tauri runtime`))
+      }
+    })
+  }
+
   try {
     await startHost()
     const element = document.getElementById('root')
