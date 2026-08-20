@@ -13,21 +13,15 @@
  * control point over what a consumer can receive and the legal key set of
  * `ctx.remote.$on`. Forwarding one more event is an entry here and nothing
  * else.
+ *
+ * Phase 2 task 2.6.5 retired `dsh-cordis-host-runner` and the dynamic-package
+ * toolset it powered. The `cordis/*` events are dropped from this allowlist
+ * until a successor runtime re-introduces them.
  */
 export const API_REMOTE_FORWARDED_EVENTS = [
   'agent-preset/selected',
   'commands/change',
   'credentials/updated',
-  'cordis/request-run',
-  'cordis/request-run-resolved',
-  'cordis/dynamic-package',
-  'cordis/dynamic-retract',
-  'cordis/inspect-query',
-  'cordis/inspect-query-resolved',
   'llm/adapters-updated',
-  'plugin-inventory/changed',
   'settings/document-updated',
-  'skill-inventory/changed',
-  'mcp-inventory/changed',
-  'agent-inventory/changed',
 ] as const

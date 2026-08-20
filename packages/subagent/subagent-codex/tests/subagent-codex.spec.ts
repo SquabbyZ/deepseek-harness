@@ -182,6 +182,7 @@ function runSpec(
   overrides: Partial<CodexRunSpec> = {},
 ): CodexRunSpec {
   return {
+    platform: 'linux',
     cwd: process.cwd(),
     env: {},
     disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
@@ -862,7 +863,7 @@ describe('run lifecycle and quiescence', () => {
     child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
     const run = await starting
     expect(spawn).toHaveBeenCalledWith({
-      argv: codexAppServerArgv(),
+      argv: codexAppServerArgv('linux'),
       cwd: process.cwd(),
       stdio: { stdin: 'pipe', stdout: 'pipe', stderr: 'inherit' },
       graceMs: DEFAULT_DISPOSE_GRACE_MS,

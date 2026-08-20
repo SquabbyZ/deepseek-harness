@@ -1,7 +1,6 @@
 import {
   useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode,
 } from 'react'
-import type { AgentEntryId, AgentInventoryEntry } from '@deepseek-ai/dsh-host-agent-inventory/types'
 import {
   SearchInput,
   ShadcnButton,
@@ -11,7 +10,12 @@ import {
   useDebouncedToggle,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { type AgentInventoryEntryView, type AgentInventoryStore } from './inventory-store.ts'
+import {
+  type AgentEntryId,
+  type AgentInventoryEntry,
+  type AgentInventoryEntryView,
+  type AgentInventoryStore,
+} from './inventory-store.ts'
 import type { AgentInventoryLocaleKey } from './locales.ts'
 
 export interface AgentInventorySettingsTabInjected {

@@ -28,8 +28,7 @@ pnpm --dir desktop install --frozen-lockfile
 ```bash
 pnpm install                              # workspace deps (root lockfile)
 pnpm --dir desktop install --frozen-lockfile  # desktop deps incl. @tauri-apps/cli
-pnpm run build:lib                        # shared library (also run inside build:sidecar)
-pnpm --dir desktop run build:sidecar      # materialize resources/dsh-runtime/
+pnpm run build:lib                        # shared library
 pnpm --dir desktop exec tauri build
 ```
 
@@ -120,19 +119,9 @@ Run the following end-to-end before shipping. Steps 1–4 are the automated
    ```
 
    Expected: `tsc` + `tsdown` complete for the host and client faces with no
-   errors. (Also run automatically inside step 3.)
+   errors.
 
-3. Materialize the portable-Node sidecar runtime:
-
-   ```bash
-   pnpm --dir desktop run build:sidecar
-   ```
-
-   Expected: logs `sidecar runtime ready at .../desktop/src-tauri/resources/dsh-runtime`;
-   the directory then contains `node.exe` (Windows) / `node` (macOS), plus
-   `dsh/lib/bin.js` and a populated `node_modules`.
-
-4. Full Tauri release build (Rust release compile + bundling — SLOW, several
+3. Full Tauri release build (Rust release compile + bundling — SLOW, several
    minutes):
 
    ```bash

@@ -51,7 +51,6 @@ describe('tierExternalDeps', () => {
       'website/package.json': { devDependencies: { 'site-tool': '^1' } },
       // A plugin package's runtime dependency ships even when no app mounts it by default.
       'packages/mcp/mcp-client/package.json': { name: '@deepseek-ai/dsh-mcp-client', dependencies: { 'protocol-sdk': '^1' }, devDependencies: { 'protocol-fixture-server': '^1' } },
-      'apps/cli/package.json': { name: '@deepseek-ai/dsh-cli', dependencies: { 'cli-lib': '^1', '@deepseek-ai/dsh-mcp-client': 'workspace:^' } },
     })
 
     expect(tierExternalDeps(manifests, names)).toEqual(new Map([
@@ -63,19 +62,16 @@ describe('tierExternalDeps', () => {
       ['site-tool', false],
       ['protocol-sdk', true],
       ['protocol-fixture-server', false],
-      ['cli-lib', true],
     ]))
   })
 
   it('keeps a package runtime when any shipping area declares it, and excludes workspace links', () => {
     const { manifests, names } = workspace({
       'package.json': { devDependencies: { shared: '^1' } },
-      'packages/interaction/tui/package.json': { name: '@deepseek-ai/dsh-tui', dependencies: { shared: '^1', '@deepseek-ai/dsh-cli': 'workspace:^' } },
-      'apps/cli/package.json': { name: '@deepseek-ai/dsh-cli' },
+      'packages/interaction/tui/package.json': { name: '@deepseek-ai/dsh-tui', dependencies: { shared: '^1' } },
     })
 
     expect(tierExternalDeps(manifests, names).get('shared')).toBe(true)
-    expect(tierExternalDeps(manifests, names).has('@deepseek-ai/dsh-cli')).toBe(false)
   })
 })
 

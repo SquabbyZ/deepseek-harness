@@ -247,6 +247,7 @@ function fakeRun(
   const spawnSpecs: SubprocessSpawnSpec[] = []
   const options: FakeRun['options'] = []
   const spec: ClaudeCodeRunSpec = {
+    platform: 'linux',
     cwd: '/workspace',
     executable: '/native/claude',
     env: { ANTHROPIC_API_KEY: 'fake-key' },
@@ -430,7 +431,7 @@ describe('official spawn projection', () => {
       C: 'three',
       SDK_REMOVED_AMBIENT: undefined,
     }))
-    const spawnSpec = claudeSpawnSpec(options, 321)
+    const spawnSpec = claudeSpawnSpec(options, 321, 'linux')
     expect(spawnSpec).toMatchObject({
       argv: ['/official/claude', '--one', 'two'],
       cwd: '/parent/workspace',
@@ -538,6 +539,7 @@ describe('query options and result mapping', () => {
     const spawn = vi.fn(() => child.handle)
     const captured: SubprocessHandle[] = []
     const spec: ClaudeCodeRunSpec = {
+      platform: 'linux',
       cwd: '/workspace',
       executable: '/native/claude',
       env: {
@@ -702,6 +704,7 @@ describe('run publication, cancellation, and settlement', () => {
     const controllers: AbortController[] = []
     let index = 0
     const spec: ClaudeCodeRunSpec = {
+      platform: 'linux',
       cwd: '/workspace',
       executable: '/native/claude',
       env: {},
@@ -753,6 +756,7 @@ describe('run publication, cancellation, and settlement', () => {
     const run = await startClaudeCodeRun(
       request(undefined, parentAbort.signal),
       {
+        platform: 'linux',
         cwd: '/workspace',
         executable: '/native/claude',
         env: {},

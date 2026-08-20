@@ -29,7 +29,6 @@ import { dirname, join } from 'node:path'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { WebBootEntry, WebBootGraph } from './client/manifest.ts'
 
 export type {
@@ -238,14 +237,13 @@ export class ClientModuleRegistry extends Service {
       throw new ClientPackageCompositionError(failures)
     }
 
-    ctx.effect(
-      () => ctx.webServer.register({ kind: 'prefix', path: '/plugins', handler: this.serveBundle }),
-      'client-modules: bundle route',
-    )
-    ctx.effect(
-      () => ctx.webServer.tapIndex(html => injectBootManifest(html, this.composed)),
-      'client-modules: boot manifest injection',
-    )
+    // The two host-side route registrations (`/plugins` bundle prefix and the
+    // `__DSH_BOOT__` index tap) previously mounted on the deleted
+    // `ctx.webServer` carrier. Phase 2 retires that carrier; the in-memory
+    // composed graph (`this.composed`) is still produced for the browser half
+    // and any successor carrier that takes the route. The pre-built
+    // `serveBundle` handler is preserved on the instance for re-mount.
+    void this.serveBundle
   }
 
   /**

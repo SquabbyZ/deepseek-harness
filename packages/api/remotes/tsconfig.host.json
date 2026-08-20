@@ -38,22 +38,7 @@
       "path": "../../session/session-persistence"
     },
     {
-      "path": "../../extensions/cordis-host-runner"
-    },
-    {
       "path": "../../settings/settings"
-    },
-    {
-      "path": "../../host/plugin-inventory"
-    },
-    {
-      "path": "../../host/skill-inventory"
-    },
-    {
-      "path": "../../host/mcp-inventory"
-    },
-    {
-      "path": "../../host/agent-inventory"
     },
     {
       "path": "../../runtime-diagnostics/invariants"

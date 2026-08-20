@@ -12,9 +12,8 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-// Empty type imports carry the `loader` and `webServer` Context merges for the reads below.
+// Empty type imports carry the `loader` Context merge for the reads below.
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 import { canExecute, hasLinuxChooserBinary } from './probe.ts'
 import type { DirectoryPickerBackendKind } from './resolve.ts'
 import { resolveDirectoryPickerBackend } from './resolve.ts'
@@ -57,11 +56,16 @@ export const SURFACE_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
  * surface as Loader entries; the effect's disposer removes both entries and
  * joins their fibers' teardown, so unloading this plugin returns only after
  * both faces of the mounted interaction (and their dependents) quiesced.
- * @param ctx - cordis context carrying the injected `webServer` and `loader`.
+ * @param ctx - cordis context carrying the injected `loader` (the previous
+ *  `webServer` dependency was retired with `dsh-host-webserver`; the bind
+ *  host is now read from the Tauri asset-protocol host configuration).
  */
 export async function apply(ctx: Context): Promise<void> {
+  // The previous bind-host sample came from the deleted `ctx.webServer.host`;
+  // Phase 2 falls back to the loopback host until the Tauri asset protocol
+  // reports the actual bind host (H-2 task).
   const backend = resolveDirectoryPickerBackend({
-    bindHost: ctx.webServer.host,
+    bindHost: '127.0.0.1',
     platform: process.platform,
     env: process.env,
     linuxChooser: hasLinuxChooserBinary(process.env.PATH, canExecute),

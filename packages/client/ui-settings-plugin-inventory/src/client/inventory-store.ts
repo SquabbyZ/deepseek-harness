@@ -10,7 +10,35 @@
  */
 
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PluginInventorySnapshot, PluginInventoryEntry } from '@deepseek-ai/dsh-host-plugin-inventory/types'
+
+/** Stable Loader-tree identity of one configured plugin entry. */
+export type PluginEntryId = string & { readonly __brand: 'PluginEntryId' }
+
+/** Lifecycle state of an entry's root Fiber, or null when it has no live root Fiber. */
+export type PluginFiberPhase =
+  | 'pending'
+  | 'loading'
+  | 'active'
+  | 'failed'
+  | 'unloading'
+  | null
+
+/** Reason an entry currently resolves to `enabled: false`. */
+export type PluginDisabledReason = 'user' | 'cordis' | null
+
+/** One non-group Loader entry exposed to trusted clients. */
+export interface PluginInventoryEntry {
+  readonly entryId: PluginEntryId
+  readonly moduleName: string
+  readonly enabled: boolean
+  readonly disabledReason: PluginDisabledReason
+  readonly fiberPhase: PluginFiberPhase
+}
+
+/** Point-in-time inventory returned by the plugin inventory Remote. */
+export interface PluginInventorySnapshot {
+  readonly entries: readonly PluginInventoryEntry[]
+}
 
 /** Snapshot shape the panel reads; adds a `read` flag and optional error. */
 export interface PluginInventoryPanelSnapshot {

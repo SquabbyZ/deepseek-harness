@@ -1,10 +1,6 @@
 import {
   useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode,
 } from 'react'
-import type {
-  SkillEntryId,
-  SkillInventoryEntry,
-} from '@deepseek-ai/dsh-host-skill-inventory/types'
 import {
   SearchInput,
   ShadcnButton,
@@ -14,7 +10,12 @@ import {
   useDebouncedToggle,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { type SkillInventoryEntryView, type SkillInventoryStore } from './inventory-store.ts'
+import {
+  type SkillEntryId,
+  type SkillInventoryEntry,
+  type SkillInventoryEntryView,
+  type SkillInventoryStore,
+} from './inventory-store.ts'
 import type { SkillInventoryLocaleKey } from './locales.ts'
 
 /** Registration-side Remote face used by the section. */

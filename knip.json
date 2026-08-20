@@ -726,20 +726,6 @@
         "react-dom"
       ]
     },
-    "apps/cli": {
-      "entry": [
-        "tests/**/*.spec.ts",
-        "tests/**/*.e2e.ts",
-        "tests/**/*.snapshot.ts"
-      ],
-      "project": [
-        "src/**/*.ts",
-        "tests/**/*.ts"
-      ],
-      "ignoreDependencies": [
-        "@deepseek-ai/.+"
-      ]
-    },
     "packages/client/modules": {
       "entry": [
         "tests/**/*.spec.ts"

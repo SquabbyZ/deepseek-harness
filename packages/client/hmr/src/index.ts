@@ -9,14 +9,11 @@
  * chain stays idle.
  */
 import { statSync } from 'node:fs'
-import type { ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-// Empty type imports carry the clientModuleHost/webServer Context merges.
+// Empty type imports carry the clientModuleHost Context merge.
 import type {} from '@deepseek-ai/dsh-client-modules'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { PluginsEventFrame } from './events.ts'
-import { EVENTS_ENDPOINT } from './events.ts'
 
 export type { PluginsEventFrame } from './events.ts'
 export { EVENTS_ENDPOINT } from './events.ts'
@@ -24,8 +21,8 @@ export { EVENTS_ENDPOINT } from './events.ts'
 /** Cordis plugin name. */
 export const name = 'client-hmr'
 
-/** Required services: the web plugin table and the route registry. */
-export const inject = ['clientModules', 'webServer']
+/** Required services: the web plugin table (the route registry was retired in Phase 2 task 2.6.5). */
+export const inject = ['clientModules']
 
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
@@ -146,46 +143,20 @@ export function apply(ctx: Context, config: Config): void {
   }, 'client-hmr: bundle watches')
 
   // --- /plugins/events SSE channel ----------------------------------------
-  const connections = new Set<ServerResponse>()
-
-  const connect = (res: ServerResponse): void => {
-    res.writeHead(200, {
-      'content-type': 'text/event-stream',
-      'cache-control': 'no-cache',
-      'connection': 'keep-alive',
-    })
-    // Comment line on open so clients/proxies see a live channel even when
-    // no rebuild ever happens; EventSource frame parsing skips it naturally.
-    res.write(': connected\n\n')
-    res.write(sseData({ type: 'graph', graph: ctx.clientModules.graph() }))
-    connections.add(res)
-    res.on('close', () => { connections.delete(res) })
-  }
-
+  // The `/plugins/events` SSE channel previously registered a route on the
+  // deleted `ctx.webServer`; Phase 2 drops the host-side HMR driver (the dev
+  // HMR pipeline was a node:http carrier concern). The browser half in
+  // `src/client/` keeps its SSE event vocabulary, ready for re-mount once the
+  // Tauri command surface or a successor carrier takes the route.
   ctx.effect(() => {
-    const disposeRoute = ctx.webServer.register({
-      kind: 'exact',
-      path: EVENTS_ENDPOINT,
-      handler: (req, res) => {
-        // Named routes match ahead of the carrier's method gate; keep the old
-        // global 405 semantics for non-GET hits on this endpoint.
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
-          res.writeHead(405)
-          res.end()
-          return
-        }
-        connect(res)
-      },
-    })
     const unsubscribe = ctx.clientModules.onRebuilt((id, rev) => {
-      const line = sseData({ type: 'rebuilt', id, rev })
-      for (const res of connections) res.write(line)
+      // No live SSE connections in Phase 2: the previous carrier retired with
+      // the webserver package, so no client is listening. We still wire the
+      // rebuild subscription so the next carrier picks it up.
+      void sseData({ type: 'rebuilt', id, rev })
     })
     return () => {
       unsubscribe()
-      disposeRoute()
-      for (const res of connections) res.destroy()
-      connections.clear()
     }
-  }, 'client-hmr: /plugins/events channel')
+  }, 'client-hmr: /plugins/events channel (host carrier retired)')
 }

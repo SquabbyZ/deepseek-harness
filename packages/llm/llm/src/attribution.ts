@@ -7,13 +7,16 @@
  * @module @deepseek-ai/dsh-llm/attribution
  */
 
-import { createRequire } from 'node:module'
-
-// The package's own manifest is the single source of the version so the
-// User-Agent cannot drift from what is published (`./package.json` is an
-// export of this package; the relative path resolves from both `src/` and
-// the bundled `lib/`).
-const { version } = createRequire(import.meta.url)('../package.json') as { version: string }
+// Synchronous, browser-safe version resolution. We hardcode the value from
+// `package.json` so the `User-Agent` cannot drift from what is published.
+// The previous `createRequire(import.meta.url)('../package.json')` pattern
+// throws at module-evaluation time in WebView2 (Phase 2 release build
+// produced a white screen on launch) because Node's `require` is not
+// available in the browser sandbox.
+// TODO: replace this hardcode with build-time injection (e.g. via Vite's
+// `define: { __DSH_VERSION__: JSON.stringify(...) }`) so the version
+// tracks package.json automatically.
+const version = '0.1.0-rc.5'
 
 /**
  * Static public application identity sent to LLM providers.

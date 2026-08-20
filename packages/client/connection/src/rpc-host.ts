@@ -1,7 +1,7 @@
 /** Host registry and HTTP adapter for generic Connection RPC channels. */
 
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
+import type { WebRoute } from '@deepseek-ai/dsh-host-apiproxy'
 import {
   clientRequestSchema,
   RpcId,
@@ -108,8 +108,12 @@ export class HostConnectionService extends Service implements HostConnectionHand
         await bridge(req, res, fetchHandler)
       },
     }
+    // TODO(phase2-h5/b2): `ctx.webServer` was the route-registration carrier;
+    // it is retired in Phase 2 in favor of the Tauri IPC channel. Until that
+    // lands, registration is a no-op so the tree still loads.
+    void route
     return owner.effect(
-      () => owner.webServer.register(route),
+      () => () => Promise.resolve(),
       `client-connection: ${channel} rpc channel`,
     )
   }

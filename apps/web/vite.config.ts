@@ -2,8 +2,22 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { workspaceResolver } from './src/dsh/inbox/workspace-resolver.ts'
 
 const src = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url))
+
+/**
+ * Vendored cordis / dsh packages whose main/module exports don't point at
+ * source. The WebView2 build compiles source directly so the `define`
+ * blocks below (`process.versions.node` etc.) take effect.
+ */
+const VENDOR_PACKAGE_ALIASES: ReadonlyArray<{ find: RegExp; replacement: string }> = [
+  { find: /^@deepseek-ai\/cordis-plugin-timer$/, replacement: src('../../vendor/timer/src/index.ts') },
+  { find: /^@deepseek-ai\/cordis-plugin-hmr$/, replacement: src('../../vendor/hmr/src/index.ts') },
+  { find: /^@deepseek-ai\/cordis-plugin-include$/, replacement: src('../../vendor/include/src/index.ts') },
+  { find: /^@deepseek-ai\/cordis-plugin-group$/, replacement: src('../../vendor/group/src/index.ts') },
+  { find: /^@deepseek-ai\/cordis-plugin-logger-console$/, replacement: src('../../vendor/logger-console/src/index.ts') },
+]
 /**
  * Vendor-chunk membership, by exact npm package name — the heavy render
  * families (math, highlight, markdown) that change only on dependency bumps.
@@ -76,10 +90,16 @@ function npmPackageOf(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), workspaceResolver()],
   build: {
     sourcemap: true,
     rollupOptions: {
+      // The in-box plugin graph (audit task 2.6.1) imports `node:*` modules
+      // transitively. Mark them all external so Rollup's static analysis
+      // doesn't try to resolve each named export — at runtime the bundle
+      // will throw on the first call to a Node-only helper, which is the
+      // correct posture for code that the audit classified as "needs port".
+      external: [/^node:/],
       output: {
         // Output layout: the two main chunks stay at assets/ root; lazy
         // @shikijs/langs grammar chunks group under assets/langs/; fonts
@@ -90,11 +110,11 @@ export default defineConfig({
           // Grammar chunks are recognized by their member modules, not the
           // facade: shared embedded-grammar chunks (e.g. html+javascript,
           // split out because php/ruby/mdx embed them) have no facade at all.
-          // index and vendor are excluded by name — vendor legitimately
-          // carries the three boot grammars.
-          if (chunk.name === 'index' || chunk.name === 'vendor') return 'assets/[name]-[hash].js'
-          const isLangChunk = chunk.moduleIds.some(id => id.includes('/node_modules/@shikijs/langs/'))
-          return isLangChunk ? 'assets/langs/[name]-[hash].js' : 'assets/[name]-[hash].js'
+        // index and vendor are excluded by name — vendor legitimately
+        // carries the three boot grammars.
+        if (chunk.name === 'index' || chunk.name === 'vendor') return 'assets/[name]-[hash].js'
+        const isLangChunk = chunk.moduleIds.some(id => id.includes('/node_modules/@shikijs/langs/'))
+        return isLangChunk ? 'assets/langs/[name]-[hash].js' : 'assets/[name]-[hash].js'
         },
         assetFileNames(asset): string {
           const fileName = asset.names[0] ?? ''
@@ -125,6 +145,13 @@ export default defineConfig({
       // Browserization of the vendored cordis Loader: its only node-only
       // import; the two process probes are mapped by `define` below.
       { find: /^node:module$/, replacement: src('./src/node-module-stub.ts') },
+      // In-box workspace plugins: every @deepseek-ai/dsh-* package's src entry
+      // (./client for dual-half packages whose host entry is Node-only). The
+      // shell boot calls ctx.plugin() on these in apps/web/src/dsh/inbox.
+      // The `workspaceResolver` plugin below handles the same set via each
+      // package's own `exports` → lib/types path; the static alias map stays
+      // explicit so the most common specifiers (e.g. ui-slots, ui-primitives)
+      // resolve without touching the resolver at all.
       { find: /^@deepseek-ai\/cordis-plugin-loader$/, replacement: src('../../vendor/loader/src/index.ts') },
       { find: /^@deepseek-ai\/cordis$/, replacement: src('../../vendor/cordis/src/index.ts') },
       { find: /^@deepseek-ai\/cosmokit$/, replacement: src('../../vendor/cosmokit/src/index.ts') },
@@ -136,6 +163,14 @@ export default defineConfig({
       { find: /^@deepseek-ai\/dsh-client-ui-attachment$/, replacement: src('../../packages/client/ui-attachment/src/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-schema-form$/, replacement: src('../../packages/client/schema-form/src/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-modules\/client$/, replacement: src('../../packages/client/modules/src/client/index.ts') },
+      // In-box workspace plugins: the workspaceResolver plugin (registered
+      // below) handles every @deepseek-ai/dsh-* import by reading each
+      // package's own exports → lib/types/* path and translating back to
+      // src/*.ts. Vite aliases can't enumerate the 229 packages cleanly —
+      // some project their `./client` half into unusual layouts
+      // (`src/client.ts`, `src/fetch/client.ts`, …) the wildcard table
+      // would miss.
+      ...VENDOR_PACKAGE_ALIASES,
     ],
   },
   define: {
@@ -146,5 +181,21 @@ export default defineConfig({
     'process.execArgv': '[]',
     // vendored loader index.ts: envData falls to its default branch.
     'process.env.CORDIS_SHARED': 'undefined',
+  },
+  // Dev-mode TS transform target. Several in-box packages use the
+  // TypeScript 5.2+ `using` declaration (`using d = deadline(...)` in
+  // bash-local / jobs-local / timeout-policy) and a stage-3 class
+  // decorator (`@Remote` on commands/index.ts). esbuild's default
+  // esnext target keeps those as-is in the transform output, which the
+  // browser then rejects with `SyntaxError: Invalid or unexpected token`
+  // and breaks the entire `import * as dsh_X` graph in apps/web's
+  // in-box barrel. Targeting es2024 forces esbuild to downlevel both
+  // features to their polyfilled forms — the polyfilled `using` lives
+  // inline in the same file (no extra runtime dep) and works in every
+  // evergreen browser. Production builds run through Rollup and handle
+  // these features via their own plugin chain, so this only constrains
+  // the dev-server transform.
+  esbuild: {
+    target: 'es2024',
   },
 })

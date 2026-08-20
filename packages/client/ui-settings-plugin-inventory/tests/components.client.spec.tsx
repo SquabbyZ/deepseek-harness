@@ -6,8 +6,12 @@ import type {
   PluginInventorySettingsTabInjected,
   PluginInventorySettingsTabProps,
 } from '../src/client/PluginInventorySettingsTab.tsx'
-import type { PluginEntryId, PluginInventoryEntry } from '@deepseek-ai/dsh-host-plugin-inventory/types'
-import { createPluginInventoryStore, type PluginInventoryStore } from '../src/client/inventory-store.ts'
+import {
+  createPluginInventoryStore,
+  type PluginEntryId,
+  type PluginInventoryEntry,
+  type PluginInventoryStore,
+} from '../src/client/inventory-store.ts'
 import { en, type PluginInventoryLocaleKey } from '../src/client/locales.ts'
 
 afterEach(cleanup)

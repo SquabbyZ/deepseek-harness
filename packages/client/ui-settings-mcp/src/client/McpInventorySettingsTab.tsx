@@ -1,7 +1,7 @@
 import {
   useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode,
 } from 'react'
-import type { McpEntryId, McpInventoryEntry } from '@deepseek-ai/dsh-host-mcp-inventory/types'
+import type { McpEntryId, McpInventoryEntry } from './inventory-store.ts'
 import {
   SearchInput,
   ShadcnButton,

@@ -1,7 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
+    "composite": false,
+    "rootDir": "../..",
     "outDir": "lib/types",
     "jsx": "react-jsx",
     "lib": [
@@ -15,13 +16,25 @@
   },
   "include": [
     "src",
-    "tests"
+    "tests",
+    // In-box plugins reach into packages/*/src (see apps/web/src/dsh/inbox).
+    // Restricting include to apps/web alone would surface every imported
+    // workspace file as "not under rootDir"; vite's alias map then resolves
+    // these to the same paths the type-checker loads here, so the two views
+    // agree.
+    "../../packages/**/src/**/*.ts",
+    "../../packages/**/src/**/*.tsx"
   ],
   // The web e2e lane (scaffold + replay specs) boots the host spine and reads
   // its Context merges — host-plane programs, checked in tsconfig.host.json;
   // this client-registered project must not also hold them (one program
-  // cannot see both sides of the cordis Context merges).
+  // cannot see both sides of the cordis Context merges). The two excluded
+  // globs under packages/* are the apps/web project references — those own
+  // their own composite tsconfig and must not also be type-checked here.
   "exclude": [
+    "../../packages/client/web/**/*",
+    "../../packages/client/modules/**/*",
+    "tests/scaffold.ts",
     "tests/scaffold.ts",
     "tests/scaffold-hermetic.e2e.ts",
     "tests/minimal-preset.snapshot.ts",
@@ -38,9 +51,6 @@
     "tests/details-session-lifecycle.e2e.ts",
     "tests/plugin-config.e2e.ts",
     "tests/plugin-inventory-toggle.e2e.ts",
-    "tests/skill-inventory-toggle.e2e.ts",
-    "tests/mcp-inventory-toggle.e2e.ts",
-    "tests/agent-inventory-toggle.e2e.ts",
     "tests/settings-chrome.e2e.ts",
     "tests/models-settings.e2e.ts",
     "tests/default-model.e2e.ts",
@@ -97,7 +107,9 @@
     "tests/composer-tab-geometry.e2e.ts",
     "tests/complex-history.perf.ts",
     "tests/pwsh-terminal.e2e.ts",
-    "tests/workflow-run.e2e.ts"
+    "tests/workflow-run.e2e.ts",
+    "tests/inbox-load.spec.ts",
+    "tests/inbox-load/**"
   ],
   "references": [
     {

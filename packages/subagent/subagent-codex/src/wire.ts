@@ -7,10 +7,14 @@
  * @module @deepseek-ai/dsh-subagent-codex/wire
  */
 
-import type { Readable, Writable } from 'node:stream'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { SubagentResult } from '@deepseek-ai/dsh-subagent'
 import { JsonRpcLineTransport } from '@deepseek-ai/dsh-sdk-protocol'
+
+/** Inbound pipe shape compatible with `JsonRpcLineTransport`'s constructor. */
+type WireInput = ConstructorParameters<typeof JsonRpcLineTransport>[0]
+/** Outbound pipe shape compatible with `JsonRpcLineTransport`'s constructor. */
+type WireOutput = ConstructorParameters<typeof JsonRpcLineTransport>[1]
 
 type JsonObject = Record<string, unknown>
 
@@ -96,8 +100,8 @@ export class CodexAppServerWire {
   private closed = false
 
   constructor(
-    private readonly input: Readable,
-    output: Writable,
+    private readonly input: WireInput,
+    output: WireOutput,
   ) {
     this.transport = new JsonRpcLineTransport(input, output)
     // Fatal protocol state can arrive after the current guarded operation has

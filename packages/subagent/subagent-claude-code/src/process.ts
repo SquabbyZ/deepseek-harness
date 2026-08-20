@@ -5,8 +5,6 @@
  * @module @deepseek-ai/dsh-subagent-claude-code/process
  */
 
-import { EventEmitter } from 'node:events'
-import { extname } from 'node:path'
 import type {
   SpawnedProcess,
   SpawnOptions,
@@ -18,6 +16,54 @@ import {
 } from '@deepseek-ai/dsh-subprocess'
 
 const WINDOWS_BATCH_EXECUTABLE_ENV = 'DSH_CLAUDE_CODE_EXECUTABLE'
+
+/**
+ * Minimal event emitter used to project the shared managed-process lifecycle
+ * to the official SDK. Replaces `node:events::EventEmitter` so this package
+ * loads into WebView2 without a Node runtime.
+ */
+class LifecycleEmitter {
+  private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>()
+
+  on(event: string, listener: (...args: unknown[]) => void): void {
+    let set = this.listeners.get(event)
+    if (set === undefined) {
+      set = new Set()
+      this.listeners.set(event, set)
+    }
+    set.add(listener)
+  }
+
+  once(event: string, listener: (...args: unknown[]) => void): void {
+    const wrap = (...args: unknown[]): void => {
+      this.off(event, wrap)
+      listener(...args)
+    }
+    this.on(event, wrap)
+  }
+
+  off(event: string, listener: (...args: unknown[]) => void): void {
+    this.listeners.get(event)?.delete(listener)
+  }
+
+  emit(event: string, ...args: unknown[]): void {
+    const set = this.listeners.get(event)
+    if (set === undefined) return
+    for (const listener of [...set]) listener(...args)
+  }
+}
+
+/**
+ * Extract the lowercase file extension from a path string. Mirrors the
+ * behaviour of `node:path::extname` without pulling in the Node module —
+ * strips any directory prefix before scanning for the final dot.
+ */
+function pathExtname(command: string): string {
+  const lastSep = Math.max(command.lastIndexOf('/'), command.lastIndexOf('\\'))
+  const lastDot = command.lastIndexOf('.')
+  if (lastDot < 0 || lastDot <= lastSep) return ''
+  return command.slice(lastDot).toLowerCase()
+}
 
 function thrown(value: unknown): Error {
   /* v8 ignore next -- the subprocess seam rejects with Error. */
@@ -31,8 +77,8 @@ function thrown(value: unknown): Error {
  */
 export function sdkEnvironmentOverlay(
   env: SpawnOptions['env'],
-): NodeJS.ProcessEnv {
-  const overlay: NodeJS.ProcessEnv = { ...env }
+): Record<string, string | undefined> {
+  const overlay: Record<string, string | undefined> = { ...env }
   for (const name of Object.keys(scrubbedParentEnv())) {
     if (!(name in env)) overlay[name] = undefined
   }
@@ -51,12 +97,12 @@ export function sdkEnvironmentOverlay(
 export function claudeSpawnSpec(
   options: SpawnOptions,
   graceMs: number,
-  platform: NodeJS.Platform = process.platform,
+  platform: string,
 ): SubprocessSpawnSpec {
   if (options.cwd === undefined || options.cwd.length === 0) {
     throw new Error('subagent-claude-code: SDK spawn request omitted its workspace')
   }
-  const extension = extname(options.command).toLowerCase()
+  const extension = pathExtname(options.command)
   const batchShim = platform === 'win32' && (extension === '.cmd' || extension === '.bat')
   const env = sdkEnvironmentOverlay(options.env)
   const argv = batchShim
@@ -80,7 +126,7 @@ export function claudeSpawnSpec(
 export class ManagedClaudeCodeProcess implements SpawnedProcess {
   readonly stdin
   readonly stdout
-  private readonly events = new EventEmitter()
+  private readonly events = new LifecycleEmitter()
   private exitCodeValue: number | null = null
   private signalCodeValue: NodeJS.Signals | null = null
   private killRequested = false
@@ -92,9 +138,10 @@ export class ManagedClaudeCodeProcess implements SpawnedProcess {
   constructor(private readonly child: SubprocessHandle) {
     this.stdin = child.stdin as NonNullable<SubprocessHandle['stdin']>
     this.stdout = child.stdout as NonNullable<SubprocessHandle['stdout']>
-    // EventEmitter gives `error` special throw semantics without a listener.
-    // The SDK attaches its listener synchronously after custom spawn returns,
-    // while this no-op also contains an already-rejected spawn handle.
+    // Node's EventEmitter throws on an unlistened `error` event. The SDK
+    // attaches its listener synchronously after custom spawn returns, but
+    // an already-rejected spawn handle could resolve before that attach,
+    // so the no-op listener keeps the race from blowing up.
     this.events.on('error', () => {})
     void child.done.then(
       (outcome) => {
@@ -147,7 +194,7 @@ export class ManagedClaudeCodeProcess implements SpawnedProcess {
     listener: ((code: number | null, signal: NodeJS.Signals | null) => void)
       | ((error: Error) => void),
   ): void {
-    this.events.on(event, listener)
+    this.events.on(event, listener as (...args: unknown[]) => void)
   }
 
   /** Register a one-shot process lifecycle listener. */
@@ -156,7 +203,7 @@ export class ManagedClaudeCodeProcess implements SpawnedProcess {
     listener: ((code: number | null, signal: NodeJS.Signals | null) => void)
       | ((error: Error) => void),
   ): void {
-    this.events.once(event, listener)
+    this.events.once(event, listener as (...args: unknown[]) => void)
   }
 
   /** Remove a process lifecycle listener. */
@@ -165,6 +212,6 @@ export class ManagedClaudeCodeProcess implements SpawnedProcess {
     listener: ((code: number | null, signal: NodeJS.Signals | null) => void)
       | ((error: Error) => void),
   ): void {
-    this.events.off(event, listener)
+    this.events.off(event, listener as (...args: unknown[]) => void)
   }
 }

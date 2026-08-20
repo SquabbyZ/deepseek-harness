@@ -6,7 +6,6 @@
  * @module @deepseek-ai/dsh-subagent-claude-code/run
  */
 
-import { randomUUID } from 'node:crypto'
 import {
   query as officialQuery,
   type Options,
@@ -35,6 +34,12 @@ import {
   ManagedClaudeCodeProcess,
 } from './process.ts'
 
+/** Generate an RFC 4122 v4 UUID using the Web Crypto API. Works in Node and browsers. */
+function newUuid(): string {
+  /* v8 ignore next -- browsers and Node 19+ both expose randomUUID on crypto. */
+  return globalThis.crypto.randomUUID()
+}
+
 /** Default POSIX grace between subprocess termination tiers. */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
@@ -42,6 +47,8 @@ export const DEFAULT_DISPOSE_GRACE_MS = 3_000
  * run inputs and error normalization instead of adding a shared lifecycle owner. */
 /** Fully resolved inputs for one official Claude Agent SDK query. */
 export interface ClaudeCodeRunSpec {
+  /** Host platform used to select the fixed CLI argv (no `process.platform` in WebView2). */
+  readonly platform: string
   /** Parent Session workspace supplied to the SDK and real CLI. */
   readonly cwd: string
   /** Exact native Claude Code executable resolved from the host PATH. */
@@ -187,7 +194,7 @@ export function claudeQueryOptions(
     persistSession: false,
     disallowedTools: ['AskUserQuestion'],
     spawnClaudeCodeProcess: (options: SpawnOptions) => {
-      const child = spec.spawn(claudeSpawnSpec(options, spec.disposeGraceMs))
+      const child = spec.spawn(claudeSpawnSpec(options, spec.disposeGraceMs, spec.platform))
       capture(child)
       return new ManagedClaudeCodeProcess(child)
     },
@@ -277,7 +284,7 @@ export async function startClaudeCodeRun(
   })
 
   return subprocessRunHandle({
-    id: SessionId(randomUUID()),
+    id: SessionId(newUuid()),
     result,
     signal: request.signal,
     onAbort,

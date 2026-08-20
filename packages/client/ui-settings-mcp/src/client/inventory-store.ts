@@ -1,7 +1,35 @@
 /** MCP inventory snapshot store. Mirrors the plugin/skill inventory store. */
 
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { McpEntryId, McpInventorySnapshot } from '@deepseek-ai/dsh-host-mcp-inventory/types'
+
+/**
+ * Local stand-ins for the host-side inventory types after
+ * `@deepseek-ai/dsh-host-mcp-inventory` was deleted. The client tab remains
+ * compile-compatible with the existing `ctx.remote.mcpInventory` Remote API
+ * shape, even though `ctx.remote.mcpInventory` resolves to `undefined` at
+ * runtime until task 2.5.6 (client-side `inventory/mcp.ts` hook) lands.
+ *
+ * The brand uses a structural nominal type (`string & { readonly __brand:
+ * 'McpEntryId' }`) instead of the original `Branded<'McpEntryId'>` from
+ * `@deepseek-ai/dsh-brand`, mirroring the same compromise the plugin/skill
+ * stores adopted in tasks 2.5.2 / 2.5.3. Downstream consumers only need a
+ * string-bearing opaque id, so this is functionally compatible. If task 2.5.6
+ * needs an exact `Branded<'McpEntryId'>`, the schema fragment below will
+ * need reconciling.
+ */
+export type McpEntryId = string & { readonly __brand: 'McpEntryId' }
+
+export interface McpInventoryEntry {
+  readonly entryId: McpEntryId
+  readonly serverName: string
+  readonly transport: string
+  readonly target: string
+  readonly enabled: boolean
+}
+
+export interface McpInventorySnapshot {
+  readonly entries: readonly McpInventoryEntry[]
+}
 
 export interface McpInventoryPanelSnapshot {
   readonly entries: readonly McpInventoryEntryView[]
@@ -80,7 +108,7 @@ export function createMcpInventoryStore(
   }
 }
 
-function toView(entry: McpInventorySnapshot['entries'][number]): McpInventoryEntryView {
+function toView(entry: McpInventoryEntry): McpInventoryEntryView {
   return {
     entryId: entry.entryId,
     serverName: entry.serverName,

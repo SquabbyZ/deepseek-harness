@@ -699,14 +699,6 @@ function stripYamlScalar(value: string): string {
 
 const APP_EXAMPLES = [
   {
-    id: 'dsh_base',
-    rel: 'apps/cli/composition.md',
-    title: 'DSH Base Composition',
-    label: 'packages/bundle/base/cordis.patch.yml',
-    config: 'packages/bundle/base/cordis.patch.yml',
-    summary: 'The dsh-base bundle patch every profile applies first; mode bundles (dsh-web-app, dsh-headless) and the user\'s profile layer patch over it.',
-  },
-  {
     id: 'headless',
     rel: 'examples/headless-agent/composition.md',
     title: 'Headless Agent Snapshot Composition',
@@ -1389,7 +1381,6 @@ function renderDocs(): GraphDoc[] {
 function renderIndex(docs: GraphDoc[]): string {
   const labels: Record<string, string> = {
     'docs/capability-seams.md': 'capability seams and core services',
-    'apps/cli/composition.md': 'dsh shared base composition',
     'examples/headless-agent/composition.md': 'headless-agent app composition',
     'examples/cordis-agent/composition.md': 'cordis-agent app composition',
     'examples/acp-agent/composition.md': 'acp-agent app composition',
@@ -1399,7 +1390,6 @@ function renderIndex(docs: GraphDoc[]): string {
   }
   const modes: Record<string, string> = {
     'docs/capability-seams.md': 'hybrid generated',
-    'apps/cli/composition.md': 'hybrid generated',
     'examples/headless-agent/composition.md': 'hybrid generated',
     'examples/cordis-agent/composition.md': 'hybrid generated',
     'examples/acp-agent/composition.md': 'hybrid generated',

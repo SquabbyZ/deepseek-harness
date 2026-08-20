@@ -24,9 +24,6 @@
       "path": "../../host/apiproxy"
     },
     {
-      "path": "../../host/webserver"
-    },
-    {
       "path": "../../runtime-diagnostics/invariants"
     }
   ]
