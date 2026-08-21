@@ -51,11 +51,14 @@ pub fn dsh_read_workspaces() -> AppResult<Vec<WorkspaceInfo>> {
     })?;
     let mut out: Vec<WorkspaceInfo> = file.tables.workspaces
         .into_iter()
-        .map(|(id, row)| WorkspaceInfo {
-            workspaceId: id,
-            path: row.path,
-            title: if row.title.is_empty() { id.clone() } else { row.title },
-            sessionIds: row.sessionIds,
+        .map(|(id, row)| {
+            let title = if row.title.is_empty() { id.clone() } else { row.title };
+            WorkspaceInfo {
+                workspaceId: id,
+                path: row.path,
+                title,
+                sessionIds: row.sessionIds,
+            }
         })
         .collect();
     out.sort_by(|a, b| a.title.cmp(&b.title));
