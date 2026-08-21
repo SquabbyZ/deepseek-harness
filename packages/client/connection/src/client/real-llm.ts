@@ -184,7 +184,9 @@ export async function callRealLlm(options: {
     const sse = decodeBytes(res.body)
     const parsed = parseBufferedSse(sse)
     const reply: RealLlmReply = { text: parsed.text }
-    if (parsed.usage !== undefined) {
+    // Some providers send `usage: null` (MiniMax) on a non-final chunk; the
+    // loose check also skips the null case instead of crashing on `.prompt_tokens`.
+    if (parsed.usage != null) {
       reply.usage = {
         inputTokens: parsed.usage.prompt_tokens ?? 0,
         outputTokens: parsed.usage.completion_tokens ?? 0,
@@ -207,7 +209,7 @@ export async function callRealLlm(options: {
   }
   const { text, usage } = await readSseStream(response)
   const reply: RealLlmReply = { text }
-  if (usage !== undefined) {
+  if (usage != null) {
     reply.usage = {
       inputTokens: usage.prompt_tokens ?? 0,
       outputTokens: usage.completion_tokens ?? 0,
