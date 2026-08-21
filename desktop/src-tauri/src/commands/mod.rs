@@ -8,3 +8,4 @@ pub mod inventory;
 pub mod plugin;
 pub mod settings;
 pub mod shell;
+pub mod workspaces;

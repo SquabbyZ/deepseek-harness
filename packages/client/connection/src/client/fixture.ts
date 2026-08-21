@@ -137,6 +137,20 @@ function text(t: string): ContentBlock[] {
   return [{ type: 'text', text: t }]
 }
 
+/**
+ * Split a real-LLM reply into content blocks: a leading `<think>…</think>`
+ * reasoning block (MiniMax/DeepSeek stream it inline) renders through the
+ * Think disclosure row instead of as raw text; the rest stays a text block.
+ */
+function contentBlocksFromReply(reply: string): ContentBlock[] {
+  const match = /^\s*<think>([\s\S]*?)<\/think>\s*/i.exec(reply)
+  if (match === null) return text(reply)
+  const blocks: ContentBlock[] = [{ type: 'reasoning', text: match[1] ?? '' }]
+  const rest = reply.slice(match[0].length)
+  if (rest.trim().length > 0) blocks.push({ type: 'text', text: rest })
+  return blocks
+}
+
 function userMessage(content: ContentBlock[], source: MessageSource = { kind: 'user' }): UserMessage {
   return createUserMessage({ content, source })
 }
@@ -1690,7 +1704,7 @@ export function createFixtureFaces(options: FixtureOptions = {}, ctx?: Context):
 /** Build the fixture's legacy API and Remote RPC faces over one state graph. */
 function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorld {
   // The resident fixture sessions all carry history, so none of them is blank.
-  const sessions: SessionSummary[] = options.empty ? [] : [
+  let sessions: SessionSummary[] = options.empty ? [] : [
     { sessionId: sid('fx-alpha'), updatedAt: Date.now(), running: true, blank: false, cwd: '/tmp/fixture' },
     { sessionId: sid('fx-beta'), updatedAt: Date.now() - 60_000, running: false, blank: false, parentSessionId: sid('fx-alpha'), cwd: '/tmp/fixture' },
     { sessionId: sid('fx-gamma'), updatedAt: Date.now() - 120_000, running: false, blank: false, cwd: '/tmp/fixture' },
@@ -2157,7 +2171,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   // live under one workspace, whose account carries them in attach order.
   const wid = (raw: string): WorkspaceId => raw as WorkspaceId
   const fixtureEpoch = new Date(Date.now() - 300_000).toISOString()
-  const workspaces: WorkspaceView[] = options.empty ? [] : [{
+  let workspaces: WorkspaceView[] = options.empty ? [] : [{
     workspaceId: wid('fx-ws-fixture'),
     path: '/tmp/fixture',
     title: 'fixture',
@@ -2166,6 +2180,35 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     updatedAt: fixtureEpoch,
   }]
   let nextWorkspace = 1
+  // Under Tauri the fixture starts empty (no demo data); replace that with the
+  // user's REAL workspaces + sessions from ~/.dsh/storages/workspace.json so
+  // the sidebar shows their actual state after reinstall.
+  const loadRealWorkspaces = (): void => {
+    const invoke = tauriInvoke()
+    if (invoke === undefined) return
+    void invoke<Array<{ workspaceId: string; path: string; title: string; sessionIds: string[] }>>('dsh_read_workspaces')
+      .then((rows) => {
+        if (rows === undefined || rows.length === 0) return
+        const epoch = new Date(Date.now() - 300_000).toISOString()
+        workspaces = rows.map(row => ({
+          workspaceId: wid(row.workspaceId),
+          path: row.path,
+          title: row.title,
+          sessionIds: row.sessionIds.map(sid),
+          createdAt: epoch,
+          updatedAt: epoch,
+        }))
+        sessions = rows.flatMap(row => row.sessionIds.map(sessionId => ({
+          sessionId: sid(sessionId),
+          updatedAt: Date.now() - 60_000,
+          running: false,
+          blank: true,
+          cwd: row.path,
+        })))
+      })
+      .catch(() => {})
+  }
+  loadRealWorkspaces()
   // Registry-global archive set mirroring the host: archived sessions keep
   // their workspace accounting slot and only grouping surfaces hide them.
   const archivedSessionIds: SessionId[] = []
@@ -2815,14 +2858,16 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     append(id, { type: 'step/start', data: { turn, step } })
     const finish = (aborted: boolean, replyText: string, usage?: TokenUsage): void => {
       replays.delete(id)
+      const blocks = contentBlocksFromReply(aborted ? `${replyText}（已中断）` : replyText)
+      const last = blocks[blocks.length - 1] ?? { type: 'text' as const, text: replyText }
       append(id, {
         type: 'assistant/chunk',
-        data: { turn, step, chunk: { type: 'block-end', index: 0, block: { type: 'text', text: replyText } } },
+        data: { turn, step, chunk: { type: 'block-end', index: 0, block: { type: last.type, text: (last as { text?: string }).text ?? '' } } },
       })
       append(id, {
         type: 'assistant/message',
         surfaceOp: 'append',
-        data: { turn, step, message: assistantMessage(text(aborted ? `${replyText}（已中断）` : replyText)), usage: usage ?? fixtureUsage(turn, step) },
+        data: { turn, step, message: assistantMessage(blocks), usage: usage ?? fixtureUsage(turn, step) },
       })
       append(id, { type: 'step/end', data: { turn, step } })
       append(id, { type: 'turn/end', data: { turn, reason: { kind: aborted ? 'cancelled' : 'completed' } } })

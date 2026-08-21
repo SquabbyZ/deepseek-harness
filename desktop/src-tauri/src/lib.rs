@@ -16,6 +16,7 @@ use crate::commands::plugin::{
 };
 use crate::commands::settings::{dsh_config_dir, settings_get, settings_update};
 use crate::commands::shell::shell_spawn;
+use crate::commands::workspaces::dsh_read_workspaces;
 use crate::services::crash;
 use crate::services::platform::Platform;
 use crate::services::plugin_registry::PluginRegistry;
@@ -79,7 +80,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, dsh_read_credentials, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, dsh_config_dir, shell_spawn])
+        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, dsh_read_credentials, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, dsh_config_dir, dsh_read_workspaces, shell_spawn])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }
