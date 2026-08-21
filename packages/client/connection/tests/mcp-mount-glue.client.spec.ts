@@ -5,7 +5,11 @@
  * one covers the FIXTURE glue the module tests never reach:
  *
  *   • `[...STATIC_AGENT_TOOLS, ...mount.tools]` — the mounted tools ride the
- *     tools array advertised to the real-LLM call;
+ *     tools array advertised to the real-LLM call. This is LOAD-BEARING here:
+ *     the completions mock refuses to emit the `mcp__brave__alpha` tool_call
+ *     unless the request it received actually advertises that tool in its
+ *     `tools` array, so a concat regression that dropped `...mount.tools`
+ *     makes the loop fall straight to text and the dispatch assertions fail;
  *   • the async `executeAgentTool` → `mount.dispatch` routing for the `mcp__`
  *     prefix — `mcp__brave__alpha` lands on the owning server's `tools/call`
  *     with the RAW name + parsed args;
@@ -155,13 +159,24 @@ function installTauriMock(): TauriMock {
         }
         if (httpReq.url === COMPLETIONS_URL) {
           completionsRound += 1
+          // The request carries the AGENT_TOOLS concat
+          // (`[...STATIC_AGENT_TOOLS, ...mount.tools]`) as its `tools` array.
+          // Emit the mounted tool_call ONLY when the request advertises it;
+          // if the concat dropped `...mount.tools` the mock falls straight to
+          // text, the loop never issues the mcp__ call, and the dispatch +
+          // assistant-text assertions below fail.
+          const completionsReq = JSON.parse(decodeBody(httpReq.body)) as {
+            tools?: Array<{ function?: { name?: string } }>
+          }
+          const mcpToolAdvertised = (completionsReq.tools ?? []).some(tool => tool.function?.name === 'mcp__brave__alpha')
+          const isToolRound = mcpToolAdvertised && completionsRound === 1
           // Round 1 advertises the mounted tool call; round 2 answers with text
           // built from the tools/call result recorded above (models the model
           // reading the `role: tool` message it was fed back).
-          const delta = completionsRound === 1
+          const delta = isToolRound
             ? { tool_calls: [{ index: 0, id: 'call-1', function: { name: 'mcp__brave__alpha', arguments: '{"q":"x"}' } }] }
             : { content: `The alpha tool returned: ${lastToolResult}` }
-          const sse = `data: ${JSON.stringify({ choices: [{ delta, finish_reason: completionsRound === 1 ? null : 'stop' }] })}\n\ndata: [DONE]\n`
+          const sse = `data: ${JSON.stringify({ choices: [{ delta, finish_reason: isToolRound ? null : 'stop' }] })}\n\ndata: [DONE]\n`
           return { status: 200, headers: { 'content-type': 'text/event-stream' }, body: Array.from(new TextEncoder().encode(sse)) }
         }
         throw new Error(`http_request: unexpected url ${httpReq.url}`)
