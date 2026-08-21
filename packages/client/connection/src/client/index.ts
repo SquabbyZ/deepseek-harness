@@ -105,7 +105,10 @@ export function apply(ctx: Context): void {
   }
   const handle: ConnectionHandle = {
     api,
-    isLoopback: pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
+    // The fixture transport IS the loopback host by construction; forcing
+    // loopback keeps settings scopes on the 'host' persistence path even when
+    // the Tauri asset protocol hostname (tauri.localhost) isn't recognized.
+    isLoopback: fixture || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
     hostDescription: {
       getSnapshot: () => description,
       subscribe: (listener) => {
