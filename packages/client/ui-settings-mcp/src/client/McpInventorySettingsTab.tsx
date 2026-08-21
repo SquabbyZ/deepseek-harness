@@ -63,6 +63,7 @@ const FORM_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-2'
 const FORM_FIELD = 'flex min-w-0 flex-col gap-1'
 const FORM_ACTIONS = 'flex items-center justify-end gap-2'
 const FORM_ERROR = 'm-0 text-[12px] leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+const FORM_NOTE = 'm-0 text-[12px] leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
 const SELECT =
   'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -70,6 +71,12 @@ const SELECT =
 function parseArgs(raw: string): string[] {
   const trimmed = raw.trim()
   return trimmed.length === 0 ? [] : trimmed.split(/\s+/)
+}
+
+/** Stable entry id derived from a server name (slug); the tab and the fixture agree on it. */
+function mcpServerId(serverName: string): string {
+  const slug = serverName.trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return slug.length > 0 ? slug : 'mcp'
 }
 
 export function McpInventorySettingsTab({
@@ -189,6 +196,11 @@ export function McpInventorySettingsTab({
         ? { transport: 'stdio', serverName: name, command: command.trim(), args: parseArgs(args), env: {}, cwd: '' }
         : { transport: 'streamable-http', serverName: name, url: url.trim(), headers: {} }
       await upsertServer(spec)
+      // Renaming derives a fresh id from the new serverName, so the old id would
+      // otherwise be left behind as a duplicate row; remove it once the upsert lands.
+      if (editing !== null && mcpServerId(name) !== editing) {
+        await deleteServer(editing)
+      }
       closeForm()
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
@@ -293,6 +305,9 @@ export function McpInventorySettingsTab({
                   </div>
                 )}
               </div>
+              {transport === 'stdio' && editing !== null ? (
+                <p className={FORM_NOTE} role="note">{t('editArgsHint')}</p>
+              ) : null}
               {formError ? <p className={FORM_ERROR} role="alert">{formError}</p> : null}
               <div className={FORM_ACTIONS}>
                 <ShadcnButton type="button" variant="ghost" onClick={closeForm} disabled={saving}>

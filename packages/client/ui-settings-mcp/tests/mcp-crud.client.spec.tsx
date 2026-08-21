@@ -105,12 +105,14 @@ function buildCrudStore(initial: readonly McpInventoryEntry[]) {
   const deleted: string[] = []
   const store = createMcpInventoryStore({
     list: async () => {
-      const entries: McpInventoryEntry[] = []
+      // Faithful to the fixture's id-derived-from-name overwrite: an upserted
+      // spec replaces any seeded spec with the same slug rather than duplicating it.
+      const byId = new Map<string, McpInventoryEntry>()
       for (const [entryId, spec] of specs) {
-        entries.push({ entryId: entryId as McpEntryId, serverName: spec.serverName, transport: spec.transport, target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url, enabled: true })
+        byId.set(entryId, { entryId: entryId as McpEntryId, serverName: spec.serverName, transport: spec.transport, target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url, enabled: true })
       }
-      for (const spec of upserted) entries.push(project(spec))
-      return { entries }
+      for (const spec of upserted) byId.set(slug(spec.serverName), project(spec))
+      return { entries: [...byId.values()] }
     },
     upsertServer: async (spec) => {
       upserted.push(spec)
@@ -118,6 +120,8 @@ function buildCrudStore(initial: readonly McpInventoryEntry[]) {
     deleteServer: async (entryId) => {
       deleted.push(entryId)
       specs.delete(entryId)
+      const index = upserted.findIndex(spec => slug(spec.serverName) === entryId)
+      if (index >= 0) upserted.splice(index, 1)
     },
   }, () => undefined)
   return { store, upserted, deleted, specs }
@@ -212,7 +216,8 @@ describe('McpInventorySettingsTab CRUD', () => {
   it('pre-fills the form when editing a row and keeps the same entry on save', async () => {
     const { store } = buildCrudStore(ENTRIES)
     const upsertServer = vi.fn(async (spec: McpServerSpec) => { await store.upsertServer(spec) })
-    render(<McpInventorySettingsTab {...buildProps({ store, upsertServer })} />)
+    const deleteServer = vi.fn(async (entryId: string) => { await store.deleteServer(entryId) })
+    render(<McpInventorySettingsTab {...buildProps({ store, upsertServer, deleteServer })} />)
 
     await waitFor(() => { expect(screen.getByText('existing')).toBeTruthy() })
 
@@ -221,11 +226,55 @@ describe('McpInventorySettingsTab CRUD', () => {
     expect(nameInput.value).toBe('existing')
     expect((screen.getByLabelText(en.command) as HTMLInputElement).value).toBe('node')
 
+    // Same name, command edited → overwrite in place; no old-entry deletion.
+    fireEvent.change(screen.getByLabelText(en.command), { target: { value: 'npx' } })
+    fireEvent.click(screen.getByRole('button', { name: en.save }))
+
+    await waitFor(() => { expect(upsertServer).toHaveBeenCalledOnce() })
+    expect(upsertServer).toHaveBeenCalledWith(expect.objectContaining({ serverName: 'existing', command: 'npx' }))
+    expect(deleteServer).not.toHaveBeenCalled()
+    await waitFor(() => { expect(screen.getByText('existing')).toBeTruthy() })
+    expect(screen.getAllByText('existing')).toHaveLength(1)
+  })
+
+  it('renames a server on edit: upserts the new name and deletes the old entry', async () => {
+    const { store } = buildCrudStore(ENTRIES)
+    const upsertServer = vi.fn(async (spec: McpServerSpec) => { await store.upsertServer(spec) })
+    const deleteServer = vi.fn(async (entryId: string) => { await store.deleteServer(entryId) })
+    render(<McpInventorySettingsTab {...buildProps({ store, upsertServer, deleteServer })} />)
+
+    await waitFor(() => { expect(screen.getByText('existing')).toBeTruthy() })
+
+    fireEvent.click(screen.getByRole('button', { name: en.edit }))
+    const nameInput = screen.getByLabelText(en.serverName) as HTMLInputElement
+    expect(nameInput.value).toBe('existing')
     fireEvent.change(nameInput, { target: { value: 'existing-v2' } })
     fireEvent.click(screen.getByRole('button', { name: en.save }))
 
     await waitFor(() => { expect(upsertServer).toHaveBeenCalledOnce() })
     expect(upsertServer).toHaveBeenCalledWith(expect.objectContaining({ serverName: 'existing-v2', command: 'node' }))
-    await waitFor(() => { expect(screen.getByText('existing-v2')).toBeTruthy() })
+    // The slug-derived id changed, so the old row must be removed, not duplicated.
+    await waitFor(() => { expect(deleteServer).toHaveBeenCalledWith('existing') })
+    await waitFor(() => { expect(screen.queryByText('existing')).toBeNull() })
+    expect(screen.getByText('existing-v2')).toBeTruthy()
+  })
+
+  it('shows the args-loss hint only while editing a stdio server', async () => {
+    const { store } = buildCrudStore(ENTRIES)
+    render(<McpInventorySettingsTab {...buildProps({ store })} />)
+
+    await waitFor(() => { expect(screen.getByText('existing')).toBeTruthy() })
+
+    // Add form (stdio, not editing): no hint.
+    fireEvent.click(screen.getByRole('button', { name: en.addServer }))
+    expect(screen.queryByRole('note')).toBeNull()
+
+    // Edit the stdio row (turns the open form into edit mode): hint appears.
+    fireEvent.click(screen.getByRole('button', { name: en.edit }))
+    expect(screen.getByRole('note').textContent).toBe(en.editArgsHint)
+
+    // Switching to streamable-http while editing hides the hint.
+    fireEvent.change(screen.getByLabelText(en.transport), { target: { value: 'streamable-http' } })
+    expect(screen.queryByRole('note')).toBeNull()
   })
 })
