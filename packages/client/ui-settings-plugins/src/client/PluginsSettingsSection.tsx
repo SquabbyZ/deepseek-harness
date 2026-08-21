@@ -61,7 +61,12 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
     <div className={SECTION}>
       <h2 className={HEADING}>{t('title')}</h2>
       <p className={INTRO}>{t('intro')}</p>
-      {rows.length === 0 ? <p className={EMPTY}>{t('empty')}</p> : (
+      {rows.length === 0 ? <p className={EMPTY}>{t('empty')}</p> : rows.length === 1 ? (
+        // A single configurable page renders directly — no tab chrome.
+        <div className={PANEL} role="tabpanel">
+          {renderSlot('settings.plugins.tab', {}, { only: rows[0]?.id ?? '' })}
+        </div>
+      ) : (
         <>
           <div className={TABS} role="tablist" aria-label={t('tabs')}>
             {rows.map((row, index) => {
