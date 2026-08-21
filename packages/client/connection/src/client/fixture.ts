@@ -2817,8 +2817,27 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       }),
       // Deterministic native pick: the keyless lanes drive the full
       // pick-then-adopt path without an OS chooser (design-mock content,
-      // same tree the browse primitives serve).
-      pickDirectory: request => ok(request, { path: `${FIXTURE_HOME}/Documents/project` }),
+      // same tree the browse primitives serve). Under Tauri the desktop app
+      // opens the REAL native folder picker so a new workspace selects an
+      // actual directory on the computer.
+      pickDirectory: async (request) => {
+        const invoke = tauriInvoke()
+        if (invoke !== undefined) {
+          try {
+            const picked = await invoke<string | null>('dialog_open', {
+              opts: { directory: true, title: '选择工作区' },
+            })
+            return ok(request, { path: picked })
+          } catch (error) {
+            return err(request, {
+              code: 'internal',
+              message: error instanceof Error ? error.message : String(error),
+              details: {},
+            })
+          }
+        }
+        return ok(request, { path: `${FIXTURE_HOME}/Documents/project` })
+      },
       listDirectory: (request) => {
         const target = request.payload.path ?? FIXTURE_HOME
         const children = childrenOf(target)
@@ -2867,7 +2886,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         const created: WorkspaceView = {
           workspaceId: wid(`fx-ws-${nextWorkspace++}`),
           path,
-          title: path.split('/').filter(Boolean).at(-1) ?? path,
+          // A picked directory can be a Windows path (backslashes) — derive
+          // the title from the last segment on either separator.
+          title: path.split(/[/\\]/).filter(Boolean).at(-1) ?? path,
           sessionIds: [],
           createdAt: now,
           updatedAt: now,
