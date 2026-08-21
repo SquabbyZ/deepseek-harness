@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { ChartColumn, Palette } from 'lucide-react'
 import {
-  IconAgentPresetOutline16, IconCloseOutline16, IconDataOutline16,
+  IconAgentPresetOutline16, IconBrowseOutline16, IconCloseOutline16, IconDataOutline16,
   IconPersonalizationOutline16, IconSettingsOutline16, ShadcnButton, Sheet,
   SheetContent, SheetTitle, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -42,6 +42,7 @@ function navIcon(id: string) {
   if (id === 'models') return <IconDataOutline16 className="flex-none" size={16} />
   if (id === 'agent-presets') return <IconAgentPresetOutline16 className="flex-none" size={16} />
   if (id === 'plugins') return <IconPersonalizationOutline16 className="flex-none" size={16} />
+  if (id === 'plugin-inventory') return <IconBrowseOutline16 className="flex-none" size={16} />
   if (id === 'usage') return <ChartColumn size={16} strokeWidth={1.5} className="flex-none" />
   if (id === 'personalization') return <Palette size={16} strokeWidth={1.5} className="flex-none" />
   return <IconSettingsOutline16 className="flex-none" size={16} />

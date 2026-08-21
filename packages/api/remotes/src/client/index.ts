@@ -114,9 +114,32 @@ const setEnabledDescriptor: InvocationDescriptor = {
   cancellation: { parameter: 'signal' },
   result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/setEnabled:result', schema: z.object({}) },
 }
+// External plugins can be uninstalled from the 插件管理 panel. One payload
+// object ({ entryId }); the fixture resolves the loader entry by module name.
+const uninstallDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/uninstall',
+  service: 'pluginInventory',
+  namespace: 'pluginInventory',
+  method: 'uninstall',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'entry',
+      wire: 'entry',
+      source: 'json',
+      codec: {
+        mode: 'strict',
+        typeSymbol: '@deepseek-ai/dsh-plugin-inventory#entry-id',
+        schema: z.object({ entryId: z.string() }),
+      },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/uninstall:result', schema: z.object({}) },
+}
 const pluginInventoryRemote: TypertRemoteContribution = {
   package: '@deepseek-ai/dsh-plugin-inventory',
-  descriptors: [listDescriptor, setEnabledDescriptor],
+  descriptors: [listDescriptor, setEnabledDescriptor, uninstallDescriptor],
 }
 
 /**

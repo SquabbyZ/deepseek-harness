@@ -53,8 +53,10 @@ import type { Context } from '@deepseek-ai/cordis'
  */
 interface FixtureLoaderLike {
   entries(): Iterable<FixtureLoaderEntryLike>
+  remove(id: string): Promise<void>
 }
 interface FixtureLoaderEntryLike {
+  id: string
   options: { name?: string; disabled?: boolean | null }
   disabled: boolean
   fiber?: { state: number } | undefined
@@ -3816,6 +3818,26 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           // Stub path: record the intent only.
           pluginEnabled.set(entryId, enabled)
           return Promise.resolve({ ok: true, value: {} })
+        }
+        case 'pluginInventory/uninstall': {
+          const entry = (args as { entry?: { entryId?: string } }).entry
+          const entryId = entry?.entryId
+          if (typeof entryId !== 'string') {
+            return Promise.resolve({ ok: false, error: { code: 'internal', message: 'missing entry id', details: {} } })
+          }
+          const loader = ctx === undefined
+            ? undefined
+            : (ctx as { loader?: FixtureLoaderLike }).loader
+          if (loader !== undefined) {
+            // Entry ids are boot-generated; find the row by its module name and
+            // remove it from the loader tree (disposes the fiber).
+            for (const row of loader.entries()) {
+              if (row.options.name !== entryId) continue
+              await loader.remove(row.id)
+              return Promise.resolve({ ok: true, value: {} })
+            }
+          }
+          return Promise.resolve({ ok: false, error: { code: 'internal', message: `plugin not loaded: ${entryId}`, details: {} } })
         }
         default:
           return Promise.reject(new Error(`fixture connection RPC endpoint ${JSON.stringify(endpoint)} is unavailable`))

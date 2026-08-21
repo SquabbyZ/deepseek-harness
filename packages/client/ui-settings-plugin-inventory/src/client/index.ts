@@ -1,13 +1,13 @@
-/** Settings plugin-inventory tab: lazy list + dynamic enable/disable. */
+/** Settings plugin-inventory section: lazy list + dynamic enable/disable + uninstall. */
 
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
+import { PluginManagementSection, type PluginManagementSectionInjected } from './PluginManagementSection.tsx'
 import { createPluginInventoryStore, type PluginInventoryEntry } from './inventory-store.ts'
 import { en, zh } from './locales.ts'
 
-export type { PluginInventorySettingsTabInjected, PluginInventorySettingsTabProps } from './PluginInventorySettingsTab.tsx'
+export type { PluginManagementSectionInjected, PluginManagementSectionProps } from './PluginManagementSection.tsx'
 export type { PluginInventoryLocaleKey } from './locales.ts'
 export {
   createPluginInventoryStore,
@@ -28,7 +28,7 @@ export const NS = 'settings.pluginInventory'
 /** Services required by the Settings registration, the snapshot store, and the Remote contribution. */
 export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory']
 
-/** Contribute the inventory tab to the Plugins settings section. */
+/** Contribute the inventory as its own top-level Settings section (插件管理). */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugin-inventory: dictionaries')
 
@@ -50,6 +50,10 @@ export function apply(ctx: ClientContext): void {
       }>
       setEnabled(
         args: { entryId: string; enabled: boolean },
+        signal?: AbortSignal,
+      ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
+      uninstall(
+        args: { entryId: string },
         signal?: AbortSignal,
       ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
     }
@@ -77,7 +81,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.on('connection/reset', () => { store.reset(); store.refresh() }),
     'ui-settings-plugin-inventory: reset on reconnect')
 
-  const injected = (): PluginInventorySettingsTabInjected => ({
+  const injected = (): PluginManagementSectionInjected => ({
     list: async () => {
       const result = await inventoryRemote.pluginInventory.list()
       if (!result.ok) {
@@ -97,14 +101,22 @@ export function apply(ctx: ClientContext): void {
       // state instead of reverting to the stale snapshot.
       void store.refresh()
     },
+    uninstall: async (entryId, { signal }) => {
+      const result = await inventoryRemote.pluginInventory.uninstall({ entryId }, signal)
+      if (!result.ok) {
+        throw new Error(`pluginInventory.uninstall failed: ${result.error?.code}: ${result.error?.message}`)
+      }
+    },
   })
 
-  ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
-    name: 'settings.plugins.tab',
-    id: 'all',
-    order: 10,
-    label: () => t('tab'),
+  // Own nav entry, sibling of 插件设置 (order 15). The panel shows the built-in
+  // and external plugin tabs; 插件设置 keeps only its configuration pages.
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'plugin-inventory',
+    order: 16,
+    label: () => t('nav'),
     locale: NS,
     inject: injected,
-  }, PluginInventorySettingsTab))
+  }, PluginManagementSection))
 }

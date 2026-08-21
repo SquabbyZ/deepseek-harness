@@ -2,7 +2,9 @@
 
 /** Simplified Chinese dictionary and key source of truth. */
 export const zh = {
-  tab: '插件列表',
+  nav: '插件管理',
+  title: '插件管理',
+  intro: '查看内置插件与外部插件的挂载状态，启用或停用它们。',
   loading: '正在读取插件…',
   error: '暂时无法读取插件。',
   retry: '重试',
@@ -22,6 +24,21 @@ export const zh = {
   reasonUnobserved: '未挂载',
   reasonUserDisabled: '你已停用',
   reasonCordisDisabled: 'cordis.yml 已停用',
+  detail: '详情',
+  detailTitle: '插件详情',
+  uninstall: '卸载',
+  uninstallTitle: '卸载 {{name}}？',
+  uninstallHint: '将从当前会话中移除该插件。',
+  uninstallError: '卸载 {{name}} 失败：{{reason}}',
+  cancel: '取消',
+  fieldModuleId: '模块 ID',
+  fieldScope: '来源',
+  fieldEnabled: '状态',
+  fieldPhase: '挂载阶段',
+  enabledLabel: '已启用',
+  disabledLabel: '已停用',
+  fieldBuiltin: '内置',
+  fieldExternal: '外部',
 } satisfies Record<string, string>
 
 /** Plugin inventory locale key union. */
@@ -29,7 +46,9 @@ export type PluginInventoryLocaleKey = keyof typeof zh
 
 /** English dictionary checked against the Chinese key set. */
 export const en = {
-  tab: 'Plugin list',
+  nav: 'Plugins',
+  title: 'Plugin management',
+  intro: 'Review the mount state of built-in and external plugins, and enable or disable them.',
   loading: 'Reading plugins…',
   error: 'Plugins are temporarily unavailable.',
   retry: 'Retry',
@@ -49,4 +68,19 @@ export const en = {
   reasonUnobserved: 'Not mounted',
   reasonUserDisabled: 'You disabled this',
   reasonCordisDisabled: 'Disabled in cordis.yml',
+  detail: 'Details',
+  detailTitle: 'Plugin details',
+  uninstall: 'Uninstall',
+  uninstallTitle: 'Uninstall {{name}}?',
+  uninstallHint: 'This will remove the plugin from the current session.',
+  uninstallError: 'Failed to uninstall {{name}}: {{reason}}',
+  cancel: 'Cancel',
+  fieldModuleId: 'Module ID',
+  fieldScope: 'Source',
+  fieldEnabled: 'State',
+  fieldPhase: 'Mount phase',
+  enabledLabel: 'Enabled',
+  disabledLabel: 'Disabled',
+  fieldBuiltin: 'Built-in',
+  fieldExternal: 'External',
 } satisfies Record<PluginInventoryLocaleKey, string>

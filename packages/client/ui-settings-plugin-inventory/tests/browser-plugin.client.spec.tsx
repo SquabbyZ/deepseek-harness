@@ -7,8 +7,8 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject, NS } from '../src/client/index.ts'
-import { PluginInventorySettingsTab } from '../src/client/PluginInventorySettingsTab.tsx'
-import type { PluginInventorySettingsTabInjected } from '../src/client/PluginInventorySettingsTab.tsx'
+import { PluginManagementSection } from '../src/client/PluginManagementSection.tsx'
+import type { PluginManagementSectionInjected } from '../src/client/PluginManagementSection.tsx'
 
 usePinnedBrowserLanguages('zh-CN')
 afterEach(cleanup)
@@ -36,14 +36,16 @@ async function bench() {
   new RemoteService(ctx)
   const list = vi.fn<() => Promise<ListResult>>()
     .mockResolvedValue({ ok: true, value: EMPTY })
-  ctx.provide('remote.pluginInventory', { list })
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, list, onMock }
+  const setEnabled = vi.fn().mockResolvedValue({ ok: true })
+  const uninstall = vi.fn().mockResolvedValue({ ok: true })
+  ctx.provide('remote.pluginInventory', { list, setEnabled, uninstall })
+  return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, list, setEnabled, uninstall, onMock }
 }
 
 function declare(slots: SlotRegistry): () => void {
   return slots.register({
     name: 'root',
-    children: { 'settings.plugins.tab': { kind: 'list', scope: 'root' } },
+    children: { 'settings.section': { kind: 'list', scope: 'root' } },
   } as never, () => null)
 }
 
@@ -52,23 +54,25 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.pluginInventory'])
   })
 
-  it('registers a localized tab without reading the Remote eagerly', async () => {
+  it('registers a localized Settings section without reading the Remote eagerly', async () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
 
-    const entry = b.slots.entries('settings.plugins.tab')[0]!
-    expect(entry.component).toBe(PluginInventorySettingsTab)
-    expect(entry.options).toMatchObject({ id: 'all', order: 10 })
+    const entry = b.slots.entries('settings.section')[0]!
+    expect(entry.component).toBe(PluginManagementSection)
+    expect(entry.options).toMatchObject({ id: 'plugin-inventory', order: 16 })
     expect(entry.locale).toBe(NS)
-    expect(resolveSlotLabel(entry.options.label)).toBe('插件列表')
+    expect(resolveSlotLabel(entry.options.label)).toBe('插件管理')
     expect(b.list).not.toHaveBeenCalled()
 
-    const injected = (entry.inject as unknown as () => PluginInventorySettingsTabInjected)()
+    const injected = (entry.inject as unknown as () => PluginManagementSectionInjected)()
     await expect(injected.list()).resolves.toEqual(EMPTY)
     expect(b.list).toHaveBeenCalledOnce()
     b.list.mockResolvedValueOnce({ ok: false, error: { code: 'REMOTE_ERROR', message: 'unavailable' } })
     await expect(injected.list()).rejects.toThrow('pluginInventory.list failed: REMOTE_ERROR: unavailable')
+    await expect(injected.uninstall('dshmarket', { signal: new AbortController().signal })).resolves.toBeUndefined()
+    expect(b.uninstall).toHaveBeenCalledWith({ entryId: 'dshmarket' }, expect.anything())
     await b.ctx.fiber.dispose()
   })
 
@@ -76,22 +80,22 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     const b = await bench()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
 
     const stop = declare(b.slots)
-    await vi.waitFor(() => { expect(b.slots.entries('settings.plugins.tab')).toHaveLength(1) })
+    await vi.waitFor(() => { expect(b.slots.entries('settings.section')).toHaveLength(1) })
     b.locale.setLocale('en')
-    expect(resolveSlotLabel(b.slots.entries('settings.plugins.tab')[0]!.options.label)).toBe('Plugin list')
+    expect(resolveSlotLabel(b.slots.entries('settings.section')[0]!.options.label)).toBe('Plugins')
 
     stop()
-    expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
     declare(b.slots)
     await vi.waitFor(() => {
-      expect(b.slots.entries('settings.plugins.tab')[0]?.component).toBe(PluginInventorySettingsTab)
+      expect(b.slots.entries('settings.section')[0]?.component).toBe(PluginManagementSection)
     })
 
     await fiber.dispose()
-    expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
+    expect(b.slots.entries('settings.section')).toHaveLength(0)
     expect(() => b.locale.register(NS, 'zh', {})).not.toThrow()
     await b.ctx.fiber.dispose()
   })

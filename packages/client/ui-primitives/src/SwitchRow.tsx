@@ -36,6 +36,9 @@ const STATUS_LIKE = 'text-[12px] leading-[18px] text-[var(--dsw-alias-label-tert
  * @param props.pending - true while a debounced commit is in flight; renders a pending state.
  * @param props.error - true to flash the row red after a failed commit.
  * @param props.entryId - forwarded to `data-entry-id` for e2e selectors.
+ * @param props.actions - optional row actions rendered between the label and the
+ *   switch (e.g. a details / uninstall button). The switch stays the rightmost
+ *   element.
  * @param props.onCheckedChange - called when the user toggles the switch.
  * @returns the row element.
  */
@@ -48,6 +51,7 @@ export function SwitchRow({
   pending = false,
   error = false,
   entryId,
+  actions,
   onCheckedChange,
   className,
 }: {
@@ -59,6 +63,7 @@ export function SwitchRow({
   pending?: boolean | undefined
   error?: boolean | undefined
   entryId?: string | undefined
+  actions?: ReactNode | undefined
   onCheckedChange: (checked: boolean) => void
   className?: string | undefined
 }) {
@@ -77,6 +82,7 @@ export function SwitchRow({
         </div>
       </div>
       <div className={TRAILING}>
+        {actions}
         {state === 'pending' ? <span className={STATUS_LIKE} data-pending="true">…</span> : null}
         <Switch
           checked={checked}

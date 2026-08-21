@@ -20,15 +20,12 @@ try {
   await page.waitForTimeout(7000)
   await page.getByRole('button', { name: '设置' }).first().click()
   await page.waitForTimeout(2500)
-  await page.getByText('插件设置', { exact: true }).first().click()
-  await page.waitForTimeout(2000)
-  await page.getByText('插件列表', { exact: true }).click()
+  await page.getByText('插件管理', { exact: true }).first().click()
   await page.waitForTimeout(2500)
 
   const info = await page.evaluate(() => {
-    const builtin = document.querySelector('[data-plugin-group="builtin"]')
-    const external = document.querySelector('[data-plugin-group="external"]')
-    const rows = [...document.querySelectorAll('[data-plugin-entry]')]
+    const list = document.querySelector('[data-plugin-tab-list="builtin"]')
+    const rows = list ? [...list.querySelectorAll('[data-plugin-entry]')] : []
     const states = rows.map((r) => {
       const sw = r.querySelector('[role="switch"], button[role="switch"]')
       return {
@@ -37,18 +34,28 @@ try {
         disabled: sw?.hasAttribute('disabled') ?? false,
       }
     })
-    return {
-      builtinCount: builtin ? builtin.querySelectorAll('[data-plugin-entry]').length : 0,
-      externalCount: external ? external.querySelectorAll('[data-plugin-entry]').length : 0,
-      total: rows.length,
-      names: rows.map((r) => r.getAttribute('data-plugin-entry')),
-      states,
-    }
+    return { builtinCount: rows.length, names: rows.map((r) => r.getAttribute('data-plugin-entry')), states }
   })
+  // Switch to the external tab to read its rows.
+  await page.evaluate(() => {
+    const tab = [...document.querySelectorAll('[data-plugin-tab]')].find((b) => b.getAttribute('data-plugin-tab') === 'external')
+    tab?.click()
+  })
+  await page.waitForTimeout(1200)
+  const externalNames = await page.evaluate(() => {
+    const list = document.querySelector('[data-plugin-tab-list="external"]')
+    return list ? [...list.querySelectorAll('[data-plugin-entry]')].map((r) => r.getAttribute('data-plugin-entry')) : []
+  })
+  // Back to the built-in tab for the toggle test.
+  await page.evaluate(() => {
+    const tab = [...document.querySelectorAll('[data-plugin-tab]')].find((b) => b.getAttribute('data-plugin-tab') === 'builtin')
+    tab?.click()
+  })
+  await page.waitForTimeout(1000)
 
-  info.total >= 20 ? ok('真实插件数量', `${info.total} (内置${info.builtinCount} + 外部${info.externalCount})`) : bad('真实插件数量', `${info.total}`)
+  info.builtinCount >= 20 ? ok('真实插件数量', `${info.builtinCount} 内置 + ${externalNames.length} 外部`) : bad('真实插件数量', `${info.builtinCount}`)
   info.names.includes('@deepseek-ai/dsh-client-connection') ? ok('含 connection', '') : bad('含 connection', '')
-  info.names.includes('dshmarket') && info.externalCount >= 1 ? ok('dshmarket 在外部', '') : bad('dshmarket 在外部', '')
+  externalNames.includes('dshmarket') ? ok('dshmarket 在外部', '') : bad('dshmarket 在外部', JSON.stringify(externalNames))
 
   // Shell-critical + service-provider rows are locked.
   const lockName = (n) => { const s = info.states.find((x) => x.name === n); return s && s.disabled === true }
