@@ -1,5 +1,5 @@
 {
-  "rev": "8aecf2576aea",
+  "rev": "1fd58cb78022",
   "entries": [
     {
       "id": "@deepseek-ai/dsh-api-gateway",
@@ -22,8 +22,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-client-connection",
-      "url": "/plugins/@deepseek-ai/dsh-client-connection/client.js?rev=af67f20f23e6",
-      "rev": "af67f20f23e6",
+      "url": "/plugins/@deepseek-ai/dsh-client-connection/client.js?rev=f971767f1719",
+      "rev": "f971767f1719",
       "immediately": true
     },
     {

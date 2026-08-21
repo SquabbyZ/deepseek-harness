@@ -1644,6 +1644,26 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   /** The default agent-preset setting (`ui-agent-preset` writes it via settings.update). */
   const AGENT_PRESET_SETTINGS_NS = 'agent-presets'
   /**
+   * Settings namespaces the Plugins section's configurable cards read
+   * (ui-settings-plugins binds each card's scope to its namespace): shell
+   * (BashCard), agent-loop (AgentLoopCard), web-search-deepseek
+   * (WebSearchCard). Served so the cards render their fields instead of an
+   * unavailable state.
+   */
+  const SHELL_SETTINGS_NS = 'shell'
+  const AGENT_LOOP_SETTINGS_NS = 'agent-loop'
+  const WEB_SEARCH_SETTINGS_NS = 'web-search-deepseek'
+  // Schemas must be real schemastery envelopes (z.object().toJSON()) — a
+  // hand-written {type:'object',dict:{}} cannot be rehydrated by the settings
+  // scope's new Schema(json), which marks the namespace unavailable and hides
+  // the card.
+  const SHELL_SETTINGS_SCHEMA = z.object({ timeoutMs: z.number().step(1).min(0), maxOutputBytes: z.number().step(1).min(0) }).toJSON()
+  const AGENT_LOOP_SETTINGS_SCHEMA = z.object({ maxParallelToolCalls: z.number().step(1).min(1) }).toJSON()
+  const WEB_SEARCH_SETTINGS_SCHEMA = z.object({ apiKeyEnv: z.string(), baseURL: z.string(), maxUses: z.number().step(1).min(1) }).toJSON()
+  const shellSettings: Record<string, unknown> = { timeoutMs: 30_000, maxOutputBytes: 1_048_576 }
+  const agentLoopSettings: Record<string, unknown> = { maxParallelToolCalls: 4 }
+  const webSearchSettings: Record<string, unknown> = { apiKeyEnv: 'DEEPSEEK_API_KEY', baseURL: '', maxUses: 4 }
+  /**
    * Serialized schemastery envelope for the `llm-deepseek` namespace, built
    * through the real schema library and `.toJSON()`ed — exactly what the host's
    * settings service serves — so the official Models editor's
@@ -3237,6 +3257,30 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           secrets: [],
           revision: 0,
         }, {
+          ns: SHELL_SETTINGS_NS,
+          schema: SHELL_SETTINGS_SCHEMA,
+          value: { ...shellSettings },
+          user: {},
+          applies: 'live',
+          secrets: [],
+          revision: 0,
+        }, {
+          ns: AGENT_LOOP_SETTINGS_NS,
+          schema: AGENT_LOOP_SETTINGS_SCHEMA,
+          value: { ...agentLoopSettings },
+          user: {},
+          applies: 'live',
+          secrets: [],
+          revision: 0,
+        }, {
+          ns: WEB_SEARCH_SETTINGS_NS,
+          schema: WEB_SEARCH_SETTINGS_SCHEMA,
+          value: { ...webSearchSettings },
+          user: {},
+          applies: 'live',
+          secrets: [],
+          revision: 0,
+        }, {
           ns: PROXY_SETTINGS_NS,
           schema: { type: 'object', dict: { url: { type: 'string' } } },
           value: proxyUrl === undefined ? {} : { url: proxyUrl },
@@ -3341,6 +3385,37 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             applies: 'live',
             secrets: [],
             revision: proxyRevision,
+          })
+        }
+        // The configurable-plugin card namespaces (ui-settings-plugins): apply
+        // the card's staged set/unset into the namespace value so saving works.
+        if (request.payload.ns === SHELL_SETTINGS_NS
+          || request.payload.ns === AGENT_LOOP_SETTINGS_NS
+          || request.payload.ns === WEB_SEARCH_SETTINGS_NS) {
+          const current = request.payload.ns === SHELL_SETTINGS_NS
+            ? shellSettings
+            : request.payload.ns === AGENT_LOOP_SETTINGS_NS
+              ? agentLoopSettings
+              : webSearchSettings
+          for (const op of request.payload.ops) {
+            if (op.op === 'set' && op.path.length === 1) {
+              current[op.path[0] as string] = op.value
+            } else if (op.op === 'unset' && op.path.length === 1) {
+              Reflect.deleteProperty(current, op.path[0] as string)
+            }
+          }
+          return ok(request, {
+            ns: request.payload.ns,
+            schema: request.payload.ns === SHELL_SETTINGS_NS
+              ? SHELL_SETTINGS_SCHEMA
+              : request.payload.ns === AGENT_LOOP_SETTINGS_NS
+                ? AGENT_LOOP_SETTINGS_SCHEMA
+                : WEB_SEARCH_SETTINGS_SCHEMA,
+            value: { ...current },
+            user: { ...current },
+            applies: 'live',
+            secrets: [],
+            revision: 1,
           })
         }
         if (request.payload.ns === WELCOME_NOTICE_NS) {
