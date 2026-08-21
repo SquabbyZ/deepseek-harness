@@ -22,7 +22,8 @@
         "center": true,
         "decorations": true,
         "resizable": true,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "devtools": true
       }
     ],
     "security": {
@@ -35,7 +36,12 @@
     "category": "DeveloperTool",
     "shortDescription": "DeepSeek Harness Desktop",
     "longDescription": "Client-first desktop client for DeepSeek Harness plugin ecosystem.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "resources": [],
     "macOS": {
       "minimumSystemVersion": "12.0",
@@ -47,7 +53,9 @@
     "deep-link": {
       "mobile": [],
       "desktop": {
-        "schemes": ["dsh"]
+        "schemes": [
+          "dsh"
+        ]
       }
     },
     "updater": {

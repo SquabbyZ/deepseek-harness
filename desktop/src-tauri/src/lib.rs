@@ -74,7 +74,8 @@ pub fn run() {
             };
             app.manage(Arc::new(RwLock::new(state)));
 
-            // Show window on first paint
+            // Devtools enabled via Cargo feature + tauri.conf window.devtools —
+            // press Ctrl+Shift+I (or F12) in the built app to open the console.
             if let Some(window) = app.get_webview_window("main") {
                 window.show()?;
             }
