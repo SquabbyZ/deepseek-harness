@@ -146,6 +146,7 @@ describe('createFixtureApi', () => {
           options: [
             { value: 'workspace-write', name: 'workspace-write', description: 'Write inside the workspace and permitted temporary directories; wider retries require approval.' },
             { value: 'danger-full-access', name: 'danger-full-access', description: 'Full file access without approval prompts.' },
+            { value: 'read-only', name: 'read-only', description: 'Read-only access to the workspace; no writes or state changes.' },
           ],
           currentValue: 'workspace-write',
         },

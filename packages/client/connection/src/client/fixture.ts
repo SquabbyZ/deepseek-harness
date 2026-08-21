@@ -848,6 +848,7 @@ function planViewOf(log: readonly SessionEvent[]): { active: boolean; pending: b
 const PERMISSION_PRESETS: Record<string, { sandbox: string; approval: string; description: string }> = {
   'workspace-write': { sandbox: 'workspace-write', approval: 'ask', description: 'Write inside the workspace and permitted temporary directories; wider retries require approval.' },
   'danger-full-access': { sandbox: 'danger-full-access', approval: 'never', description: 'Full file access without approval prompts.' },
+  'read-only': { sandbox: 'read-only', approval: 'never', description: 'Read-only access to the workspace; no writes or state changes.' },
 }
 
 /** Host permissions-unit parallel: fold the three knob events, derive the select over the fixture defaults. */
@@ -1691,6 +1692,20 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   const PROXY_SETTINGS_NS = 'proxy'
   let proxyUrl: string | undefined
   let proxyRevision = 0
+  /**
+   * New-session permission default (`ui-permission-presets` reads
+   * `defaultPreset`). The union choices carry the product labels so the
+   * settings row renders 工作区写入 / 完全访问 / 只读.
+   */
+  const PERMISSION_NS = 'permission'
+  let permissionDefault = 'workspace-write'
+  const PERMISSION_SCHEMA = z.object({
+    defaultPreset: z.union([
+      z.const('workspace-write').description('工作区写入'),
+      z.const('danger-full-access').description('完全访问'),
+      z.const('read-only').description('只读'),
+    ]),
+  }).toJSON()
   /** The default agent-preset setting (`ui-agent-preset` writes it via settings.update). */
   const AGENT_PRESET_SETTINGS_NS = 'agent-presets'
   /**
@@ -3500,6 +3515,14 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           applies: 'live',
           secrets: [],
           revision: 0,
+        }, {
+          ns: PERMISSION_NS,
+          schema: PERMISSION_SCHEMA,
+          value: { defaultPreset: permissionDefault },
+          user: { defaultPreset: permissionDefault },
+          applies: 'live',
+          secrets: [],
+          revision: 0,
         }],
       }),
       // Open the settings document. Under Tauri the fixture surfaces the real
@@ -3646,6 +3669,23 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             applies: 'live',
             secrets: [],
             revision: 0,
+          })
+        }
+        if (request.payload.ns === PERMISSION_NS) {
+          for (const op of request.payload.ops) {
+            if (op.op === 'set' && op.path[0] === 'defaultPreset' && typeof op.value === 'string'
+              && op.value in PERMISSION_PRESETS) {
+              permissionDefault = op.value
+            }
+          }
+          return ok(request, {
+            ns: PERMISSION_NS,
+            schema: PERMISSION_SCHEMA,
+            value: { defaultPreset: permissionDefault },
+            user: { defaultPreset: permissionDefault },
+            applies: 'live',
+            secrets: [],
+            revision: 1,
           })
         }
         return err(request, {
