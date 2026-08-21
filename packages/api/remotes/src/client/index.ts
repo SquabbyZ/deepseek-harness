@@ -241,39 +241,6 @@ const skillRegistryRemote: TypertRemoteContribution = {
   package: '@deepseek-ai/dsh-skill-registry',
   descriptors: [skillSearchDescriptor, skillInstallDescriptor],
 }
-const mcpEntrySchema = z.object({
-  entryId: z.string(),
-  serverName: z.string(),
-  transport: z.string(),
-  target: z.string(),
-  enabled: z.boolean(),
-})
-const mcpListDescriptor: InvocationDescriptor = {
-  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/list',
-  service: 'mcpInventory',
-  namespace: 'mcpInventory',
-  method: 'list',
-  invocation: { kind: 'direct' },
-  parameters: [],
-  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/list:result', schema: z.object({ entries: z.array(mcpEntrySchema) }) },
-}
-const mcpSetEnabledDescriptor: InvocationDescriptor = {
-  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/setEnabled',
-  service: 'mcpInventory',
-  namespace: 'mcpInventory',
-  method: 'setEnabled',
-  invocation: { kind: 'direct' },
-  parameters: [
-    {
-      name: 'entry',
-      wire: 'entry',
-      source: 'json',
-      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-entry', schema: z.object({ entryId: z.string(), enabled: z.boolean() }) },
-    },
-  ],
-  cancellation: { parameter: 'signal' },
-  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/setEnabled:result', schema: z.object({}) },
-}
 // One persisted McpServerSpec (the `mcp-inventory` namespace value); kept exact
 // to the ui-settings-mcp store type so the fixture and the tab agree on shape.
 const mcpSpecSchema = z.union([
@@ -292,6 +259,44 @@ const mcpSpecSchema = z.union([
     headers: z.record(z.string(), z.string()),
   }),
 ])
+export const mcpEntrySchema = z.object({
+  entryId: z.string(),
+  serverName: z.string(),
+  transport: z.string(),
+  target: z.string(),
+  enabled: z.boolean(),
+  // The full persisted spec rides each list entry so the probe can run it: the
+  // strict codec drops unknown keys, so omitting `spec` here made
+  // `probeMcpServer(entry.spec)` throw on undefined in the real app.
+  spec: mcpSpecSchema,
+})
+export const mcpListResultSchema = z.object({ entries: z.array(mcpEntrySchema) })
+const mcpListDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/list',
+  service: 'mcpInventory',
+  namespace: 'mcpInventory',
+  method: 'list',
+  invocation: { kind: 'direct' },
+  parameters: [],
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/list:result', schema: mcpListResultSchema },
+}
+const mcpSetEnabledDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/setEnabled',
+  service: 'mcpInventory',
+  namespace: 'mcpInventory',
+  method: 'setEnabled',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'entry',
+      wire: 'entry',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-entry', schema: z.object({ entryId: z.string(), enabled: z.boolean() }) },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/setEnabled:result', schema: z.object({}) },
+}
 const mcpUpsertDescriptor: InvocationDescriptor = {
   id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/upsertServer',
   service: 'mcpInventory',
