@@ -190,7 +190,10 @@ const skillInventoryRemote: TypertRemoteContribution = {
 }
 // skills.sh registry remote (Task 4): search the registry and install a skill
 // into ~/.dsh/skills/{name}. The wire namespace is `skillRegistry` so the RPC
-// endpoints are `skillRegistry/search` + `skillRegistry/install`.
+// endpoints are `skillRegistry/search` + `skillRegistry/installSkill`.
+// NOTE: the method is `installSkill`, NOT `install` — the typert gateway
+// reserves `install` on RemoteNamespaceService (its own lifecycle method), so a
+// namespace method named `install` throws at mount time.
 const skillRegistrySkillSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -214,10 +217,10 @@ const skillSearchDescriptor: InvocationDescriptor = {
   result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/search:result', schema: z.object({ skills: z.array(skillRegistrySkillSchema) }) },
 }
 const skillInstallDescriptor: InvocationDescriptor = {
-  id: '@deepseek-ai/dsh-skill-inventory#skillRegistry/install',
+  id: '@deepseek-ai/dsh-skill-inventory#skillRegistry/installSkill',
   service: 'skillRegistry',
   namespace: 'skillRegistry',
-  method: 'install',
+  method: 'installSkill',
   invocation: { kind: 'direct' },
   parameters: [
     {
@@ -232,10 +235,10 @@ const skillInstallDescriptor: InvocationDescriptor = {
     },
   ],
   cancellation: { parameter: 'signal' },
-  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/install:result', schema: z.object({ ok: z.literal(true) }) },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/installSkill:result', schema: z.object({ ok: z.literal(true) }) },
 }
 const skillRegistryRemote: TypertRemoteContribution = {
-  package: '@deepseek-ai/dsh-skill-inventory',
+  package: '@deepseek-ai/dsh-skill-registry',
   descriptors: [skillSearchDescriptor, skillInstallDescriptor],
 }
 const mcpEntrySchema = z.object({
@@ -356,7 +359,7 @@ const mcpRegistrySearchDescriptor: InvocationDescriptor = {
   result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpRegistry/search:result', schema: z.object({ servers: z.array(mcpRegistryServerSchema) }) },
 }
 const mcpRegistryRemote: TypertRemoteContribution = {
-  package: '@deepseek-ai/dsh-mcp-inventory',
+  package: '@deepseek-ai/dsh-mcp-registry',
   descriptors: [mcpRegistrySearchDescriptor],
 }
 

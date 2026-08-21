@@ -4413,7 +4413,6 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     { entryId: 'web-search', name: 'Web Search', description: '联网搜索并返回结构化证据', source: 'builtin', provider: 'dsh', modelInvocable: true, userInvocable: true, enabled: true },
     { entryId: 'agent-loop', name: 'Agent Loop', description: '编排工具调用与任务规划的智能体循环', source: 'builtin', provider: 'dsh', modelInvocable: true, userInvocable: false, enabled: true },
   ]
-  const fixtureMcps: Array<{ entryId: string; serverName: string; transport: string; target: string; enabled: boolean }> = []
   const skillEnabled = new Map<string, boolean>()
   const mcpEnabled = new Map<string, boolean>()
   /** Persistence namespace for skill enable/disable (`{ enabled: { [id]: boolean } }`). */
@@ -4641,7 +4640,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           })
           return Promise.resolve({ ok: true, value: { skills: projected } })
         }
-        case 'skillRegistry/install': {
+        case 'skillRegistry/installSkill': {
           const invoke = tauriInvoke()
           if (invoke === undefined) {
             return Promise.resolve({
@@ -4682,7 +4681,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             req: { method: 'GET', url: `https://codeload.github.com/${owner}/${repo}/tar.gz/HEAD`, headers: {}, timeout_ms: 120_000 },
           })
           if (res.status < 200 || res.status >= 300) {
-            throw new Error(`skillRegistry/install: HTTP ${res.status}`)
+            throw new Error(`skillRegistry/installSkill: HTTP ${res.status}`)
           }
           // 2. Persist the bytes (fs_write creates the parent dirs under ~/.dsh).
           await invoke('fs_write', { path: tmpTar, content: res.body })
@@ -4704,8 +4703,11 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         case 'mcpInventory/list': {
           const invoke = tauriInvoke()
           if (invoke === undefined) {
-            // Browser / no bridge: fall back to the hardcoded fixture roster.
-            const entries = fixtureMcps.map(mcp => ({ ...mcp, enabled: mcpEnabled.get(mcp.entryId) ?? mcp.enabled }))
+            // Browser / no bridge: seed once so the persisted `mcp-inventory`
+            // namespace is applied, then project the persisted servers (the
+            // source of truth) — mirrors the Tauri branch.
+            await seedSettings()
+            const entries = [...mcpServers.entries()].map(projectMcpEntry)
             return Promise.resolve({ ok: true, value: { entries } })
           }
           // Tauri: seed once so the persisted `mcp-inventory` namespace is

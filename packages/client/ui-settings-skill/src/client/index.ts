@@ -51,7 +51,7 @@ type SkillRegistryRemote = {
     value: SkillRegistrySearchResult
     error?: { code: string; message: string }
   }>
-  install(
+  installSkill(
     target: { name: string; source: string },
     signal?: AbortSignal,
   ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
@@ -82,7 +82,7 @@ export function apply(ctx: ClientContext): void {
         return result.value
       },
       install: async (target) => {
-        const result = await remote.skillRegistry.install(target)
+        const result = await remote.skillRegistry.installSkill(target)
         if (!result.ok) {
           throw new Error(`skillRegistry.install failed: ${result.error?.code}: ${result.error?.message}`)
         }

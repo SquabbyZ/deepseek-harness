@@ -110,10 +110,10 @@ describe('mcpInventory/list — persisted namespace under Tauri', () => {
     ])
   })
 
-  it('falls back to the hardcoded fixture roster without a Tauri bridge', async () => {
+  it('returns an empty server list without a Tauri bridge', async () => {
     const { rpc } = createFixtureFaces()
     const entries = await mcpList(rpc)
-    expect(entries).toEqual([]) // fixtureMcps is empty; the persisted namespace is only readable under Tauri.
+    expect(entries).toEqual([]) // mcpServers is empty; the persisted namespace is only readable under Tauri.
   })
 })
 

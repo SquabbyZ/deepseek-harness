@@ -6,7 +6,7 @@
  *  1. Fixture RPC — with `__TAURI_INTERNALS__` mocked so `http_request`
  *     returns a fake skills.sh search response, `skillRegistry/search` must
  *     project `{ name, description, installs, source }` (source = owner/repo);
- *     `skillRegistry/install` must download the codeload tarball and drive
+ *     `skillRegistry/installSkill` must download the codeload tarball and drive
  *     `fs_write` + `shell_spawn` to extract it into `~/.dsh/skills/{name}`.
  *  2. Component — `SkillInventorySettingsTab` reuses the search box: a non-empty
  *     query triggers the `search` port and renders remote skill cards with an
@@ -113,15 +113,15 @@ async function searchSkills(
   return (result.value as { skills: Array<Record<string, unknown>> }).skills
 }
 
-/** Drive the fixture's skillRegistry/install Remote endpoint. */
+/** Drive the fixture's skillRegistry/installSkill Remote endpoint. */
 async function installSkill(
   rpc: ReturnType<typeof createFixtureFaces>['rpc'],
   target: { name: string; source: string },
 ): Promise<Record<string, unknown>> {
-  const result = await rpc.call('/api', 'skillRegistry/install', {
+  const result = await rpc.call('/api', 'skillRegistry/installSkill', {
     args: { agentId: 'fx-alpha' as never, target },
   })
-  if (!result.ok) throw new Error(`skillRegistry/install failed: ${result.error.code}`)
+  if (!result.ok) throw new Error(`skillRegistry/installSkill failed: ${result.error.code}`)
   return result.value as Record<string, unknown>
 }
 
@@ -151,7 +151,7 @@ describe('skillRegistry/search — skills.sh projection', () => {
   })
 })
 
-describe('skillRegistry/install — tarball download + extract', () => {
+describe('skillRegistry/installSkill — tarball download + extract', () => {
   it('downloads the codeload tarball and drives fs_write + shell_spawn, returning { ok }', async () => {
     const bridge = installTauriMock({
       httpBody: 'not-a-real-tarball', // the fixture only transports the bytes
@@ -224,7 +224,7 @@ describe('skillRegistry/install — tarball download + extract', () => {
 
   it('fails gracefully without a Tauri bridge', async () => {
     const { rpc } = createFixtureFaces()
-    const result = await rpc.call('/api', 'skillRegistry/install', {
+    const result = await rpc.call('/api', 'skillRegistry/installSkill', {
       args: { agentId: 'fx-alpha' as never, target: { name: 'x', source: 'a/b' } },
     })
     expect(result.ok).toBe(false)
