@@ -27,15 +27,24 @@ function shortHash(input) {
   return createHash('sha1').update(input).digest('hex').slice(0, 12)
 }
 
-/** Every package.json under packages/one-level/two-level — the workspace surface. */
+/** Every package.json under packages/one-level/two-level plus external/*. */
 function workspacePackages() {
   const pjs = []
-  for (const area of readdirSync(join(root, 'packages'))) {
-    const areaDir = join(root, 'packages', area)
-    if (!statSync(areaDir).isDirectory()) continue
-    for (const name of readdirSync(areaDir)) {
-      const pj = join(areaDir, name, 'package.json')
-      if (existsSync(pj)) pjs.push(pj)
+  for (const dir of [join(root, 'packages'), join(root, 'external')]) {
+    if (!existsSync(dir)) continue
+    for (const entry of readdirSync(dir)) {
+      const entryDir = join(dir, entry)
+      if (!statSync(entryDir).isDirectory()) continue
+      // packages/ is two-level (area/name); external/ holds vendored plugins
+      // laid out flat (e.g. external/dsh-market/package.json).
+      const flat = existsSync(join(entryDir, 'package.json'))
+      const names = flat ? [entry] : readdirSync(entryDir)
+      for (const name of names) {
+        // Flat layout: entryDir IS the package dir (external/dsh-market).
+        // Two-level: the package dir is entryDir/name (packages/client/ui-x).
+        const pj = flat ? join(entryDir, 'package.json') : join(entryDir, name, 'package.json')
+        if (existsSync(pj)) pjs.push(pj)
+      }
     }
   }
   return pjs

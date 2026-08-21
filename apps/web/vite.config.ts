@@ -59,23 +59,28 @@ function nodeShimPlugin(): Plugin {
 function officialBundleServer(): Plugin {
   // package name -> built client bundle path.
   const bundles = new Map<string, string>()
-  for (const area of readdirSync(src('../../packages'))) {
-    const areaDir = join(src('../../packages'), area)
-    if (!statSync(areaDir).isDirectory()) continue
-    for (const name of readdirSync(areaDir)) {
-      const pjPath = join(areaDir, name, 'package.json')
-      if (!existsSync(pjPath)) continue
-      const pkg = JSON.parse(readFileSync(pjPath, 'utf8')) as {
-        name: string
-        dsh?: { client?: { platform?: string } }
-        exports?: Record<string, string | { default?: string }>
+  for (const root of [src('../../packages'), src('../../external')]) {
+    if (!existsSync(root)) continue
+    for (const area of readdirSync(root)) {
+      const areaDir = join(root, area)
+      if (!statSync(areaDir).isDirectory()) continue
+      const flat = existsSync(join(areaDir, 'package.json'))
+      const names = flat ? [area] : readdirSync(areaDir)
+      for (const name of names) {
+        const pjPath = flat ? join(areaDir, 'package.json') : join(areaDir, name, 'package.json')
+        if (!existsSync(pjPath)) continue
+        const pkg = JSON.parse(readFileSync(pjPath, 'utf8')) as {
+          name: string
+          dsh?: { client?: { platform?: string } }
+          exports?: Record<string, string | { default?: string }>
+        }
+        if (pkg.dsh?.client?.platform !== 'web') continue
+        const client = pkg.exports?.['./client']
+        const rel = typeof client === 'string' ? client : client?.default
+        if (typeof rel !== 'string') continue
+        const bundlePath = join(dirname(pjPath), rel)
+        if (existsSync(bundlePath)) bundles.set(pkg.name, bundlePath)
       }
-      if (pkg.dsh?.client?.platform !== 'web') continue
-      const client = pkg.exports?.['./client']
-      const rel = typeof client === 'string' ? client : client?.default
-      if (typeof rel !== 'string') continue
-      const bundlePath = join(dirname(pjPath), rel)
-      if (existsSync(bundlePath)) bundles.set(pkg.name, bundlePath)
     }
   }
   return {
