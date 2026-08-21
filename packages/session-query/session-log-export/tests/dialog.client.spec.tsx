@@ -38,7 +38,7 @@ describe('SessionLogDownloadDialog', () => {
         bySession: { [SID]: { open: true, status: 'error', error: 'toolbar failed' } },
       })
     })
-    const dialog = await b.view.findByRole('dialog', { name: 'Session export failed' })
+    const dialog = await b.view.findByRole('dialog', { name: 'Failed to export session log' })
     expect(dialog.textContent).toContain('toolbar failed')
     const close = b.view.getAllByRole('button', { name: 'Close' })[0]
     if (close === undefined) throw new Error('Session export dialog has no close button')
@@ -53,10 +53,10 @@ describe('SessionLogDownloadDialog', () => {
     const b = bench(controller)
 
     const download = controller.download(SID)
-    expect(await b.view.findByRole('dialog', { name: 'Exporting Session' })).toBeTruthy()
+    expect(await b.view.findByRole('dialog', { name: 'Exporting session' })).toBeTruthy()
     release(new Response('zip', { status: 200 }))
     await download
-    expect(await b.view.findByRole('dialog', { name: 'Session download started' })).toBeTruthy()
+    expect(await b.view.findByRole('dialog', { name: 'Session log exported' })).toBeTruthy()
   })
 
   it('uses fallback copy when a failure has no detail', async () => {
@@ -66,8 +66,8 @@ describe('SessionLogDownloadDialog', () => {
         bySession: { [SID]: { open: true, status: 'error', error: '' } },
       })
     })
-    const dialog = await b.view.findByRole('dialog', { name: 'Session export failed' })
-    expect(dialog.textContent).toContain('Could not start the Session export.')
+    const dialog = await b.view.findByRole('dialog', { name: 'Failed to export session log' })
+    expect(dialog.textContent).toContain('Could not start the session log export.')
     const close = b.view.getAllByRole('button', { name: 'Close' }).at(-1)
     if (close === undefined) throw new Error('Session export dialog has no footer action')
     fireEvent.click(close)
