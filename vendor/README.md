@@ -58,3 +58,4 @@ To update a vendored package from upstream:
 3. Re-apply the local modifications listed above (or drop them if upstream made them unnecessary — update the log either way).
 4. Update the version and commit hash in the manifest table.
 5. Run `pnpm install && pnpm run test && pnpm run build` at the repo root.
+19. **`cordis/src/fiber.ts` FiberState is a regular enum + barrel re-export**: FiberState was a `const enum` whose values esbuild erased at the use site; downstream test invariants and the agent package import it as a runtime value, so it is now a regular enum and `cordis/src/index.ts` explicitly re-exports it (isolatedModules drops `export *` enums). Also deleted the stale compiled `src/*.js` artifacts that shadowed the real sources and made the barrel resolve to an erased copy.

@@ -6,7 +6,7 @@
  */
 
 import { expect } from 'vitest'
-import { FiberState, Inject, RegistryService, ValidationError } from '@deepseek-ai/cordis'
+import { Inject, RegistryService, ValidationError } from '@deepseek-ai/cordis'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type {
@@ -16,6 +16,9 @@ import type {
   StoredImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
+// Cordis FiberState is a const enum (erased at runtime in some bundlers); the
+// invariant host only needs the ordinal values, so keep them local.
+const FIBER_STATE = { PENDING: 0, LOADING: 1, ACTIVE: 2, FAILED: 3, DISPOSED: 4, UNLOADING: 5 } as const
 
 declare global {
   interface ImportMeta {
@@ -92,7 +95,7 @@ RegistryService.prototype.plugin = function(plugin: Plugin, config?: unknown, ge
     config,
     getOuterStack,
   )
-  const initiallyPending = fiber.ctx.fiber.state === FiberState.PENDING
+  const initiallyPending = fiber.ctx.fiber.state === FIBER_STATE.PENDING
   host.barrierOwners.add(fiber.ctx.fiber)
   return joinInvariantStartup(fiber, host.ready, initiallyPending)
 }
@@ -214,7 +217,7 @@ function hasBarrierOwner(host: InvariantHost, ctx: Context): boolean {
   while (true) {
     if (
       host.barrierOwners.has(fiber)
-      && (fiber.state === FiberState.LOADING || fiber.state === FiberState.ACTIVE)
+      && (fiber.state === FIBER_STATE.LOADING || fiber.state === FIBER_STATE.ACTIVE)
     ) {
       return true
     }
@@ -226,7 +229,7 @@ function hasBarrierOwner(host: InvariantHost, ctx: Context): boolean {
 
 async function requireActive(fiber: PluginFiber, label: string): Promise<void> {
   await fiber.await()
-  if (fiber.state !== FiberState.ACTIVE) {
+  if (fiber.state !== FIBER_STATE.ACTIVE) {
     throw new Error(`test invariants: ${label} settled without becoming active`)
   }
 }
