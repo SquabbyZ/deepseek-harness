@@ -4692,6 +4692,41 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           }
           return Promise.resolve({ ok: true, value: {} })
         }
+        case 'mcpRegistry/search': {
+          // Smithery registry search (Task 5): GET the public servers API through
+          // the desktop proxy and project the fields the 从 Smithery 搜索 section
+          // renders. Install is a UI-side conversion into an McpServerSpec that
+          // reuses the existing `mcpInventory/upsertServer` path — no install RPC.
+          const query = (args as { query?: unknown }).query
+          if (typeof query !== 'string' || query.trim().length === 0) {
+            return Promise.resolve({ ok: true, value: { servers: [] } })
+          }
+          const invoke = tauriInvoke()
+          if (invoke === undefined) {
+            // Browser / no bridge: no registry reachable; the local list still works.
+            return Promise.resolve({ ok: true, value: { servers: [] } })
+          }
+          const url = `https://api.smithery.ai/servers?q=${encodeURIComponent(query.trim())}&limit=20`
+          const res = await invoke<{ status: number; body: number[] }>('http_request', {
+            req: { method: 'GET', url, headers: {}, timeout_ms: 30_000 },
+          })
+          if (res.status < 200 || res.status >= 300) {
+            throw new Error(`mcpRegistry/search: HTTP ${res.status}`)
+          }
+          const text = new TextDecoder().decode(new Uint8Array(res.body))
+          const data = JSON.parse(text) as { servers?: Array<Record<string, unknown>> }
+          const servers = Array.isArray(data.servers) ? data.servers : []
+          const projected = servers.flatMap((raw) => {
+            const qualifiedName = typeof raw?.qualifiedName === 'string' ? raw.qualifiedName : ''
+            const displayName = typeof raw?.displayName === 'string' ? raw.displayName : ''
+            if (qualifiedName === '' || displayName === '') return []
+            const description = typeof raw?.description === 'string' ? raw.description : ''
+            const remote = raw?.remote === true
+            const useCount = typeof raw?.useCount === 'number' ? raw.useCount : 0
+            return [{ qualifiedName, displayName, description, remote, useCount }]
+          })
+          return Promise.resolve({ ok: true, value: { servers: projected } })
+        }
         case 'pluginInventory/list': {
           // Prefer the live Loader graph; fall back to the stub table only when
           // the fixture is not running inside a client (unit tests, isolation).

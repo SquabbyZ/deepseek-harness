@@ -72,6 +72,41 @@ export interface McpInventoryPort {
   upsertServer: (spec: McpServerSpec) => Promise<void>
   /** Remove one server by its stable id; throws on RPC failure. */
   deleteServer: (entryId: string) => Promise<void>
+  /** Search the Smithery registry for installable remote MCP servers. */
+  search: (query: string) => Promise<McpRegistrySearchResult>
+}
+
+/** One server surfaced by the Smithery registry (`/servers?q=`). */
+export interface SmitheryServer {
+  /** The install id — also the streamable-http host path segment. */
+  readonly qualifiedName: string
+  readonly displayName: string
+  readonly description: string
+  /** true = Smithery-hosted (streamable-http one-click); false = stdio (needs a local command). */
+  readonly remote: boolean
+  readonly useCount: number
+}
+
+/** Search result envelope from the registry RPC. */
+export interface McpRegistrySearchResult {
+  readonly servers: readonly SmitheryServer[]
+}
+
+/**
+ * Convert a Smithery registry server into a persisted McpServerSpec. Remote
+ * servers map to a streamable-http spec against the Smithery hosted endpoint
+ * (`https://server.smithery.ai/{qualifiedName}`). stdio servers carry no
+ * command/args on the list endpoint, so they return null — the UI disables
+ * their install with a manual-command hint instead of writing a broken spec.
+ */
+export function smitheryServerToSpec(server: SmitheryServer): McpServerSpec | null {
+  if (!server.remote) return null
+  return {
+    transport: 'streamable-http',
+    serverName: server.qualifiedName,
+    url: `https://server.smithery.ai/${server.qualifiedName}`,
+    headers: {},
+  }
 }
 
 export interface McpInventoryStore extends HostObservable<McpInventoryPanelSnapshot> {
@@ -81,6 +116,10 @@ export interface McpInventoryStore extends HostObservable<McpInventoryPanelSnaps
   upsertServer(spec: McpServerSpec): Promise<void>
   /** Remove one server, then re-read the roster. */
   deleteServer(entryId: string): Promise<void>
+  /** Search the Smithery registry; does not touch the local snapshot. */
+  search(query: string): Promise<McpRegistrySearchResult>
+  /** One-click install a Smithery server: convert → upsert → re-read. stdio servers throw (the UI disables them). */
+  installSmithery(server: SmitheryServer): Promise<void>
 }
 
 export function createMcpInventoryStore(
@@ -143,6 +182,15 @@ export function createMcpInventoryStore(
     },
     deleteServer: async (entryId) => {
       await port.deleteServer(entryId)
+      read()
+    },
+    search: query => port.search(query),
+    installSmithery: async (server) => {
+      const spec = smitheryServerToSpec(server)
+      if (spec === null) {
+        throw new Error(`Smithery server ${JSON.stringify(server.qualifiedName)} is stdio and needs a manual command`)
+      }
+      await port.upsertServer(spec)
       read()
     },
   }

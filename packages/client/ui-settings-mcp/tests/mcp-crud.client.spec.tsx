@@ -123,6 +123,7 @@ function buildCrudStore(initial: readonly McpInventoryEntry[]) {
       const index = upserted.findIndex(spec => slug(spec.serverName) === entryId)
       if (index >= 0) upserted.splice(index, 1)
     },
+    search: async () => ({ servers: [] }),
   }, () => undefined)
   return { store, upserted, deleted, specs }
 }

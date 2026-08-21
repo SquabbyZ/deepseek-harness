@@ -3,23 +3,26 @@ import {
 } from 'react'
 import type { McpEntryId, McpInventoryEntry } from './inventory-store.ts'
 import {
+  IconCheckOutline16,
   IconEditOutline16,
   IconPlusOutline16,
   IconTrashOutline16,
+  IconWarningOutline16,
   Label,
   SearchInput,
   ShadcnButton,
   ShadcnInput,
   SwitchRow,
   Toast,
-  IconWarningOutline16,
   useDebouncedToggle,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
   type McpInventoryEntryView,
   type McpInventoryStore,
+  type McpRegistrySearchResult,
   type McpServerSpec,
+  type SmitheryServer,
 } from './inventory-store.ts'
 import type { McpInventoryLocaleKey } from './locales.ts'
 
@@ -32,6 +35,10 @@ export interface McpInventorySettingsTabInjected {
   upsertServer: (spec: McpServerSpec) => Promise<void>
   /** Remove one server by id; the store re-reads after it settles. */
   deleteServer: (entryId: string) => Promise<void>
+  /** Search the Smithery registry for installable remote MCP servers; throws on RPC failure. */
+  search: (query: string) => Promise<McpRegistrySearchResult>
+  /** One-click install a Smithery server (remote → streamable-http, stdio → throws); throws on RPC failure. */
+  installSmithery: (server: SmitheryServer) => Promise<void>
 }
 
 export type McpInventorySettingsTabProps =
@@ -66,6 +73,23 @@ const FORM_ERROR = 'm-0 text-[12px] leading-[18px] text-[var(--dsw-alias-state-e
 const FORM_NOTE = 'm-0 text-[12px] leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
 const SELECT =
   'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const REMOTE_ROW =
+  'flex items-center justify-between gap-3 rounded-[10px] border border-[var(--dsw-alias-border-l2)] bg-[var(--dsw-alias-bg-layer-1)] px-3 py-2.5'
+const REMOTE_LEADING = 'flex min-w-0 flex-col'
+const REMOTE_NAME = 'm-0 truncate text-sm leading-5 font-semibold text-[var(--dsw-alias-label-primary)]'
+const REMOTE_CAPTION = 'm-0 truncate text-[12px] leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const INSTALL_BUTTON = 'h-auto flex-none rounded-md px-2.5 py-1 text-[13px] leading-5'
+const STDIO_HINT = 'm-0 text-[12px] leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+
+/** Smithery registry search section state. */
+type RemoteState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'loading' }
+  | { readonly status: 'ready'; readonly servers: readonly SmitheryServer[] }
+  | { readonly status: 'error' }
+
+/** Debounce before a keystroke hits the Smithery registry. */
+const SEARCH_DEBOUNCE_MS = 200
 
 /** Split a whitespace-separated argument string into argv (empty string → no args). */
 function parseArgs(raw: string): string[] {
@@ -85,13 +109,17 @@ export function McpInventorySettingsTab({
   upsertServer,
   deleteServer,
   refresh,
+  search,
+  installSmithery,
   t,
 }: McpInventorySettingsTabProps): ReactNode {
   const [request, setRequest] = useState(0)
   const [query, setQuery] = useState('')
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
-  const [toast, setToast] = useState<{ seq: number; text: string } | null>(null)
+  const [toast, setToast] = useState<{ seq: number; kind: 'success' | 'error'; text: string } | null>(null)
   const toastSeq = useRef(0)
+  const [remote, setRemote] = useState<RemoteState>({ status: 'idle' })
+  const [installing, setInstalling] = useState<string | null>(null)
 
   // Collapsible add/edit form state.
   const [formOpen, setFormOpen] = useState(false)
@@ -123,10 +151,18 @@ export function McpInventorySettingsTab({
     )
   }, [query, view])
 
-  const flashError = useCallback((message: string): void => {
+  const flash = useCallback((kind: 'success' | 'error', message: string): void => {
     toastSeq.current += 1
-    setToast({ seq: toastSeq.current, text: message })
+    setToast({ seq: toastSeq.current, kind, text: message })
   }, [])
+
+  const flashError = useCallback((message: string): void => {
+    flash('error', message)
+  }, [flash])
+
+  const flashSuccess = useCallback((message: string): void => {
+    flash('success', message)
+  }, [flash])
 
   const { schedule: scheduleToggle, intendedSnapshot } = useDebouncedToggle<McpEntryId>({
     debounceMs: 500,
@@ -148,6 +184,51 @@ export function McpInventorySettingsTab({
     setRequest(value => value + 1)
     refresh()
   }
+
+  // The injected `search` may be recreated per render; hold the latest in a ref
+  // so the debounced effect keys only on the query text.
+  const searchRef = useRef(search)
+  useEffect(() => {
+    searchRef.current = search
+  }, [search])
+
+  useEffect(() => {
+    const normalized = query.trim()
+    if (normalized.length === 0) {
+      setRemote({ status: 'idle' })
+      return
+    }
+    setRemote({ status: 'loading' })
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      searchRef.current(normalized).then(
+        (value) => {
+          if (!cancelled) setRemote({ status: 'ready', servers: value.servers })
+        },
+        () => {
+          if (!cancelled) setRemote({ status: 'error' })
+        },
+      )
+    }, SEARCH_DEBOUNCE_MS)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [query])
+
+  const handleInstall = useCallback(async (server: SmitheryServer): Promise<void> => {
+    setInstalling(server.qualifiedName)
+    try {
+      await installSmithery(server)
+      store.refresh()
+      flashSuccess(t('installSuccess', { name: server.displayName }))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      flashError(t('installFailed', { name: server.displayName, reason }))
+    } finally {
+      setInstalling(null)
+    }
+  }, [installSmithery, store, t, flashError, flashSuccess])
 
   const openAdd = (): void => {
     setEditing(null)
@@ -372,13 +453,59 @@ export function McpInventorySettingsTab({
               })}
             </ul>
           ) : null}
+
+          {query.trim().length > 0 ? (
+            <div className={CATALOG} data-remote-results="">
+              <div className={CATALOG_HEADING}>
+                <h3 className={CATALOG_HEADING_H3}>{t('searchSmithery')}</h3>
+              </div>
+              {remote.status === 'loading' ? <p className={STATUS}>{t('searching')}</p> : null}
+              {remote.status === 'error' ? <p className={FAILURE} role="alert">{t('registryError')}</p> : null}
+              {remote.status === 'ready' && remote.servers.length === 0
+                ? <p className={STATUS}>{t('registryEmpty')}</p>
+                : null}
+              {remote.status === 'ready' && remote.servers.length > 0 ? (
+                <ul className={LIST}>
+                  {remote.servers.map((server) => {
+                    const caption = [
+                      server.description,
+                      server.remote ? t('remoteBadge') : t('stdioBadge'),
+                      server.useCount > 0 ? t('useCount', { count: String(server.useCount) }) : '',
+                    ].filter(Boolean).join(' · ')
+                    const busy = installing === server.qualifiedName
+                    const needsManual = !server.remote
+                    return (
+                      <li key={server.qualifiedName} data-remote-server={server.qualifiedName}>
+                        <div className={REMOTE_ROW}>
+                          <div className={REMOTE_LEADING}>
+                            <p className={REMOTE_NAME}>{server.displayName}</p>
+                            {caption !== '' ? <p className={REMOTE_CAPTION}>{caption}</p> : null}
+                            {needsManual ? <p className={STDIO_HINT} role="note">{t('stdioManualHint')}</p> : null}
+                          </div>
+                          <ShadcnButton
+                            size="sm"
+                            className={INSTALL_BUTTON}
+                            disabled={busy || needsManual}
+                            title={needsManual ? t('stdioManualHint') : undefined}
+                            onClick={() => { void handleInstall(server) }}
+                          >
+                            {busy ? t('installing') : t('install')}
+                          </ShadcnButton>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {toast ? (
         <Toast
           key={toast.seq}
           text={toast.text}
-          icon={<IconWarningOutline16 />}
+          icon={toast.kind === 'success' ? <IconCheckOutline16 /> : <IconWarningOutline16 />}
           anchor={sectionRef.current}
           onDone={() => {
             if (toast.seq === toastSeq.current) setToast(null)

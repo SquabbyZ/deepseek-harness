@@ -327,6 +327,38 @@ const mcpInventoryRemote: TypertRemoteContribution = {
   package: '@deepseek-ai/dsh-mcp-inventory',
   descriptors: [mcpListDescriptor, mcpSetEnabledDescriptor, mcpUpsertDescriptor, mcpDeleteDescriptor],
 }
+// Smithery MCP registry remote (Task 5): search the public servers API. The
+// wire namespace is `mcpRegistry` (distinct from the persisted `mcpInventory`),
+// so the endpoint is `mcpRegistry/search` — mirroring the skillRegistry mount.
+// Install is NOT an RPC: the UI converts a server into an McpServerSpec and
+// writes it through the existing `mcpInventory/upsertServer` path.
+const mcpRegistryServerSchema = z.object({
+  qualifiedName: z.string(),
+  displayName: z.string(),
+  description: z.string(),
+  remote: z.boolean(),
+  useCount: z.number(),
+})
+const mcpRegistrySearchDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-mcp-inventory#mcpRegistry/search',
+  service: 'mcpRegistry',
+  namespace: 'mcpRegistry',
+  method: 'search',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'query',
+      wire: 'query',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-search-query', schema: z.object({ query: z.string() }) },
+    },
+  ],
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpRegistry/search:result', schema: z.object({ servers: z.array(mcpRegistryServerSchema) }) },
+}
+const mcpRegistryRemote: TypertRemoteContribution = {
+  package: '@deepseek-ai/dsh-mcp-inventory',
+  descriptors: [mcpRegistrySearchDescriptor],
+}
 
 /**
  * Mount the Host capabilities explicitly selected for this Client assembly.
@@ -338,7 +370,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       commandsRemote, goalsRemote,
-      messageFeedbackRemote, pluginInventoryRemote, skillInventoryRemote, skillRegistryRemote, mcpInventoryRemote,
+      messageFeedbackRemote, pluginInventoryRemote, skillInventoryRemote, skillRegistryRemote, mcpInventoryRemote, mcpRegistryRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }
