@@ -40,6 +40,7 @@ import type { RequestPayload, ResponseValue, RpcMethodMap } from '@deepseek-ai/d
 import { AbstractApiClient, RpcId, SESSION_SEARCH_RESULT_LIMIT } from './api.ts'
 import { randomUuid } from './random-uuid.ts'
 import { callRealLlm, tauriCredentialBackend, tauriInvoke, type RealLlmReply } from './real-llm.ts'
+import { mountEnabledMcpServers } from './mcp-mount.ts'
 
 /**
  * Fetch a provider's model list from its official `/models` endpoint. OpenAI-
@@ -2937,7 +2938,8 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
    * The real DSH ReactLoopAgent + goal/agent services would replace this once
    * the server core is mounted in the client; this keeps agent semantics.
    */
-  const AGENT_TOOLS = [
+  /** Static tools every agent turn advertises, independent of mounted MCP servers. */
+  const STATIC_AGENT_TOOLS = [
     {
       type: 'function',
       function: {
@@ -2951,14 +2953,45 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       },
     },
   ]
+  /**
+   * Resolve the enabled MCP servers from the in-memory inventory (the persisted
+   * `mcp-inventory` namespace is the source of truth under Tauri; a server
+   * defaults to enabled, matching `projectMcpEntry`).
+   */
+  const enabledMcpServers = (): Array<{ serverName: string; spec: FixtureMcpSpec }> =>
+    [...mcpServers.entries()]
+      .filter(([entryId]) => mcpEnabled.get(entryId) !== false)
+      .map(([, spec]) => ({ serverName: spec.serverName, spec }))
+  /**
+   * Skill context source: append the ENABLED skills' name/description to the
+   * harness system prompt as a "可用技能" list (the interim loop's window onto
+   * the skill inventory; `skillInventory/list` already overlays the persisted
+   * enabled map, so only the enabled entries are surfaced here).
+   */
+  const skillContextSuffix = (): string => {
+    const enabled = fixtureSkills.filter(skill => skillEnabled.get(skill.entryId) ?? skill.enabled)
+    if (enabled.length === 0) return ''
+    return `\n\n可用技能：\n${enabled.map(skill => `- ${skill.name}：${skill.description}`).join('\n')}`
+  }
   /** Execute one requested tool call (fixture-safe mock; real host runs the tool). */
-  const executeAgentTool = (name: string, argumentsText: string): string => {
+  const executeAgentTool = async (
+    name: string,
+    argumentsText: string,
+    dispatchMcp: (name: string, args: string) => Promise<string>,
+  ): Promise<string> => {
     if (name === 'shell_echo') {
       try {
         const args = JSON.parse(argumentsText || '{}') as { command?: unknown }
         return `命令已执行，输出：${typeof args.command === 'string' ? args.command : '(无命令)'}`
       } catch {
         return '命令参数解析失败'
+      }
+    }
+    if (name.startsWith('mcp__')) {
+      try {
+        return await dispatchMcp(name, argumentsText)
+      } catch (error) {
+        return `MCP 工具调用失败：${error instanceof Error ? error.message : String(error)}`
       }
     }
     return `未知工具 ${name}`
@@ -2970,29 +3003,43 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     baseUrl: string | undefined,
     history: { role: 'system' | 'user' | 'assistant'; content: string }[],
   ): Promise<RealLlmReply> => {
-    const messages: Array<Record<string, unknown>> = [{ role: 'system', content: agentSystemPrompt }, ...history]
-    for (let round = 0; round < 4; round += 1) {
-      const reply = await callRealLlm({
-        apiKey,
-        model,
-        messages: messages as { role: 'system' | 'user' | 'assistant'; content: string }[],
-        api,
-        ...(baseUrl === undefined ? {} : { baseUrl }),
-        tools: AGENT_TOOLS,
-      })
-      if (reply.toolCalls === undefined || reply.toolCalls.length === 0) return reply
-      messages.push({
-        role: 'assistant',
-        content: reply.text,
-        tool_calls: reply.toolCalls.map(call => ({
-          id: call.id, type: 'function', function: { name: call.name, arguments: call.arguments },
-        })),
-      })
-      for (const call of reply.toolCalls) {
-        messages.push({ role: 'tool', tool_call_id: call.id, content: executeAgentTool(call.name, call.arguments) })
+    // Mount the enabled MCP servers once per turn (real initialize + tools/list;
+    // stdio children stay warm across the loop rounds and are closed below).
+    // With no enabled servers this is a no-op and behavior matches the pre-mount
+    // loop. Persisted servers are seeded from settings before the first mount.
+    await seedSettings()
+    const mount = await mountEnabledMcpServers({ servers: enabledMcpServers() })
+    try {
+      const messages: Array<Record<string, unknown>> = [
+        { role: 'system', content: `${agentSystemPrompt}${skillContextSuffix()}` },
+        ...history,
+      ]
+      const agentTools = [...STATIC_AGENT_TOOLS, ...mount.tools]
+      for (let round = 0; round < 4; round += 1) {
+        const reply = await callRealLlm({
+          apiKey,
+          model,
+          messages: messages as { role: 'system' | 'user' | 'assistant'; content: string }[],
+          api,
+          ...(baseUrl === undefined ? {} : { baseUrl }),
+          tools: agentTools,
+        })
+        if (reply.toolCalls === undefined || reply.toolCalls.length === 0) return reply
+        messages.push({
+          role: 'assistant',
+          content: reply.text,
+          tool_calls: reply.toolCalls.map(call => ({
+            id: call.id, type: 'function', function: { name: call.name, arguments: call.arguments },
+          })),
+        })
+        for (const call of reply.toolCalls) {
+          messages.push({ role: 'tool', tool_call_id: call.id, content: await executeAgentTool(call.name, call.arguments, mount.dispatch) })
+        }
       }
+      return { text: '（已达到最大工具调用轮次，请稍后再试）' }
+    } finally {
+      await mount.close()
     }
-    return { text: '（已达到最大工具调用轮次，请稍后再试）' }
   }
 
   const buildChatMessages = (id: SessionId): { role: 'system' | 'user' | 'assistant'; content: string }[] => {
