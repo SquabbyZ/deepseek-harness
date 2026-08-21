@@ -40,6 +40,9 @@ pub struct McpStdioSpec {
 ///
 /// Each child lives behind its own `Arc<Mutex<...>>` so that an in-flight
 /// `read`/`write` on one connection never blocks another connection's IO.
+/// `stderr` is deliberately not stored here: `mcp_stdio_spawn_inner` moves it
+/// into a background drain task so a chatty server can never block on a full
+/// stderr pipe.
 pub struct McpStdioChild {
     pub child: tokio::process::Child,
     pub stdin: tokio::process::ChildStdin,
@@ -52,6 +55,24 @@ pub struct McpStdioChild {
 pub type McpStdioChildMap = HashMap<u64, Arc<Mutex<McpStdioChild>>>;
 
 // --- core implementations (testable without a Tauri runtime) ----------------
+
+/// Read a child's stderr to EOF and discard the bytes.
+///
+/// The bridge's read path only consumes stdout; if stderr were left undrained,
+/// a server that logs more than the OS pipe buffer (~4KB on Windows) would
+/// block on write and stall the whole connection. Runs as a background task per
+/// child; it ends naturally when the child is killed and stderr hits EOF.
+/// Errors are reported (not swallowed) but do not fail the connection.
+async fn drain_stderr(mut stderr: tokio::process::ChildStderr) -> std::io::Result<()> {
+    let mut buf = [0u8; 4096];
+    loop {
+        match stderr.read(&mut buf).await {
+            Ok(0) => return Ok(()), // EOF
+            Ok(_) => continue,
+            Err(e) => return Err(e),
+        }
+    }
+}
 
 async fn lookup(state: &SharedState, conn_id: u64) -> AppResult<Arc<Mutex<McpStdioChild>>> {
     let map = state.read().mcp_stdio.clone();
@@ -86,6 +107,17 @@ pub async fn mcp_stdio_spawn_inner(state: &SharedState, spec: McpStdioSpec) -> A
         .map_err(|e| AppError::Shell { message: e.to_string() })?;
     let stdin = child.stdin.take().expect("stdin piped");
     let stdout = child.stdout.take().expect("stdout piped");
+    let stderr = child.stderr.take().expect("stderr piped");
+    // Drain stderr in the background so a chatty server can never fill the OS
+    // pipe buffer (~4KB on Windows) and block on write — which would stall the
+    // whole connection with no visible error. The task ends on its own once the
+    // child is killed (stderr EOF); `mcp_stdio_close_inner` does not need to
+    // track it.
+    tokio::spawn(async move {
+        if let Err(e) = drain_stderr(stderr).await {
+            eprintln!("mcp_stdio: stderr drain failed for {:?}: {e}", spec.command);
+        }
+    });
     let entry = Arc::new(Mutex::new(McpStdioChild {
         child,
         stdin,
@@ -271,6 +303,36 @@ mod tests {
             mcp_stdio_read_inner(&state, conn).await.is_err(),
             "read after close should error because the connection is removed"
         );
+    }
+
+    #[tokio::test]
+    async fn verbose_stderr_does_not_block_child() {
+        let state = test_state();
+        let spec = McpStdioSpec {
+            command: "node.exe".to_string(),
+            args: vec![
+                "-e".to_string(),
+                // Write ~4MB to stderr before answering stdin. Without the
+                // stderr drain, the child blocks once the OS pipe buffer
+                // (~4KB on Windows) fills and the round-trip below would never
+                // see a reply.
+                r#"for(let i=0;i<20000;i++){console.error('y'.repeat(200))};process.stdin.on('data',d=>process.stdout.write('ok:'+d))"#
+                    .to_string(),
+            ],
+            env: HashMap::new(),
+            cwd: None,
+        };
+        let conn = mcp_stdio_spawn_inner(&state, spec)
+            .await
+            .expect("spawn should succeed");
+        mcp_stdio_write_inner(&state, conn, "hello".to_string())
+            .await
+            .expect("write should succeed");
+        let line = read_line_with_retry(&state, conn, 200).await;
+        assert_eq!(line.as_deref(), Some("ok:hello"));
+        mcp_stdio_close_inner(&state, conn)
+            .await
+            .expect("close should succeed");
     }
 
     #[tokio::test]
