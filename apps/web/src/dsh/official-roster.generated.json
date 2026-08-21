@@ -1,5 +1,5 @@
 {
-  "rev": "998d30be337f",
+  "rev": "ce6c90220fec",
   "entries": [
     {
       "id": "@deepseek-ai/dsh-api-gateway",
@@ -239,8 +239,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-client-ui-settings-plugin-inventory",
-      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-plugin-inventory/client.js?rev=7bc234e3ba65",
-      "rev": "7bc234e3ba65",
+      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-plugin-inventory/client.js?rev=6fd028441517",
+      "rev": "6fd028441517",
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
         "@deepseek-ai/dsh-client-runtime",

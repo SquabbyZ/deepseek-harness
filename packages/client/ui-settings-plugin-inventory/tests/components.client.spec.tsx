@@ -94,36 +94,6 @@ describe('PluginManagementSection', () => {
     expect(screen.queryAllByRole('button', { name: en.uninstall })).toHaveLength(0)
   })
 
-  it('switches to the external tab, shows the uninstall button, and opens the detail drawer', async () => {
-    const uninstall = vi.fn(async () => undefined)
-    const store = createPluginInventoryStore(
-      { list: async () => ({ entries: ENTRIES }) },
-      () => undefined,
-    )
-    render(<PluginManagementSection {...buildProps({ store, uninstall })} />)
-    await waitFor(() => { expect(screen.getAllByRole('switch').length).toBe(ENTRIES.length - 1) })
-
-    fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${en.external}`) }))
-    await waitFor(() => { expect(screen.getAllByRole('listitem')).toHaveLength(1) })
-
-    // The external row has an uninstall button left of the details button.
-    const uninstallBtn = screen.getByRole('button', { name: en.uninstall })
-    expect(uninstallBtn).toBeTruthy()
-
-    // Details drawer opens on 详情 (row label + drawer description both carry the name).
-    fireEvent.click(screen.getByRole('button', { name: en.detail }))
-    expect(screen.getAllByText('dshmarket').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText(en.fieldModuleId)).toBeTruthy()
-
-    // Uninstall confirm modal → confirm calls the uninstall face.
-    fireEvent.click(uninstallBtn)
-    await waitFor(() => {
-      expect(screen.getByText(en.uninstallTitle.replace('{{name}}', 'dshmarket'))).toBeTruthy()
-    })
-    fireEvent.click(screen.getAllByRole('button', { name: en.uninstall })[0] as HTMLElement)
-    await waitFor(() => { expect(uninstall).toHaveBeenCalledOnce() })
-  })
-
   it('filters the list by module name or Loader entry id', async () => {
     const store = createPluginInventoryStore(
       { list: async () => ({ entries: ENTRIES }) },

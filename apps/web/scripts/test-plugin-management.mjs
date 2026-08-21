@@ -76,10 +76,7 @@ try {
   await page.waitForTimeout(600)
 
   // external tab → dshmarket row with 卸载 + 详情
-  await page.evaluate(() => {
-    const tab = [...document.querySelectorAll('[data-plugin-tab]')].find((b) => b.getAttribute('data-plugin-tab') === 'external')
-    tab?.click()
-  })
+  await page.locator('[data-plugin-tab="external"]').click()
   await page.waitForTimeout(1200)
   const extRows = await page.evaluate(() => {
     const list = document.querySelector('[data-plugin-tab-list="external"]')

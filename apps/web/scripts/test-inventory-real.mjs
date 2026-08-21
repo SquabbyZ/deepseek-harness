@@ -37,20 +37,14 @@ try {
     return { builtinCount: rows.length, names: rows.map((r) => r.getAttribute('data-plugin-entry')), states }
   })
   // Switch to the external tab to read its rows.
-  await page.evaluate(() => {
-    const tab = [...document.querySelectorAll('[data-plugin-tab]')].find((b) => b.getAttribute('data-plugin-tab') === 'external')
-    tab?.click()
-  })
+  await page.locator('[data-plugin-tab="external"]').click()
   await page.waitForTimeout(1200)
   const externalNames = await page.evaluate(() => {
     const list = document.querySelector('[data-plugin-tab-list="external"]')
     return list ? [...list.querySelectorAll('[data-plugin-entry]')].map((r) => r.getAttribute('data-plugin-entry')) : []
   })
   // Back to the built-in tab for the toggle test.
-  await page.evaluate(() => {
-    const tab = [...document.querySelectorAll('[data-plugin-tab]')].find((b) => b.getAttribute('data-plugin-tab') === 'builtin')
-    tab?.click()
-  })
+  await page.locator('[data-plugin-tab="builtin"]').click()
   await page.waitForTimeout(1000)
 
   info.builtinCount >= 20 ? ok('真实插件数量', `${info.builtinCount} 内置 + ${externalNames.length} 外部`) : bad('真实插件数量', `${info.builtinCount}`)

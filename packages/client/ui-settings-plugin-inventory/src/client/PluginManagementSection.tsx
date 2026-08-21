@@ -10,7 +10,8 @@ import {
 } from 'react'
 import {
   Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle,
-  IconTrashOutline16, IconWarningOutline16, Modal, SearchInput, ShadcnButton, SwitchRow, Toast, useDebouncedToggle,
+  IconTrashOutline16, IconWarningOutline16, Modal, SearchInput, ShadcnButton, SwitchRow,
+  Tabs, TabsList, TabsTrigger, Toast, useDebouncedToggle,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
@@ -52,16 +53,14 @@ const FAILURE = 'flex items-center gap-2.5 text-[13px] leading-5 text-[var(--dsw
 const RETRY = 'h-auto rounded-md border-border bg-transparent px-2.5 py-1 text-[13px] leading-5 font-normal text-foreground hover:bg-transparent hover:text-foreground focus-visible:ring-0'
 const HEADING = 'm-0 text-[15px] leading-[22px] font-semibold'
 const INTRO = 'm-0 text-[13px] leading-5 text-[var(--dsw-alias-label-tertiary)]'
-const TABS = 'flex items-center gap-1'
-const TAB = 'h-8 rounded-lg px-3 text-[13px] leading-5 font-medium text-[var(--dsw-alias-label-secondary)] data-[active=true]:bg-[var(--dsw-alias-interactive-bg-active)] data-[active=true]:text-[var(--dsw-alias-label-primary)]'
 const CATALOG = 'flex flex-col gap-3'
 const LIST = 'm-0 flex list-none flex-col gap-2 p-0'
 const ROW_ACTION = 'inline-flex h-7 flex-none items-center gap-1 rounded-lg border-none px-2 text-[12px] leading-[18px] text-[var(--dsw-alias-label-secondary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-primary)]'
 const ROW_ACTION_DANGER = 'text-[var(--dsw-alias-state-error-primary)] hover:text-[var(--dsw-alias-state-error-primary)]'
-const DRAWER_BODY = 'flex flex-col gap-2.5 px-5 pb-6'
-const DRAWER_ROW = 'flex flex-col gap-0.5'
+const DRAWER_BODY = 'grid grid-cols-2 gap-x-5 gap-y-4 px-5 pb-6'
+const DRAWER_ROW = 'flex min-w-0 flex-col gap-0.5'
 const DRAWER_LABEL = 'm-0 text-[12px] leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
-const DRAWER_VALUE = 'm-0 text-[13px] leading-5 font-medium break-all'
+const DRAWER_VALUE = 'm-0 text-[13px] leading-5 font-medium break-words'
 
 const HOLD_MS = 3000
 const FADE_MS = 1000
@@ -167,27 +166,19 @@ export function PluginManagementSection({
             placeholder={t('search')}
             aria-label={t('search')}
           />
-          <div className={TABS} role="tablist" aria-label={t('title')}>
-            {(['builtin', 'external'] as const).map((key) => {
-              const selected = tab === key
-              const count = entries.filter(e => key === 'builtin' ? e.scope !== 'external' : e.scope === 'external').length
-              return (
-                <ShadcnButton
-                  key={key}
-                  role="tab"
-                  variant="ghost"
-                  className={TAB}
-                  aria-selected={selected}
-                  data-active={selected ? 'true' : undefined}
-                  data-plugin-tab={key}
-                  onClick={() => { setTab(key) }}
-                >
-                  {t(key === 'builtin' ? 'builtin' : 'external')}
-                  <span className="ml-1 text-xs tabular-nums opacity-70">{count}</span>
-                </ShadcnButton>
-              )
-            })}
-          </div>
+          <Tabs value={tab} onValueChange={(value) => { setTab(value as Tab) }}>
+            <TabsList>
+              {(['builtin', 'external'] as const).map((key) => {
+                const count = entries.filter(e => key === 'builtin' ? e.scope !== 'external' : e.scope === 'external').length
+                return (
+                  <TabsTrigger key={key} value={key} data-plugin-tab={key}>
+                    {t(key === 'builtin' ? 'builtin' : 'external')}
+                    <span className="ml-1 text-xs tabular-nums opacity-70">{count}</span>
+                  </TabsTrigger>
+                )
+              })}
+            </TabsList>
+          </Tabs>
           {entries.length === 0 ? <p className={STATUS}>{t('empty')}</p> : null}
           {entries.length > 0 && filteredEntries.length === 0
             ? <p className={STATUS}>{t('emptySearch')}</p> : null}
@@ -248,7 +239,7 @@ export function PluginManagementSection({
           </DrawerHeader>
           {detail !== null ? (
             <div className={DRAWER_BODY}>
-              <div className={DRAWER_ROW}>
+              <div className={`${DRAWER_ROW} col-span-2`}>
                 <p className={DRAWER_LABEL}>{t('fieldModuleId')}</p>
                 <p className={DRAWER_VALUE}>{detail.entryId}</p>
               </div>
@@ -263,6 +254,10 @@ export function PluginManagementSection({
               <div className={DRAWER_ROW}>
                 <p className={DRAWER_LABEL}>{t('fieldPhase')}</p>
                 <p className={DRAWER_VALUE}>{t(reasonKeyForPhase(detail.fiberPhase as PluginFiberPhase))}</p>
+              </div>
+              <div className={DRAWER_ROW}>
+                <p className={DRAWER_LABEL}>{t('fieldReason')}</p>
+                <p className={DRAWER_VALUE}>{detail.disabledReason === null ? '—' : t(reasonKeyForDisabled(detail.disabledReason))}</p>
               </div>
             </div>
           ) : null}
