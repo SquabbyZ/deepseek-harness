@@ -1,6 +1,7 @@
 pub mod crash;
 pub mod credentials;
 pub mod deeplink;
+pub mod dsh_settings;
 pub mod fs;
 pub mod http_client;
 pub mod manifest;

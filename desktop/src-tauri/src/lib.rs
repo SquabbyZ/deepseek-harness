@@ -14,7 +14,7 @@ use crate::commands::plugin::{
     plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload,
     plugin_uninstall,
 };
-use crate::commands::settings::{settings_get, settings_update};
+use crate::commands::settings::{dsh_config_dir, settings_get, settings_update};
 use crate::commands::shell::shell_spawn;
 use crate::services::crash;
 use crate::services::platform::Platform;
@@ -62,8 +62,11 @@ pub fn run() {
                 http_builder = http_builder.proxy(reqwest::Proxy::all(proxy_url)?);
             }
             let http = Arc::new(http_builder.build()?);
+            let dsh_home = crate::services::dsh_settings::dsh_home_dir();
+            std::fs::create_dir_all(&dsh_home)?;
             let state = AppState {
                 config_dir,
+                dsh_home,
                 db,
                 http,
                 platform: Platform::current(),
@@ -76,7 +79,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, shell_spawn])
+        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, dsh_config_dir, shell_spawn])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }

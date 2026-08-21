@@ -1688,6 +1688,9 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     providers: { 'deepseek-official': { apiKeyEnv: 'DEEPSEEK_API_KEY' } },
   }
   let llmDeepseekRevision = 0
+  /** Custom provider profiles under `llm-pi-ai` (the Models editor's add card). */
+  let llmPiAiUser: Record<string, unknown> = { providers: {} }
+  let llmPiAiRevision = 0
   /** Outbound-proxy settings (`ui-settings-proxy` reads the `proxy` namespace). */
   const PROXY_SETTINGS_NS = 'proxy'
   let proxyUrl: string | undefined
@@ -1706,6 +1709,55 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       z.const('read-only').description('只读'),
     ]),
   }).toJSON()
+
+  /**
+   * Persist one settings namespace to ~/.dsh/settings.yaml when running under
+   * Tauri (the settings_update command writes the YAML the real DSH CLI
+   * shares). Browser no-op.
+   */
+  const persistSettings = (ns: string, value: Record<string, unknown>): void => {
+    const invoke = tauriInvoke()
+    if (invoke !== undefined) {
+      void invoke('settings_update', { key: ns, value })
+    }
+  }
+
+  /** Generic (unregistered) settings namespaces the app wrote; persisted on save. */
+  const genericSettings = new Map<string, Record<string, unknown>>()
+
+  /**
+   * Seed the known settings namespaces from ~/.dsh/settings.yaml (via the
+   * Tauri settings_get command) so the app boots with the real config instead
+   * of defaults. Runs once; browser builds skip it (no Tauri).
+   */
+  let settingsSeeded: Promise<void> | undefined
+  const seedSettings = (): Promise<void> => {
+    if (settingsSeeded !== undefined) return settingsSeeded
+    settingsSeeded = (async () => {
+      const invoke = tauriInvoke()
+      if (invoke === undefined) return
+      try {
+        const read = async (key: string): Promise<Record<string, unknown> | null> => {
+          const value = await invoke<Record<string, unknown> | null>('settings_get', { key })
+          return value ?? null
+        }
+        const [llmDs, pi, proxyNs, perm, preset] = await Promise.all([
+          read(LLM_DEEPSEEK_NS), read('llm-pi-ai'), read(PROXY_SETTINGS_NS), read(PERMISSION_NS), read(AGENT_PRESET_SETTINGS_NS),
+        ])
+        if (llmDs !== null) llmDeepseekUser = { ...llmDeepseekUser, ...llmDs }
+        if (pi?.providers) llmPiAiUser = { ...llmPiAiUser, ...pi }
+        const pUrl = proxyNs?.url
+        if (typeof pUrl === 'string') proxyUrl = pUrl
+        const pDef = perm?.defaultPreset
+        if (typeof pDef === 'string' && pDef in PERMISSION_PRESETS) permissionDefault = pDef
+        const pPreset = preset?.default
+        if (typeof pPreset === 'string' && pPreset.length > 0) fixtureDefaultPreset = pPreset
+      } catch {
+        // ~/.dsh unreadable or not under Tauri: keep the in-memory defaults.
+      }
+    })()
+    return settingsSeeded
+  }
   /** The default agent-preset setting (`ui-agent-preset` writes it via settings.update). */
   const AGENT_PRESET_SETTINGS_NS = 'agent-presets'
   /**
@@ -3449,82 +3501,85 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       // are represented here; the former carries a real schemastery envelope
       // so the official Models editor can rehydrate and write it back. Other
       // journeys keep their minimal readiness descriptor.
-      describe: request => ok(request, {
-        writable: true,
-        hasDocument: true,
-        namespaces: [{
-          ns: LLM_DEEPSEEK_NS,
-          schema: LLM_DEEPSEEK_SCHEMA,
-          value: structuredClone(llmDeepseekUser),
-          user: { ...llmDeepseekUser },
-          applies: 'live',
-          secrets: [{ path: ['apiKey'], set: false }],
-          revision: llmDeepseekRevision,
-        }, {
-          ns: 'llm-pi-ai',
-          schema: LLM_PI_AI_SCHEMA,
-          value: { providers: {} },
-          user: { providers: {} },
-          applies: 'live',
-          secrets: [],
-          revision: 0,
-        }, {
-          ns: AGENT_PRESET_SETTINGS_NS,
-          schema: { type: 'object', dict: { default: { type: 'string' } } },
-          value: { default: fixtureDefaultPreset },
-          user: { default: fixtureDefaultPreset },
-          applies: 'live',
-          secrets: [],
-          revision: 0,
-        }, {
-          ns: SHELL_SETTINGS_NS,
-          schema: SHELL_SETTINGS_SCHEMA,
-          value: { ...shellSettings },
-          user: {},
-          applies: 'live',
-          secrets: [],
-          revision: 0,
-        }, {
-          ns: AGENT_LOOP_SETTINGS_NS,
-          schema: AGENT_LOOP_SETTINGS_SCHEMA,
-          value: { ...agentLoopSettings },
-          user: {},
-          applies: 'live',
-          secrets: [],
-          revision: 0,
-        }, {
-          ns: WEB_SEARCH_SETTINGS_NS,
-          schema: WEB_SEARCH_SETTINGS_SCHEMA,
-          value: { ...webSearchSettings },
-          user: {},
-          applies: 'live',
-          secrets: [],
-          revision: 0,
-        }, {
-          ns: PROXY_SETTINGS_NS,
-          schema: { type: 'object', dict: { url: { type: 'string' } } },
-          value: proxyUrl === undefined ? {} : { url: proxyUrl },
-          user: proxyUrl === undefined ? {} : { url: proxyUrl },
-          applies: 'live',
-          secrets: [],
-          revision: proxyRevision,
-        }, {
-          ns: WELCOME_NOTICE_NS,
-          schema: {},
-          value: { [WELCOME_NOTICE_ACK_FIELD]: fixtureWelcomeAck },
-          applies: 'live',
-          secrets: [],
-          revision: 0,
-        }, {
-          ns: PERMISSION_NS,
-          schema: PERMISSION_SCHEMA,
-          value: { defaultPreset: permissionDefault },
-          user: { defaultPreset: permissionDefault },
-          applies: 'live',
-          secrets: [],
-          revision: 0,
-        }],
-      }),
+      describe: async (request) => {
+        await seedSettings()
+        return ok(request, {
+          writable: true,
+          hasDocument: true,
+          namespaces: [{
+            ns: LLM_DEEPSEEK_NS,
+            schema: LLM_DEEPSEEK_SCHEMA,
+            value: structuredClone(llmDeepseekUser),
+            user: { ...llmDeepseekUser },
+            applies: 'live',
+            secrets: [{ path: ['apiKey'], set: false }],
+            revision: llmDeepseekRevision,
+          }, {
+            ns: 'llm-pi-ai',
+            schema: LLM_PI_AI_SCHEMA,
+            value: structuredClone(llmPiAiUser),
+            user: structuredClone(llmPiAiUser),
+            applies: 'live',
+            secrets: [],
+            revision: llmPiAiRevision,
+          }, {
+            ns: AGENT_PRESET_SETTINGS_NS,
+            schema: { type: 'object', dict: { default: { type: 'string' } } },
+            value: { default: fixtureDefaultPreset },
+            user: { default: fixtureDefaultPreset },
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          }, {
+            ns: SHELL_SETTINGS_NS,
+            schema: SHELL_SETTINGS_SCHEMA,
+            value: { ...shellSettings },
+            user: {},
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          }, {
+            ns: AGENT_LOOP_SETTINGS_NS,
+            schema: AGENT_LOOP_SETTINGS_SCHEMA,
+            value: { ...agentLoopSettings },
+            user: {},
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          }, {
+            ns: WEB_SEARCH_SETTINGS_NS,
+            schema: WEB_SEARCH_SETTINGS_SCHEMA,
+            value: { ...webSearchSettings },
+            user: {},
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          }, {
+            ns: PROXY_SETTINGS_NS,
+            schema: { type: 'object', dict: { url: { type: 'string' } } },
+            value: proxyUrl === undefined ? {} : { url: proxyUrl },
+            user: proxyUrl === undefined ? {} : { url: proxyUrl },
+            applies: 'live',
+            secrets: [],
+            revision: proxyRevision,
+          }, {
+            ns: WELCOME_NOTICE_NS,
+            schema: {},
+            value: { [WELCOME_NOTICE_ACK_FIELD]: fixtureWelcomeAck },
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          }, {
+            ns: PERMISSION_NS,
+            schema: PERMISSION_SCHEMA,
+            value: { defaultPreset: permissionDefault },
+            user: { defaultPreset: permissionDefault },
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          }],
+        })
+      },
       // Open the settings document. Under Tauri the fixture surfaces the real
       // app-config directory through the Rust shell_spawn (start <config dir>);
       // outside Tauri (browser dev) it is a deterministic no-op success.
@@ -3532,7 +3587,9 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         const invoke = tauriInvoke()
         if (invoke !== undefined) {
           try {
-            const dir = await invoke<string>('app_config_dir')
+            // The settings panel's 打开配置文件 opens ~/.dsh (the DSH CLI home),
+            // not the Tauri app dir.
+            const dir = await invoke<string>('dsh_config_dir')
             await invoke('shell_spawn', { spec: { program: 'cmd', args: ['/c', 'start', '', dir] } })
           } catch (error) {
             return err(request, {
@@ -3551,6 +3608,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           const patch = request.payload.patch as { default?: unknown } | undefined
           const next = patch?.default
           if (typeof next === 'string' && next.length > 0) fixtureDefaultPreset = next
+          persistSettings(AGENT_PRESET_SETTINGS_NS, { default: fixtureDefaultPreset })
           return ok(request, {
             ns: AGENT_PRESET_SETTINGS_NS,
             schema: { type: 'object', dict: { default: { type: 'string' } } },
@@ -3586,6 +3644,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           }
           llmDeepseekUser = next
           llmDeepseekRevision += 1
+          void persistSettings(LLM_DEEPSEEK_NS, next)
           return ok(request, {
             ns: LLM_DEEPSEEK_NS,
             schema: LLM_DEEPSEEK_SCHEMA,
@@ -3594,6 +3653,27 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             applies: 'live',
             secrets: [{ path: ['apiKey'], set: false }],
             revision: llmDeepseekRevision,
+          })
+        }
+        if (request.payload.ns === 'llm-pi-ai') {
+          // Custom provider profiles (the Models add card saves here). Apply the
+          // patch into the user layer and persist to ~/.dsh when under Tauri.
+          const next: Record<string, unknown> = structuredClone(llmPiAiUser)
+          for (const op of request.payload.ops) {
+            if (op.op === 'set') setPath(next, op.path, op.value)
+            else if (op.op === 'unset') deletePath(next, op.path)
+          }
+          llmPiAiUser = next
+          llmPiAiRevision += 1
+          void persistSettings('llm-pi-ai', next)
+          return ok(request, {
+            ns: 'llm-pi-ai',
+            schema: LLM_PI_AI_SCHEMA,
+            value: structuredClone(next),
+            user: structuredClone(next),
+            applies: 'live',
+            secrets: [],
+            revision: llmPiAiRevision,
           })
         }
         if (request.payload.ns === PROXY_SETTINGS_NS) {
@@ -3610,11 +3690,8 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           const invoke = tauriInvoke()
           if (invoke !== undefined) {
             void invoke('http_set_proxy', { url: proxyUrl ?? null })
-            void invoke('settings_update', {
-              key: 'proxy',
-              value: proxyUrl === undefined ? {} : { url: proxyUrl },
-            })
           }
+          persistSettings(PROXY_SETTINGS_NS, proxyUrl === undefined ? {} : { url: proxyUrl })
           return ok(request, {
             ns: PROXY_SETTINGS_NS,
             schema: { type: 'object', dict: { url: { type: 'string' } } },
@@ -3678,6 +3755,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
               permissionDefault = op.value
             }
           }
+          persistSettings(PERMISSION_NS, { defaultPreset: permissionDefault })
           return ok(request, {
             ns: PERMISSION_NS,
             schema: PERMISSION_SCHEMA,
@@ -3688,11 +3766,28 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             revision: 1,
           })
         }
-        return err(request, {
-          code: 'settings-rejected',
-          message: 'fixture: no settings namespaces are registered',
-          details: { ns: request.payload.ns },
-        })
+        // Generic namespace fallback: accept any namespace the app writes
+        // (ui-theme, ui-conversation, agent-default-model, …) into an
+        // in-memory map and persist it to ~/.dsh under Tauri, so the
+        // client-first shell never hard-fails a settings save.
+        {
+          const current: Record<string, unknown> = genericSettings.get(request.payload.ns) ?? {}
+          for (const op of request.payload.ops) {
+            if (op.op === 'set') setPath(current, op.path, op.value)
+            else if (op.op === 'unset') deletePath(current, op.path)
+          }
+          genericSettings.set(request.payload.ns, current)
+          persistSettings(request.payload.ns, current)
+          return ok(request, {
+            ns: request.payload.ns,
+            schema: { type: 'object', dict: {} },
+            value: { ...current },
+            user: { ...current },
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          })
+        }
       },
     },
     credentials: {
@@ -4049,8 +4144,11 @@ export class FixtureApiClient extends AbstractApiClient {
 function fixtureOptionsFromLocation(): FixtureOptions {
   if (typeof location === 'undefined') return {}
   const query = new URLSearchParams(location.search)
+  // Under Tauri (dev and the installed build) the fixture must not fabricate
+  // demo workspaces/sessions — the desktop starts from the real ~/.dsh state.
+  const underTauri = typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis
   return {
-    empty: query.get('fixture') === 'empty',
+    empty: query.get('fixture') === 'empty' || underTauri,
     rejectPrompt: query.get('fixturePrompt') === 'reject',
     failWorkspaceAttach: query.get('fixtureAttach') === 'fail',
     dropSessionCreateResponse: query.get('fixtureSessionCreate') === 'drop-response',
