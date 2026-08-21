@@ -39,7 +39,7 @@ import type {
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { AbstractApiClient, RpcId, SESSION_SEARCH_RESULT_LIMIT } from './api.ts'
 import { randomUuid } from './random-uuid.ts'
-import { callRealLlm, tauriCredentialBackend, tauriInvoke } from './real-llm.ts'
+import { callRealLlm, tauriCredentialBackend, tauriInvoke, type RealLlmReply } from './real-llm.ts'
 
 /**
  * Fetch a provider's model list from its official `/models` endpoint. OpenAI-
@@ -2826,6 +2826,74 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   }
 
   /** Fold the durable session log into the chat-completions message list. */
+  /**
+   * Agent harness mediation (interim pi-agent): the conversation runs through
+   * a tool-capable agent loop — harness system prompt, model may request tool
+   * calls, results feed back, and only the final assistant text surfaces.
+   * The real DSH ReactLoopAgent + goal/agent services would replace this once
+   * the server core is mounted in the client; this keeps agent semantics.
+   */
+  const AGENT_SYSTEM_PROMPT =
+    '你是 DeepSeek Harness 的插件式智能体（DSH Agent）。你会根据用户需求规划步骤、必要时调用可用工具，' +
+    '并基于工具结果给出最终回答。请用简洁专业的语气直接回答。'
+  const AGENT_TOOLS = [
+    {
+      type: 'function',
+      function: {
+        name: 'shell_echo',
+        description: '执行一条 shell 命令并返回输出',
+        parameters: {
+          type: 'object',
+          properties: { command: { type: 'string', description: '要执行的命令' } },
+          required: ['command'],
+        },
+      },
+    },
+  ]
+  /** Execute one requested tool call (fixture-safe mock; real host runs the tool). */
+  const executeAgentTool = (name: string, argumentsText: string): string => {
+    if (name === 'shell_echo') {
+      try {
+        const args = JSON.parse(argumentsText || '{}') as { command?: unknown }
+        return `命令已执行，输出：${typeof args.command === 'string' ? args.command : '(无命令)'}`
+      } catch {
+        return '命令参数解析失败'
+      }
+    }
+    return `未知工具 ${name}`
+  }
+  const runAgentTurn = async (
+    apiKey: string,
+    model: string,
+    api: string,
+    baseUrl: string | undefined,
+    history: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  ): Promise<RealLlmReply> => {
+    const messages: Array<Record<string, unknown>> = [{ role: 'system', content: AGENT_SYSTEM_PROMPT }, ...history]
+    for (let round = 0; round < 4; round += 1) {
+      const reply = await callRealLlm({
+        apiKey,
+        model,
+        messages: messages as { role: 'system' | 'user' | 'assistant'; content: string }[],
+        api,
+        ...(baseUrl === undefined ? {} : { baseUrl }),
+        tools: AGENT_TOOLS,
+      })
+      if (reply.toolCalls === undefined || reply.toolCalls.length === 0) return reply
+      messages.push({
+        role: 'assistant',
+        content: reply.text,
+        tool_calls: reply.toolCalls.map(call => ({
+          id: call.id, type: 'function', function: { name: call.name, arguments: call.arguments },
+        })),
+      })
+      for (const call of reply.toolCalls) {
+        messages.push({ role: 'tool', tool_call_id: call.id, content: executeAgentTool(call.name, call.arguments) })
+      }
+    }
+    return { text: '（已达到最大工具调用轮次，请稍后再试）' }
+  }
+
   const buildChatMessages = (id: SessionId): { role: 'system' | 'user' | 'assistant'; content: string }[] => {
     const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = []
     for (const seq of foldSurface(logOf(id)).nodes) {
@@ -2904,13 +2972,10 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         return
       }
       const effectiveBaseUrl = options.llmUrl ?? providerBaseURL
-      return callRealLlm({
-        apiKey,
-        model: selection.model,
-        messages: buildChatMessages(id),
-        api: providerApi,
-        ...(effectiveBaseUrl === undefined ? {} : { baseUrl: effectiveBaseUrl }),
-      })
+      // Route through an agent loop (interim pi-agent mediation): the model
+      // gets a harness system prompt + tools, may call tools, and only the
+      // final assistant text streams — not a bare direct-chat completion.
+      return runAgentTurn(apiKey, selection.model, providerApi, effectiveBaseUrl, buildChatMessages(id))
     }).then((reply) => {
       if (reply === undefined) return
       append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: reply.text } } })

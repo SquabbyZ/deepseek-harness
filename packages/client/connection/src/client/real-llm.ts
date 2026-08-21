@@ -33,11 +33,23 @@ export interface RealLlmReply {
   text: string
   /** Provider-reported billing (undefined when the endpoint omits it). */
   usage?: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number }
+  /** Tool-call requests from the model, when the request advertised tools. */
+  toolCalls?: RealLlmToolCall[]
 }
 
-/** Streaming-mode SSE completion payload (the one field we consume). */
+/** Streaming-mode SSE completion payload (the fields we consume). */
 interface ChatDelta {
-  choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>
+  choices?: Array<{
+    delta?: {
+      content?: string
+      tool_calls?: Array<{
+        index?: number
+        id?: string
+        function?: { name?: string; arguments?: string }
+      }>
+    }
+    finish_reason?: string | null
+  }>
   usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number; prompt_cache_miss_tokens?: number }
 }
 
@@ -151,8 +163,10 @@ export async function callRealLlm(options: {
   baseUrl?: string
   /** Provider protocol: `anthropic-messages` sends x-api-key; default Bearer. */
   api?: string
+  /** OpenAI tool definitions; when present the request advertises tools. */
+  tools?: unknown[]
 }): Promise<RealLlmReply> {
-  const { apiKey, model, messages, signal, baseUrl, api } = options
+  const { apiKey, model, messages, signal, baseUrl, api, tools } = options
   // A provider's baseURL is the API root (…/v1); the completions path must be
   // appended unless the caller already passed a full endpoint.
   const url = baseUrl === undefined
@@ -160,7 +174,12 @@ export async function callRealLlm(options: {
     : /\/chat\/completions$/.test(baseUrl)
       ? baseUrl
       : `${baseUrl.replace(/\/+$/, '')}/chat/completions`
-  const body = JSON.stringify({ model: realModelOf(model), messages, stream: true })
+  const body = JSON.stringify({
+    model: realModelOf(model),
+    messages,
+    stream: true,
+    ...(tools === undefined || tools.length === 0 ? {} : { tools, tool_choice: 'auto' }),
+  })
   const headers = api === 'anthropic-messages'
     ? { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
     : { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` }
@@ -184,6 +203,7 @@ export async function callRealLlm(options: {
     const sse = decodeBytes(res.body)
     const parsed = parseBufferedSse(sse)
     const reply: RealLlmReply = { text: parsed.text }
+    if (parsed.toolCalls !== undefined && parsed.toolCalls.length > 0) reply.toolCalls = parsed.toolCalls
     // Some providers send `usage: null` (MiniMax) on a non-final chunk; the
     // loose check also skips the null case instead of crashing on `.prompt_tokens`.
     if (parsed.usage != null) {
@@ -220,11 +240,24 @@ export async function callRealLlm(options: {
   return reply
 }
 
+/** One streamed tool-call fragment, concatenated by index across deltas. */
+export interface RealLlmToolCall {
+  /** Server-side call id (the `id` field on the first fragment). */
+  id: string
+  name: string
+  /** Concatenated JSON argument string. */
+  arguments: string
+}
+
 /** Parse a buffered SSE document (the Tauri path delivers the body whole). */
-function parseBufferedSse(body: string): { text: string; usage?: ChatDelta['usage'] } {
+function parseBufferedSse(body: string): {
+  text: string
+  usage?: ChatDelta['usage']
+  toolCalls?: RealLlmToolCall[]
+} {
   let text = ''
   let usage: ChatDelta['usage']
-  const errored = false
+  let toolCalls: RealLlmToolCall[] | undefined
   for (const line of body.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed.startsWith('data:')) continue
@@ -239,9 +272,23 @@ function parseBufferedSse(body: string): { text: string; usage?: ChatDelta['usag
       }
       const piece = parsed.choices?.[0]?.delta?.content
       if (typeof piece === 'string') text += piece
+      const calls = parsed.choices?.[0]?.delta?.tool_calls
+      if (Array.isArray(calls)) {
+        for (const call of calls) {
+          const index = call.index ?? 0
+          toolCalls ??= []
+          toolCalls[index] ??= { id: call.id ?? '', name: '', arguments: '' }
+          if (typeof call.id === 'string' && call.id.length > 0) toolCalls[index].id = call.id
+          if (typeof call.function?.name === 'string') toolCalls[index].name += call.function.name
+          if (typeof call.function?.arguments === 'string') toolCalls[index].arguments += call.function.arguments
+        }
+      }
       if (parsed.usage !== undefined) usage = parsed.usage
-      void errored
     }
   }
-  return { text, usage }
+  return {
+    text,
+    ...(usage === undefined ? {} : { usage }),
+    ...(toolCalls === undefined || toolCalls.length === 0 ? {} : { toolCalls }),
+  }
 }
