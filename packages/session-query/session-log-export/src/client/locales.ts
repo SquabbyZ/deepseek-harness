@@ -3,24 +3,26 @@ export const NS = 'session-log-download'
 
 /** Simplified-Chinese Session export strings. */
 export const zh = {
-  'dialog.preparingTitle': '正在导出 Session',
-  'dialog.preparingDescription': '正在准备包含当前 Session、子 Session 和附件的 ZIP 文件。',
-  'dialog.successTitle': 'Session 导出已开始下载',
-  'dialog.successDescription': '浏览器正在下载 Session ZIP 文件。',
-  'dialog.errorTitle': 'Session 导出失败',
+  'header.label': '导出日志',
+  'dialog.preparingTitle': '正在导出会话',
+  'dialog.preparingDescription': '正在准备包含当前会话、子会话和附件的 ZIP 压缩包。',
+  'dialog.successTitle': '会话日志已导出',
+  'dialog.successDescription': '浏览器已开始下载会话日志 ZIP 压缩包，可在下载记录中查看。',
+  'dialog.errorTitle': '会话日志导出失败',
   'dialog.close': '关闭',
-  'dialog.commandFailed': '无法启动 Session 导出。',
+  'dialog.commandFailed': '无法启动会话日志导出。',
 } as const
 
 /** English Session export strings. */
 export const en: Record<keyof typeof zh, string> = {
-  'dialog.preparingTitle': 'Exporting Session',
-  'dialog.preparingDescription': 'Preparing a ZIP containing this Session, its sub-Sessions, and attachments.',
-  'dialog.successTitle': 'Session download started',
-  'dialog.successDescription': 'The browser is downloading the Session ZIP.',
-  'dialog.errorTitle': 'Session export failed',
+  'header.label': 'Session log',
+  'dialog.preparingTitle': 'Exporting session',
+  'dialog.preparingDescription': 'Preparing a ZIP archive of this session, its sub-sessions, and attachments.',
+  'dialog.successTitle': 'Session log exported',
+  'dialog.successDescription': 'The browser has started downloading the session log ZIP; check your download list.',
+  'dialog.errorTitle': 'Failed to export session log',
   'dialog.close': 'Close',
-  'dialog.commandFailed': 'Could not start the Session export.',
+  'dialog.commandFailed': 'Could not start the session log export.',
 }
 
 /** Stable locale keys consumed by the shared modal. */

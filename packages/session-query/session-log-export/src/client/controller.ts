@@ -120,6 +120,8 @@ export class SessionLogDownloadController {
         throw new Error(`Export failed: HTTP ${response.status}${detail === '' ? '' : ` ${detail}`}`)
       }
       this.save(url.toString(), sessionLogZipFilename(sessionId))
+      // Record the handoff so the download shows up in the session/dev log.
+      console.info(`[session-log-export] ${String(sessionId)}: download started → ${sessionLogZipFilename(sessionId)}`)
       const open = this.store.getSnapshot().bySession[String(sessionId)]?.open ?? true
       this.publish(sessionId, { open, status: 'success', error: null })
     } catch (error: unknown) {
