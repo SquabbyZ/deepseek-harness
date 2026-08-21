@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { request as httpRequest } from 'node:http'
 import { connect as netConnect } from 'node:net'
 import { connect as tlsConnect } from 'node:tls'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -255,6 +255,39 @@ function packagePluginBundles(): Plugin {
         mkdirSync(dirname(dest), { recursive: true })
         copyFileSync(bundlePath, dest)
       }
+      // Package the dsh-market plugin's HOST GET responses as static files so
+      // the catalog + installed/status state load in the built app (Tauri
+      // serves them from dist; the dev middleware only exists in `tauri dev`).
+      const marketDir = join(outDir, 'dsh-market')
+      mkdirSync(marketDir, { recursive: true })
+      const registryPath = src('../../external/dsh-market/data/registry-snapshot.json')
+      const registry = existsSync(registryPath) ? JSON.parse(readFileSync(registryPath, 'utf8')) : { name: 'awesome-dsh-plugin', plugins: [] }
+      const marketResponses: Record<string, unknown> = {
+        registry: { registry },
+        installed: { installed: {}, live: [], activation: {}, bundles: {} },
+        status: { market: 'installed', versions: {} },
+        updates: { updates: [] },
+        check: { ok: true },
+      }
+      for (const [name, body] of Object.entries(marketResponses)) {
+        writeFileSync(join(marketDir, name), JSON.stringify(body))
+      }
+      // Session-log export (session-log-export) hits `/api/session.export` —
+      // package a dev-placeholder ZIP so the header download works in the
+      // built app too (a real host streams the full transcript here).
+      const apiDir = join(outDir, 'api')
+      mkdirSync(apiDir, { recursive: true })
+      const exportBody = [
+        '# DeepSeek Harness — session log',
+        '',
+        'session: (built-app placeholder)',
+        'A host deployment streams the full session transcript here.',
+        '',
+      ].join('\n')
+      writeFileSync(
+        join(apiDir, 'session.export'),
+        Buffer.from(zipSync({ ['session-log.md']: strToU8(exportBody) })),
+      )
     },
   }
 }
