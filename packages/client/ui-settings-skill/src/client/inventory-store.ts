@@ -57,6 +57,30 @@ export interface SkillInventoryEntryView {
 /** RPC seam the store reads through. */
 export interface SkillInventoryPort {
   list: (signal: AbortSignal) => Promise<SkillInventorySnapshot>
+  /** Search skills.sh for installable remote skills. */
+  search: (query: string) => Promise<SkillRegistrySearchResult>
+  /** Install a remote skill into `~/.dsh/skills/{name}`; throws on RPC failure. */
+  install: (target: SkillRegistryInstallTarget) => Promise<void>
+}
+
+/** One installable skill surfaced by the skills.sh registry. */
+export interface SkillRegistrySkill {
+  readonly name: string
+  readonly description: string
+  readonly installs: number
+  /** `owner/repo` — the GitHub source the install downloads from. */
+  readonly source: string
+}
+
+/** Search result envelope from the registry RPC. */
+export interface SkillRegistrySearchResult {
+  readonly skills: readonly SkillRegistrySkill[]
+}
+
+/** What `install` needs: the display name and the `owner/repo` source. */
+export interface SkillRegistryInstallTarget {
+  readonly name: string
+  readonly source: string
 }
 
 /** Inventory source: an observable of the snapshot plus the read trigger. */
@@ -65,6 +89,10 @@ export interface SkillInventoryStore extends HostObservable<SkillInventoryPanelS
   refresh(): void
   /** Drop the snapshot; the next refresh starts from scratch (e.g. on reconnect). */
   reset(): void
+  /** Search skills.sh; does not touch the local snapshot. */
+  search(query: string): Promise<SkillRegistrySearchResult>
+  /** Install a remote skill, then re-read the local inventory so it appears. */
+  install(target: SkillRegistryInstallTarget): Promise<void>
 }
 
 /**
@@ -88,42 +116,50 @@ export function createSkillInventoryStore(
     for (const listener of [...listeners]) listener()
   }
 
+  /** Single-flight read of the registry; a no-op while one is already in flight. */
+  const read = (): void => {
+    if (inFlight !== undefined) return
+    const issued = generation
+    const controller = new AbortController()
+    inFlight = port.list(controller.signal).then(
+      (value) => {
+        if (issued !== generation) return
+        publish({
+          entries: value.entries.map(toView),
+          read: true,
+        })
+      },
+      (error: unknown) => {
+        if (issued !== generation) return
+        if (controller.signal.aborted) return
+        onError(error)
+        publish({
+          entries: snapshot.entries,
+          read: snapshot.read,
+          error: error instanceof Error ? error.message : 'skill-inventory read failed',
+        })
+      },
+    ).finally(() => {
+      if (issued === generation) inFlight = undefined
+    })
+  }
+
   return {
     getSnapshot: () => snapshot,
     subscribe: (fn) => {
       listeners.add(fn)
       return () => { listeners.delete(fn) }
     },
-    refresh: () => {
-      if (inFlight !== undefined) return
-      const issued = generation
-      const controller = new AbortController()
-      inFlight = port.list(controller.signal).then(
-        (value) => {
-          if (issued !== generation) return
-          publish({
-            entries: value.entries.map(toView),
-            read: true,
-          })
-        },
-        (error: unknown) => {
-          if (issued !== generation) return
-          if (controller.signal.aborted) return
-          onError(error)
-          publish({
-            entries: snapshot.entries,
-            read: snapshot.read,
-            error: error instanceof Error ? error.message : 'skill-inventory read failed',
-          })
-        },
-      ).finally(() => {
-        if (issued === generation) inFlight = undefined
-      })
-    },
+    refresh: read,
     reset: () => {
       generation += 1
       if (inFlight !== undefined) inFlight = undefined
       publish({ entries: [], read: false })
+    },
+    search: query => port.search(query),
+    install: async (target) => {
+      await port.install(target)
+      read()
     },
   }
 }

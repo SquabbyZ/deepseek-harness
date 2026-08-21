@@ -1,10 +1,10 @@
-/** Settings skill-inventory tab: lazy list + dynamic enable/disable. */
+/** Settings skill-inventory tab: lazy list + dynamic enable/disable + skills.sh install. */
 
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SkillInventorySettingsTab, type SkillInventorySettingsTabInjected } from './SkillInventorySettingsTab.tsx'
-import { createSkillInventoryStore } from './inventory-store.ts'
+import { createSkillInventoryStore, type SkillInventoryEntry, type SkillRegistrySearchResult } from './inventory-store.ts'
 import { en, zh } from './locales.ts'
 
 export type { SkillInventorySettingsTabInjected, SkillInventorySettingsTabProps } from './SkillInventorySettingsTab.tsx'
@@ -26,7 +26,36 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export const NS = 'settings.skill'
 
 /** Services required by the Settings registration, the snapshot store, and the Remote contribution. */
-export const inject = ['slots', 'locale', 'remote', 'remote.skillInventory']
+export const inject = ['slots', 'locale', 'remote', 'remote.skillInventory', 'remote.skillRegistry']
+
+/**
+ * The `skillInventory` / `skillRegistry` namespaces are mounted by the fixture
+ * client assembly (api-remotes) — their wire types are not declared by a
+ * generated package, so the call faces are narrowed here (same compromise the
+ * mcp-inventory plugin makes for its own Remote).
+ */
+type SkillInventoryRemote = {
+  list(): Promise<{
+    ok: boolean
+    value: { entries: readonly SkillInventoryEntry[] }
+    error?: { code: string; message: string }
+  }>
+  setEnabled(
+    args: { entryId: string; enabled: boolean },
+    signal?: AbortSignal,
+  ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
+}
+type SkillRegistryRemote = {
+  search(query: string): Promise<{
+    ok: boolean
+    value: SkillRegistrySearchResult
+    error?: { code: string; message: string }
+  }>
+  install(
+    target: { name: string; source: string },
+    signal?: AbortSignal,
+  ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
+}
 
 /** Contribute the skill inventory tab to the Plugins settings section. */
 export function apply(ctx: ClientContext): void {
@@ -34,14 +63,29 @@ export function apply(ctx: ClientContext): void {
 
   const t = ctx.locale.bind(NS)
 
+  const remote = ctx.remote as unknown as { skillInventory: SkillInventoryRemote; skillRegistry: SkillRegistryRemote }
+
   const store = createSkillInventoryStore(
     {
       list: async () => {
-        const result = await ctx.remote.skillInventory.list()
+        const result = await remote.skillInventory.list()
         if (!result.ok) {
-          throw new Error(`skillInventory.list failed: ${result.error.code}: ${result.error.message}`)
+          throw new Error(`skillInventory.list failed: ${result.error?.code}: ${result.error?.message}`)
         }
         return result.value
+      },
+      search: async (query) => {
+        const result = await remote.skillRegistry.search(query)
+        if (!result.ok) {
+          throw new Error(`skillRegistry.search failed: ${result.error?.code}: ${result.error?.message}`)
+        }
+        return result.value
+      },
+      install: async (target) => {
+        const result = await remote.skillRegistry.install(target)
+        if (!result.ok) {
+          throw new Error(`skillRegistry.install failed: ${result.error?.code}: ${result.error?.message}`)
+        }
       },
     },
     (error) => {
@@ -49,27 +93,29 @@ export function apply(ctx: ClientContext): void {
     },
   )
 
-  ctx.effect(() => ctx.remote.$on('skill-inventory/changed', () => { store.refresh() }),
+  ctx.effect(() => (ctx.remote as { $on(event: string, fn: () => void): () => void }).$on('skill-inventory/changed', () => { store.refresh() }),
     'ui-settings-skill: refresh on remote event')
   ctx.effect(() => ctx.on('connection/reset', () => { store.reset(); store.refresh() }),
     'ui-settings-skill: reset on reconnect')
 
   const injected = (): SkillInventorySettingsTabInjected => ({
     list: async () => {
-      const result = await ctx.remote.skillInventory.list()
+      const result = await remote.skillInventory.list()
       if (!result.ok) {
-        throw new Error(`skillInventory.list failed: ${result.error.code}: ${result.error.message}`)
+        throw new Error(`skillInventory.list failed: ${result.error?.code}: ${result.error?.message}`)
       }
       return result.value
     },
     refresh: () => { store.refresh() },
     store,
     setEnabled: async ({ entryId, enabled }, { signal }) => {
-      const result = await ctx.remote.skillInventory.setEnabled({ entryId, enabled }, signal)
+      const result = await remote.skillInventory.setEnabled({ entryId, enabled }, signal)
       if (!result.ok) {
-        throw new Error(`skillInventory.setEnabled failed: ${result.error.code}: ${result.error.message}`)
+        throw new Error(`skillInventory.setEnabled failed: ${result.error?.code}: ${result.error?.message}`)
       }
     },
+    search: query => store.search(query),
+    install: target => store.install(target),
   })
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({

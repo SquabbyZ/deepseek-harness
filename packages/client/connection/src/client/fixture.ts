@@ -4543,6 +4543,97 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           }
           return Promise.resolve({ ok: true, value: {} })
         }
+        case 'skillRegistry/search': {
+          const query = (args as { query?: unknown }).query
+          if (typeof query !== 'string' || query.trim().length === 0) {
+            return Promise.resolve({ ok: true, value: { skills: [] } })
+          }
+          const invoke = tauriInvoke()
+          if (invoke === undefined) {
+            // Browser / no bridge: no registry reachable; the local filter still works.
+            return Promise.resolve({ ok: true, value: { skills: [] } })
+          }
+          const url = `https://skills.sh/api/search?q=${encodeURIComponent(query.trim())}&limit=20`
+          const res = await invoke<{ status: number; body: number[] }>('http_request', {
+            req: { method: 'GET', url, headers: {}, timeout_ms: 30_000 },
+          })
+          if (res.status < 200 || res.status >= 300) {
+            throw new Error(`skillRegistry/search: HTTP ${res.status}`)
+          }
+          const text = new TextDecoder().decode(new Uint8Array(res.body))
+          const data = JSON.parse(text) as { skills?: Array<Record<string, unknown>> }
+          const skills = Array.isArray(data.skills) ? data.skills : []
+          const projected = skills.flatMap((raw) => {
+            const name = typeof raw?.name === 'string' ? raw.name : ''
+            if (name === '') return []
+            const description = typeof raw?.description === 'string' ? raw.description : ''
+            const installs = typeof raw?.installs === 'number' ? raw.installs : 0
+            const source = typeof raw?.source === 'string' && raw.source.length > 0
+              ? raw.source
+              : (typeof raw?.id === 'string' ? raw.id.split('/').slice(0, 2).join('/') : '')
+            if (source === '') return []
+            return [{ name, description, installs, source }]
+          })
+          return Promise.resolve({ ok: true, value: { skills: projected } })
+        }
+        case 'skillRegistry/install': {
+          const invoke = tauriInvoke()
+          if (invoke === undefined) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill install requires the desktop bridge', details: {} },
+            })
+          }
+          const target = (args as { target?: { name?: unknown; source?: unknown } }).target
+          const name = typeof target?.name === 'string' ? target.name.trim() : ''
+          const source = typeof target?.source === 'string' ? target.source.trim() : ''
+          if (name.length === 0 || source.length === 0) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill install missing name or source', details: {} },
+            })
+          }
+          const [owner, repo] = source.split('/')
+          if (owner === undefined || repo === undefined || owner.length === 0 || repo.length === 0) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: `skill install invalid source ${JSON.stringify(source)}`, details: {} },
+            })
+          }
+          // Resolve ~/.dsh (the fs allowlist roots both the temp dir and the
+          // destination, so a fresh ~/.dsh/skills/{name} is creatable).
+          const dshHome = await invoke<string>('dsh_config_dir')
+          if (typeof dshHome !== 'string' || dshHome.length === 0) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill install could not resolve ~/.dsh', details: {} },
+            })
+          }
+          const home = dshHome.replace(/[\\/]+$/, '')
+          const dest = `${home}/skills/${name}`
+          const tmpTar = `${home}/skills/.dsh-tmp/${name}/source.tar.gz`
+          // 1. Download the repo tarball through the desktop proxy client.
+          const res = await invoke<{ status: number; body: number[] }>('http_request', {
+            req: { method: 'GET', url: `https://codeload.github.com/${owner}/${repo}/tar.gz/HEAD`, headers: {}, timeout_ms: 120_000 },
+          })
+          if (res.status < 200 || res.status >= 300) {
+            throw new Error(`skillRegistry/install: HTTP ${res.status}`)
+          }
+          // 2. Persist the bytes (fs_write creates the parent dirs under ~/.dsh).
+          await invoke('fs_write', { path: tmpTar, content: res.body })
+          // 3. Ensure the destination exists so tar's `-C` resolves.
+          await invoke('fs_write', { path: `${dest}/SKILL.md`, content: [] })
+          // 4. Extract, stripping the tarball's `{repo}-{sha}` top-level dir so
+          //    the skill contents land directly in ~/.dsh/skills/{name}.
+          await invoke('shell_spawn', {
+            spec: {
+              cmd: 'tar',
+              args: ['-xzf', tmpTar, '-C', dest, '--strip-components=1'],
+              env: {},
+            },
+          })
+          return Promise.resolve({ ok: true, value: { ok: true as const } })
+        }
         case 'mcpInventory/list': {
           const invoke = tauriInvoke()
           if (invoke === undefined) {

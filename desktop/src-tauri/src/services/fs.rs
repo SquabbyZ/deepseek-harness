@@ -29,6 +29,27 @@ pub fn is_allowed_roots(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool
     })
 }
 
+/// Allow CREATING a path that may not exist yet: canonicalize the deepest
+/// existing ancestor and check it against the allowlist. This is what lets
+/// `fs_write` install a fresh `~/.dsh/skills/{name}` (neither the dir nor the
+/// file exists yet, so `is_allowed_roots` alone would reject it) without
+/// widening the allowlist to the whole disk — you can still only create things
+/// UNDER one of the allowed roots.
+fn is_creatable_allowed(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool {
+    let mut current = Some(path);
+    while let Some(p) = current {
+        if let Ok(canonical) = p.canonicalize() {
+            return [config_dir, dsh_home].iter().any(|root| {
+                root.canonicalize()
+                    .map(|root_canonical| canonical.starts_with(root_canonical))
+                    .unwrap_or(false)
+            });
+        }
+        current = p.parent();
+    }
+    false
+}
+
 pub fn read(config_dir: &Path, dsh_home: &Path, path: &Path) -> AppResult<Vec<u8>> {
     if !is_allowed_roots(config_dir, dsh_home, path) {
         return Err(AppError::FsPermissionDenied {
@@ -41,10 +62,17 @@ pub fn read(config_dir: &Path, dsh_home: &Path, path: &Path) -> AppResult<Vec<u8
 }
 
 pub fn write(config_dir: &Path, dsh_home: &Path, path: &Path, content: &[u8]) -> AppResult<()> {
-    if !is_allowed_roots(config_dir, dsh_home, path) {
+    if !is_creatable_allowed(config_dir, dsh_home, path) {
         return Err(AppError::FsPermissionDenied {
             path: path.to_string_lossy().into_owned(),
         });
+    }
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| AppError::FsIo {
+                message: format!("create_dir_all {}: {e}", parent.display()),
+            })?;
+        }
     }
     std::fs::write(path, content).map_err(|e| AppError::FsIo {
         message: e.to_string(),
@@ -112,5 +140,31 @@ mod tests {
         let agents = temp_dir().join("dsh_test_agents");
         std::fs::create_dir_all(&agents).unwrap();
         assert!(!is_allowed_roots(&config, &dsh_home, &agents));
+    }
+
+    #[test]
+    fn write_creates_fresh_paths_under_an_allowed_root() {
+        let config = temp_dir().join("dsh_test_config");
+        let dsh_home = temp_dir().join("dsh_test_home");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::create_dir_all(&dsh_home).unwrap();
+        // Neither the skill dir nor its SKILL.md exists yet — but because the
+        // deepest existing ancestor (dsh_home) is allowed, creation is legal and
+        // write() materializes the intermediate directories.
+        let dest = dsh_home.join("skills").join("shellcheck").join("SKILL.md");
+        assert!(is_creatable_allowed(&config, &dsh_home, &dest));
+        write(&config, &dsh_home, &dest, b"---\nname: shellcheck\n---").unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"---\nname: shellcheck\n---");
+    }
+
+    #[test]
+    fn write_rejects_creation_outside_an_allowed_root() {
+        let config = temp_dir().join("dsh_test_config");
+        let dsh_home = temp_dir().join("dsh_test_home");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::create_dir_all(&dsh_home).unwrap();
+        let outside = temp_dir().join("dsh_outside_new").join("SKILL.md");
+        assert!(!is_creatable_allowed(&config, &dsh_home, &outside));
+        assert!(write(&config, &dsh_home, &outside, b"x").is_err());
     }
 }

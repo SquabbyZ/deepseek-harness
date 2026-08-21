@@ -188,6 +188,56 @@ const skillInventoryRemote: TypertRemoteContribution = {
   package: '@deepseek-ai/dsh-skill-inventory',
   descriptors: [skillListDescriptor, skillSetEnabledDescriptor],
 }
+// skills.sh registry remote (Task 4): search the registry and install a skill
+// into ~/.dsh/skills/{name}. The wire namespace is `skillRegistry` so the RPC
+// endpoints are `skillRegistry/search` + `skillRegistry/install`.
+const skillRegistrySkillSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  installs: z.number(),
+  source: z.string(),
+})
+const skillSearchDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-skill-inventory#skillRegistry/search',
+  service: 'skillRegistry',
+  namespace: 'skillRegistry',
+  method: 'search',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'query',
+      wire: 'query',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skill-search-query', schema: z.object({ query: z.string() }) },
+    },
+  ],
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/search:result', schema: z.object({ skills: z.array(skillRegistrySkillSchema) }) },
+}
+const skillInstallDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-skill-inventory#skillRegistry/install',
+  service: 'skillRegistry',
+  namespace: 'skillRegistry',
+  method: 'install',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'target',
+      wire: 'target',
+      source: 'json',
+      codec: {
+        mode: 'strict',
+        typeSymbol: '@deepseek-ai/dsh-skill-inventory#skill-install-target',
+        schema: z.object({ name: z.string(), source: z.string() }),
+      },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/install:result', schema: z.object({ ok: z.literal(true) }) },
+}
+const skillRegistryRemote: TypertRemoteContribution = {
+  package: '@deepseek-ai/dsh-skill-inventory',
+  descriptors: [skillSearchDescriptor, skillInstallDescriptor],
+}
 const mcpEntrySchema = z.object({
   entryId: z.string(),
   serverName: z.string(),
@@ -288,7 +338,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       commandsRemote, goalsRemote,
-      messageFeedbackRemote, pluginInventoryRemote, skillInventoryRemote, mcpInventoryRemote,
+      messageFeedbackRemote, pluginInventoryRemote, skillInventoryRemote, skillRegistryRemote, mcpInventoryRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

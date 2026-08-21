@@ -29,9 +29,11 @@ impl Platform {
 /// Shell binaries that are allowed to be spawned by `shell_spawn` command.
 pub fn allowed_shell_binaries() -> &'static [&'static str] {
     if cfg!(target_os = "windows") {
-        &["cmd.exe", "powershell.exe", "node.exe"]
+        // tar.exe ships in System32 on Windows 10+; the skills.sh install path
+        // extracts a codeload tarball through it.
+        &["cmd.exe", "powershell.exe", "node.exe", "tar.exe"]
     } else if cfg!(target_os = "macos") {
-        &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env"]
+        &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env", "tar"]
     } else {
         &[] // unreachable — build should have failed
     }
@@ -62,9 +64,9 @@ mod tests {
     #[test]
     fn allowed_binaries_match_platform() {
         let expected: &[&str] = if cfg!(target_os = "windows") {
-            &["cmd.exe", "powershell.exe", "node.exe"]
+            &["cmd.exe", "powershell.exe", "node.exe", "tar.exe"]
         } else if cfg!(target_os = "macos") {
-            &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env"]
+            &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env", "tar"]
         } else {
             &[]
         };
