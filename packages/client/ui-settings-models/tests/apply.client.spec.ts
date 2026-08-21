@@ -5,10 +5,9 @@ import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
-import { apply, inject, refreshIfLoaded } from '@deepseek-ai/dsh-client-ui-settings-models/client'
+import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
 import { ProviderOnboardingDialog } from '../src/client/ProviderOnboardingDialog.tsx'
-import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
 
 // The service reads its initial locale from the browser; these specs assert
 // the shipped Chinese copy, so they state the browser they assume.
@@ -62,11 +61,7 @@ describe('ui-settings-models apply', () => {
     expect(typeof injected.useSnapshot).toBe('function')
     expect(injected.api).toBeDefined()
     const onboarding = before.slots.entries('settings.onboarding')
-    expect(onboarding).toHaveLength(2)
-    expect(onboarding.find(entry => entry.options.id === 'welcome-notice')).toMatchObject({
-      component: WelcomeNotice,
-      options: { id: 'welcome-notice', order: -100 },
-    })
+    expect(onboarding).toHaveLength(1)
     const deepSeek = onboarding.find(entry => entry.options.id === 'configure-provider')!
     expect(deepSeek.component).toBe(ProviderOnboardingDialog)
     expect(deepSeek.options).toMatchObject({ id: 'configure-provider', order: 0 })
@@ -83,7 +78,7 @@ describe('ui-settings-models apply', () => {
     declare(after.slots)
     await Promise.resolve()
     expect(after.slots.entries('settings.section')[0]!.component).toBe(ModelsSection)
-    expect(after.slots.entries('settings.onboarding')).toHaveLength(2)
+    expect(after.slots.entries('settings.onboarding')).toHaveLength(1)
     // The self-inflicted ledger notifications hit the duplicate guard.
     expect(after.slots.entries('settings.section')).toHaveLength(1)
   })
@@ -122,7 +117,7 @@ describe('ui-settings-models apply', () => {
     declare(b.slots)
     await Promise.resolve()
     expect(b.slots.entries('settings.section')[0]!.component).toBe(ModelsSection)
-    expect(b.slots.entries('settings.onboarding')).toHaveLength(2)
+    expect(b.slots.entries('settings.onboarding')).toHaveLength(1)
     // The locale path also recovers through the same ledger re-check.
     b.locale.setLocale('en')
     expect(resolveSlotLabel(b.slots.entries('settings.section')[0]!.options.label)).toBe('Models')
@@ -143,51 +138,6 @@ describe('ui-settings-models apply', () => {
     expect(() => b.locale.register('settings.models', 'en', {})).not.toThrow()
   })
 
-  it('keeps remote-browser acknowledgement in process memory', async () => {
-    const b = await bench(false)
-    declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.onboarding')
-      .find(candidate => candidate.options.id === 'welcome-notice')!
-    const injected = (
-      entry.inject as unknown as () => import('../src/client/WelcomeNotice.tsx').WelcomeNoticeInjected
-    )()
-
-    await injected.controller.load()
-    expect(injected.controller.store.getSnapshot()).toEqual({
-      status: 'ready', acknowledged: false, error: null,
-    })
-  })
-})
-
-describe('pushed invalidations', () => {
-  it('ignores invalidations before the page ever loaded', async () => {
-    const b = await bench()
-    declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    // The fake wire face has no methods: a fetch attempt would throw.
-    b.ctx.remote.$dispatch('settings/document-updated', ['llm-pi-ai', 1])
-    b.ctx.remote.$dispatch('credentials/updated', ['OPENAI_API_KEY'])
-    b.ctx.remote.$dispatch('llm/adapters-updated', [])
-    b.ctx.emit('connection/reset')
-  })
-
-  it('refreshes a loaded page and skips an idle one', () => {
-    const loads: number[] = []
-    const controller = {
-      store: { getSnapshot: () => ({ status: 'ready' }) },
-      load: () => { loads.push(1); return Promise.resolve() },
-    }
-    refreshIfLoaded(controller as unknown as import('../src/client/store.ts').ModelsSettingsStore)
-    expect(loads).toHaveLength(1)
-    const idle = {
-      store: { getSnapshot: () => ({ status: 'idle' }) },
-      load: () => { loads.push(2); return Promise.resolve() },
-    }
-    refreshIfLoaded(idle as unknown as import('../src/client/store.ts').ModelsSettingsStore)
-    expect(loads).toHaveLength(1)
-  })
-
   it('routes pushed credential invalidation into the shared onboarding join', async () => {
     const b = await bench()
     declare(b.slots)
@@ -202,26 +152,5 @@ describe('pushed invalidations', () => {
     const load = vi.spyOn(injected.controller, 'load').mockResolvedValue()
     b.ctx.remote.$dispatch('credentials/updated', ['DEEPSEEK_API_KEY'])
     expect(load).toHaveBeenCalledTimes(1)
-  })
-
-  it('routes only the onboarding namespace invalidation into welcome state', async () => {
-    const b = await bench()
-    declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.onboarding')
-      .find(candidate => candidate.options.id === 'welcome-notice')!
-    const injected = (
-      entry.inject as unknown as
-      () => import('../src/client/WelcomeNotice.tsx').WelcomeNoticeInjected
-    )()
-    injected.hooks.welcome.update((state) => { state.status = 'ready' })
-    const load = vi.spyOn(injected.controller, 'load').mockResolvedValue()
-
-    b.ctx.remote.$dispatch('settings/document-updated', ['llm-deepseek', 1])
-    expect(load).not.toHaveBeenCalled()
-    b.ctx.remote.$dispatch('settings/document-updated', ['ui-onboarding', 2])
-    expect(load).toHaveBeenCalledOnce()
-    b.ctx.emit('connection/reset')
-    expect(load).toHaveBeenCalledTimes(2)
   })
 })

@@ -20,12 +20,8 @@ import { ModelsSection } from './ModelsSection.tsx'
 import type { ModelsSectionInjected } from './ModelsSection.tsx'
 import { ProviderOnboardingDialog } from './ProviderOnboardingDialog.tsx'
 import type { ProviderOnboardingInjected } from './ProviderOnboardingDialog.tsx'
-import { WelcomeNotice } from './WelcomeNotice.tsx'
-import type { WelcomeNoticeInjected } from './WelcomeNotice.tsx'
-import { refreshWelcomeIfLoaded, WelcomeNoticeStore } from './welcome-store.ts'
 import { ModelsSettingsStore } from './store.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
-import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from '../onboarding-copy.ts'
 
 export type { ModelsSectionInjected, ModelsSectionProps } from './ModelsSection.tsx'
 export type { ModelsKey } from './locales.ts'
@@ -85,29 +81,13 @@ export function apply(ctx: ClientContext): void {
     api: connection.api,
     t,
   })
-  const welcomeController = new WelcomeNoticeStore(
-    connection.api,
-    connection.isLoopback ? 'host' : 'memory',
-  )
-  const welcomeInjected = (): WelcomeNoticeInjected => ({
-    controller: welcomeController,
-    hooks: { welcome: welcomeController.store },
-    t,
-  })
-
   // Pushed invalidations converge every open surface without polling: any
   // settings/credentials/topology change refetches once the page loaded.
   ctx.effect(() => {
     const refreshModels = (): void => { refreshIfLoaded(controller) }
-    const refreshAll = (): void => {
-      refreshModels()
-      refreshWelcomeIfLoaded(welcomeController)
-    }
+    const refreshAll = (): void => { refreshModels() }
     const disposers = [
-      ctx.remote.$on('settings/document-updated', (ns) => {
-        refreshModels()
-        if (ns === WELCOME_NOTICE_SETTINGS_NAMESPACE) refreshWelcomeIfLoaded(welcomeController)
-      }),
+      ctx.remote.$on('settings/document-updated', () => { refreshModels() }),
       ctx.remote.$on('credentials/updated', refreshModels),
       ctx.remote.$on('llm/adapters-updated', refreshModels),
       ctx.on('connection/reset', refreshAll),
@@ -122,12 +102,6 @@ export function apply(ctx: ClientContext): void {
     label: () => t('nav'),
     inject: injected,
   }, ModelsSection))
-  ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
-    name: 'settings.onboarding',
-    id: 'welcome-notice',
-    order: -100,
-    inject: welcomeInjected,
-  }, WelcomeNotice))
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'configure-provider',

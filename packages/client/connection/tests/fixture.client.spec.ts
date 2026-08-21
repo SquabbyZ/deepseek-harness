@@ -462,7 +462,8 @@ describe('createFixtureApi', () => {
       content: [{ type: 'text' as const, text: '短' }, { type: 'image', data: 'x' } as never],
     }))
     const frames = await framesPromise
-    const types = frames.filter((f): f is Extract<MuxFrame, { type: 'session/event' }> => f.type === 'session/event').map(f => f.event.type)
+    const types = frames.filter((f): f is Extract<MuxFrame, { type: 'session/event' }> => f.type === 'session/event')
+      .map(f => f.event.type as string).filter(t => t !== 'session/title') // the derived first-message title precedes the turn
     expect(types[0]).toBe('turn/start') // idle steer degraded to a queued turn, not an in-turn insert
   })
 

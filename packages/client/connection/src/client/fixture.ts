@@ -3163,8 +3163,20 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         }
         summary.updatedAt = Date.now()
         // First accepted prompt appends events: the summary stops being blank.
+        const firstPrompt = summary.blank
         summary.blank = false
         const userText = content.map(b => (b.type === 'text' ? b.text : '')).join('')
+        // Derive a default title from the first user message so a new session
+        // isn't left as "新会话" after it starts talking.
+        if (firstPrompt) {
+          const derived = userText.trim().replace(/\s+/g, ' ').slice(0, 30)
+          if (derived.length > 0) {
+            append(sid(id), {
+              type: 'session/title',
+              data: { title: derived, messageSeqs: [], source: { kind: 'provider', provider: 'fixture' } },
+            })
+          }
+        }
         const durable: ContentBlock[] = content.map((block) => {
           if (block.type === 'text') return block
           if (block.type === 'file') return { type: 'text', text: `[File: ${block.name ?? 'attached file'}]` }
@@ -4117,6 +4129,12 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     },
   }
 
+  // In-memory message-feedback store (the 点赞/点踩 system). Real host keeps a
+  // durable sidecar; the fixture answers list/put/delete with CAS semantics.
+  type FeedbackItem = { messageId: string; rating: string; note?: string; version: string }
+  const feedbackStore = new Map<string, Map<string, FeedbackItem>>()
+  const feedbackVersion = (): string => randomUuid()
+
   const rpc: ClientConnectionRpc = {
     async call(channel, endpoint, payload) {
       if (channel !== '/api') {
@@ -4143,6 +4161,41 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         case 'goals/resume': return Promise.resolve(goalRemotes.resume(sessionId, args.ref as FxGoalRef))
         case 'goals/complete': return Promise.resolve(goalRemotes.complete(sessionId, args.ref as FxGoalRef))
         case 'goals/clear': return Promise.resolve(goalRemotes.clear(sessionId, args.ref as FxGoalRef))
+        case 'messageFeedback/list': {
+          const sessionId = (args as { sessionId?: string }).sessionId ?? args.agentId
+          const items = [...(feedbackStore.get(sessionId) ?? new Map()).values()]
+          return Promise.resolve({ ok: true, value: { ok: true as const, value: { items } } })
+        }
+        case 'messageFeedback/put': {
+          const req = args as { sessionId?: string; messageId?: string; rating?: string; note?: string; ifVersion?: string | null }
+          const sessionId = req.sessionId ?? args.agentId
+          const messageId = req.messageId ?? ''
+          const map = feedbackStore.get(sessionId) ?? new Map()
+          const existing = map.get(messageId)
+          if (existing !== undefined && existing.version !== req.ifVersion) {
+            return Promise.resolve({ ok: true, value: { ok: false as const, error: { code: 'version-conflict', current: existing } } })
+          }
+          const item: FeedbackItem = {
+            messageId,
+            rating: req.rating ?? 'positive',
+            ...(req.note === undefined ? {} : { note: req.note }),
+            version: feedbackVersion(),
+          }
+          map.set(messageId, item)
+          feedbackStore.set(sessionId, map)
+          return Promise.resolve({ ok: true, value: { ok: true as const, value: item } })
+        }
+        case 'messageFeedback/delete': {
+          const req = args as { sessionId?: string; messageId?: string; ifVersion?: string | null }
+          const sessionId = req.sessionId ?? args.agentId
+          const map = feedbackStore.get(sessionId)
+          const existing = map?.get(req.messageId ?? '')
+          if (existing !== undefined && existing.version !== req.ifVersion) {
+            return Promise.resolve({ ok: true, value: { ok: false as const, error: { code: 'version-conflict', current: existing } } })
+          }
+          map?.delete(req.messageId ?? '')
+          return Promise.resolve({ ok: true, value: { ok: true as const, value: null } })
+        }
         case 'pluginInventory/list': {
           // Prefer the live Loader graph; fall back to the stub table only when
           // the fixture is not running inside a client (unit tests, isolation).
