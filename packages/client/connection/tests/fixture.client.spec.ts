@@ -242,6 +242,27 @@ describe('createFixtureApi', () => {
     expect(names).toContain('DeepSeek')
   })
 
+  it('derives baseURL from the saved provider profile for discoverModels', async () => {
+    const api = createFixtureApi()
+    // A SAVED provider has baseURL in its profile but no literal key in the
+    // form field; discoverModels must derive the endpoint instead of rejecting.
+    const mutate = await api.settings.mutate(req({
+      ns: 'llm-pi-ai',
+      ops: [{ op: 'set', path: ['providers', 'groq'], value: { baseURL: 'https://mock.test/v1', api: 'openai-completions' } }],
+    }))
+    expect(mutate.result.ok).toBe(true)
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [{ id: 'llama-3.3-70b', name: 'Llama 3.3 70B' }] })))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const discover = await api.llm.discoverModels(req({ settingsNs: 'llm-pi-ai', provider: 'groq' }))
+      if (!discover.result.ok) throw new Error('discover failed')
+      expect(fetchMock).toHaveBeenCalledWith('https://mock.test/v1/models', expect.anything())
+      expect(discover.result.value.models).toContainEqual(expect.objectContaining({ id: 'llama-3.3-70b' }))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('serves configured DeepSeek readiness and keeps credential values write-only', async () => {
     const api = createFixtureApi()
     const settings = await api.settings.describe(req({}))

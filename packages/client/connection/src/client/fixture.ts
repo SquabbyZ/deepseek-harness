@@ -3931,18 +3931,34 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       // catalog it already serves — enough for a surface to exercise adopting
       // candidates without a reachable provider.
       discoverModels: async (request) => {
-        // Fetch the provider's real model list from its official endpoint
-        // instead of returning the hardcoded fixture catalog.
-        const { baseURL, api, apiKey } = request.payload as {
+        // Fetch the provider's real model list from its official endpoint.
+        // The editor passes the typed URL/key, but on a SAVED provider the key
+        // lives in the credential store (apiKeyEnv ref) and the form field is
+        // empty — derive both from the saved profile in that case.
+        const { settingsNs, provider, baseURL: passedBase, api: passedApi, apiKey: passedKey } = request.payload as {
+          settingsNs?: string
+          provider?: string
           baseURL?: string
           api?: string
           apiKey?: string
         }
-        if (baseURL === undefined || baseURL.length === 0 || apiKey === undefined || apiKey.length === 0) {
-          return err(request, { code: 'internal', message: 'baseURL and apiKey are required', details: {} })
+        const profiles = (settingsNs === LLM_DEEPSEEK_NS ? llmDeepseekUser : llmPiAiUser).providers as
+          Record<string, { baseURL?: unknown; api?: unknown; apiKeyEnv?: unknown }> | undefined
+        const profile = provider === undefined ? undefined : profiles?.[provider]
+        const baseURL = passedBase !== undefined && passedBase.length > 0
+          ? passedBase
+          : (typeof profile?.baseURL === 'string' && profile.baseURL.length > 0 ? profile.baseURL : undefined)
+        const api = passedApi ?? (typeof profile?.api === 'string' ? profile.api : undefined) ?? 'openai-completions'
+        let apiKey = passedKey ?? ''
+        if (apiKey.length === 0 && typeof profile?.apiKeyEnv === 'string' && profile.apiKeyEnv.length > 0) {
+          const stored = await readRealCredential(profile.apiKeyEnv)
+          if (stored !== null) apiKey = stored
+        }
+        if (baseURL === undefined || baseURL.length === 0) {
+          return err(request, { code: 'internal', message: 'API 地址未配置，请先在提供方设置里填写', details: {} })
         }
         try {
-          const models = await fetchProviderModels(baseURL, api ?? 'openai-completions', apiKey)
+          const models = await fetchProviderModels(baseURL, api, apiKey)
           return ok(request, { models })
         } catch (error) {
           return err(request, {
