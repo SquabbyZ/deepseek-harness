@@ -1,6 +1,8 @@
+use crate::commands::mcp_stdio::McpStdioChildMap;
 use crate::services::platform;
 use parking_lot::RwLock;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 
 pub struct AppState {
@@ -12,6 +14,10 @@ pub struct AppState {
     pub db: Arc<Mutex<rusqlite::Connection>>,
     pub http: Arc<reqwest::Client>,
     pub platform: platform::Platform,
+    /** Live MCP stdio child processes keyed by connection id. */
+    pub mcp_stdio: Arc<tokio::sync::Mutex<McpStdioChildMap>>,
+    /** Monotonic connection-id source (ids are never reused, even after close). */
+    pub mcp_conn_seq: Arc<AtomicU64>,
 }
 
 pub type SharedState = Arc<RwLock<AppState>>;

@@ -10,6 +10,9 @@ use crate::commands::dialog::{dialog_message, dialog_open, dialog_save};
 use crate::commands::fs::{cwd_resolve, fs_exists, fs_list, fs_read, fs_write};
 use crate::commands::http::{http_request, http_set_proxy, proxy_test};
 use crate::commands::inventory::inventory_set_enabled;
+use crate::commands::mcp_stdio::{
+    mcp_stdio_close, mcp_stdio_read, mcp_stdio_spawn, mcp_stdio_write,
+};
 use crate::commands::plugin::{
     plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload,
     plugin_uninstall,
@@ -23,6 +26,8 @@ use crate::services::plugin_registry::PluginRegistry;
 use crate::services::settings::SettingsStore;
 use crate::state::AppState;
 use parking_lot::RwLock;
+use std::collections::HashMap;
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use tauri::Manager;
 
@@ -71,6 +76,8 @@ pub fn run() {
                 db,
                 http,
                 platform: Platform::current(),
+                mcp_stdio: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+                mcp_conn_seq: Arc::new(AtomicU64::new(0)),
             };
             app.manage(Arc::new(RwLock::new(state)));
 
@@ -81,7 +88,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, dsh_read_credentials, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, proxy_test, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, dsh_config_dir, dsh_read_workspaces, shell_spawn])
+        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, dsh_read_credentials, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, proxy_test, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, dsh_config_dir, dsh_read_workspaces, shell_spawn, mcp_stdio_close, mcp_stdio_read, mcp_stdio_spawn, mcp_stdio_write])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }

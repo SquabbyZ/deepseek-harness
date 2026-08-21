@@ -5,6 +5,7 @@ pub mod dialog;
 pub mod fs;
 pub mod http;
 pub mod inventory;
+pub mod mcp_stdio;
 pub mod plugin;
 pub mod settings;
 pub mod shell;
