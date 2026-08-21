@@ -59,7 +59,12 @@ export interface PluginCardProps {
 export function PluginCard(props: PluginCardProps) {
   const [open, setOpen] = useState(false)
   const { state } = props
-  if (!state.available) return null
+  if (!state.available) {
+    // Diagnostic: surface the namespace scope status so a blank 插件设置 is
+    // traceable to loading/unavailable/error instead of vanishing silently.
+    console.warn(`[plugins-card] ${props.titleKey} unavailable (scope=${state.status ?? '?'})`)
+    return <li data-card-unavailable={state.status ?? '?'} />
+  }
   const title = props.t(props.titleKey)
   const blocked = !state.dirty || state.invalid || state.saving
   return (

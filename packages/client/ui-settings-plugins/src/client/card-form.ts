@@ -64,6 +64,8 @@ export interface CardFieldState {
 export interface CardShell {
   /** False while the namespace is not served to this client; the card renders nothing. */
   available: boolean
+  /** Raw scope status (loading/unavailable/ready/error) — diagnostics when blank. */
+  status?: string
   /** Whether the Host document accepts writes. */
   writable: boolean
   /** Whether the form holds edits that a save would write. */
@@ -195,6 +197,7 @@ export class CardForm<T> {
     const plan = this.plan()
     return {
       available: snapshot.status === 'ready',
+      status: snapshot.status,
       writable: snapshot.writable,
       dirty: plan.length > 0,
       invalid: plan.some(item => item.run === undefined),
