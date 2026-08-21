@@ -87,6 +87,8 @@ const listDescriptor: InvocationDescriptor = {
     schema: listResultSchema,
   },
 }
+// The ui-settings-plugin-inventory calls setEnabled({ entryId, enabled }, signal)
+// — ONE payload object — so the descriptor declares a single `entry` parameter.
 const setEnabledDescriptor: InvocationDescriptor = {
   id: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/setEnabled',
   service: 'pluginInventory',
@@ -94,9 +96,19 @@ const setEnabledDescriptor: InvocationDescriptor = {
   method: 'setEnabled',
   invocation: { kind: 'direct' },
   parameters: [
-    { name: 'entryId', wire: 'entryId', source: 'json', codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#entryId', schema: z.string() } },
-    { name: 'enabled', wire: 'enabled', source: 'json', codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#enabled', schema: z.boolean() } },
+    {
+      name: 'entry',
+      wire: 'entry',
+      source: 'json',
+      codec: {
+        mode: 'strict',
+        typeSymbol: '@deepseek-ai/dsh-plugin-inventory#entry',
+        schema: z.object({ entryId: z.string(), enabled: z.boolean() }),
+      },
+    },
   ],
+  // The consumer passes ({ entryId, enabled }, signal) — the trailing signal is
+  // the transport cancellation argument.
   cancellation: { parameter: 'signal' },
   result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/setEnabled:result', schema: z.object({}) },
 }

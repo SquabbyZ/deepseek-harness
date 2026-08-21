@@ -3634,8 +3634,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'goals/clear': return Promise.resolve(goalRemotes.clear(sessionId, args.ref as FxGoalRef))
         case 'pluginInventory/list': return Promise.resolve({ ok: true, value: { entries: fixturePluginEntries() } })
         case 'pluginInventory/setEnabled': {
-          const { entryId, enabled } = args as { entryId?: string; enabled?: boolean }
-          if (typeof entryId === 'string') pluginEnabled.set(entryId, enabled === true)
+          const entry = (args as { entry?: { entryId?: string; enabled?: boolean } }).entry
+          if (entry !== undefined && typeof entry.entryId === 'string') {
+            pluginEnabled.set(entry.entryId, entry.enabled === true)
+          }
           return Promise.resolve({ ok: true, value: {} })
         }
         default:

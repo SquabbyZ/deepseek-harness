@@ -92,6 +92,10 @@ export function apply(ctx: ClientContext): void {
       if (!result.ok) {
         throw new Error(`pluginInventory.setEnabled failed: ${result.error?.code}: ${result.error?.message}`)
       }
+      // The fixture transport does not forward a plugin-inventory/changed
+      // event, so re-read the roster for the toggled entry to reflect the new
+      // state instead of reverting to the stale snapshot.
+      void store.refresh()
     },
   })
 

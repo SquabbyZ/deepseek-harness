@@ -1,5 +1,5 @@
 {
-  "rev": "9eb59809f148",
+  "rev": "6a6294bf49b9",
   "entries": [
     {
       "id": "@deepseek-ai/dsh-api-gateway",
@@ -13,8 +13,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-api-remotes",
-      "url": "/plugins/@deepseek-ai/dsh-api-remotes/client.js?rev=e82412da28bb",
-      "rev": "e82412da28bb",
+      "url": "/plugins/@deepseek-ai/dsh-api-remotes/client.js?rev=1ff0b4b8fba5",
+      "rev": "1ff0b4b8fba5",
       "inject": [
         "@deepseek-ai/dsh-api-gateway"
       ],
@@ -22,8 +22,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-client-connection",
-      "url": "/plugins/@deepseek-ai/dsh-client-connection/client.js?rev=49c700a6e832",
-      "rev": "49c700a6e832",
+      "url": "/plugins/@deepseek-ai/dsh-client-connection/client.js?rev=486e394ec30b",
+      "rev": "486e394ec30b",
       "immediately": true
     },
     {
@@ -239,8 +239,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-client-ui-settings-plugin-inventory",
-      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-plugin-inventory/client.js?rev=44855555fc03",
-      "rev": "44855555fc03",
+      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-plugin-inventory/client.js?rev=c5531174cd36",
+      "rev": "c5531174cd36",
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
         "@deepseek-ai/dsh-client-runtime",
