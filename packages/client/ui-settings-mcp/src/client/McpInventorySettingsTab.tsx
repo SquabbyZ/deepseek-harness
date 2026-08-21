@@ -25,6 +25,7 @@ import {
   type SmitheryServer,
 } from './inventory-store.ts'
 import type { McpInventoryLocaleKey } from './locales.ts'
+import { probeMcpServer, type ProbeResult } from './mcp-probe.ts'
 
 export interface McpInventorySettingsTabInjected {
   list: () => Promise<{ entries: readonly McpInventoryEntry[] }>
@@ -64,6 +65,9 @@ const CATALOG_HEADING_COUNT = 'text-xs leading-[18px] text-[var(--dsw-alias-labe
 const LIST = 'm-0 flex list-none flex-col gap-2 p-0'
 const ROW_ACTION = 'inline-flex h-7 flex-none items-center gap-1 rounded-lg border-none px-2 text-[12px] leading-[18px] text-[var(--dsw-alias-label-secondary)] hover:bg-[var(--dsw-alias-interactive-bg-hover)] hover:text-[var(--dsw-alias-label-primary)]'
 const ROW_ACTION_DANGER = 'text-[var(--dsw-alias-state-error-primary)] hover:text-[var(--dsw-alias-state-error-primary)]'
+const PROBE_OK = 'inline-flex h-7 flex-none items-center text-[12px] leading-[18px] text-[var(--dsw-alias-state-success-primary)]'
+const PROBE_FAIL = 'inline-flex h-7 max-w-[260px] flex-none items-center gap-1 text-[12px] leading-[18px] text-[var(--dsw-alias-state-error-primary)]'
+const PROBE_FAIL_TEXT = 'truncate'
 const ADD_TOGGLE = 'self-start rounded-md border-border bg-transparent px-2.5 py-1.5 text-[13px] leading-5 font-normal text-foreground hover:bg-transparent hover:text-foreground'
 const FORM = 'flex flex-col gap-3 rounded-[10px] border border-[var(--dsw-alias-border-l2)] bg-[var(--dsw-alias-bg-layer-1)] p-3'
 const FORM_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-2'
@@ -120,6 +124,9 @@ export function McpInventorySettingsTab({
   const toastSeq = useRef(0)
   const [remote, setRemote] = useState<RemoteState>({ status: 'idle' })
   const [installing, setInstalling] = useState<string | null>(null)
+  // Per-row connection probe (测试): one row at a time, results keyed by entryId.
+  const [probingId, setProbingId] = useState<McpEntryId | null>(null)
+  const [probeResults, setProbeResults] = useState<Record<string, ProbeResult>>({})
 
   // Collapsible add/edit form state.
   const [formOpen, setFormOpen] = useState(false)
@@ -300,6 +307,19 @@ export function McpInventorySettingsTab({
     }
   }
 
+  // Concurrent probes are prevented by `disabled={probeBusy}` on every test
+  // button, so `runProbe` needs no re-entrancy guard (it only ever starts from
+  // `probingId === null`).
+  const runProbe = useCallback(async (entry: McpInventoryEntryView): Promise<void> => {
+    setProbingId(entry.entryId)
+    try {
+      const result = await probeMcpServer(entry.spec)
+      setProbeResults(previous => ({ ...previous, [entry.entryId]: result }))
+    } finally {
+      setProbingId(null)
+    }
+  }, [])
+
   const sectionRef = useRef<HTMLDivElement | null>(null)
 
   return (
@@ -417,6 +437,9 @@ export function McpInventorySettingsTab({
                 const effective = intended !== undefined ? intended : entry.enabled
                 const transportKey = `transport${entry.transport.charAt(0).toUpperCase()}${entry.transport.slice(1).replace(/-./g, x => x.charAt(1).toUpperCase())}` as McpInventoryLocaleKey
                 const transportLabel = t(transportKey)
+                const probeResult = probeResults[entry.entryId]
+                const probeBusy = probingId !== null
+                const probePending = probingId === entry.entryId
                 return (
                   <li key={entry.entryId} data-mcp-entry={entry.entryId}>
                     <SwitchRow
@@ -427,6 +450,29 @@ export function McpInventorySettingsTab({
                       onCheckedChange={(next) => { scheduleToggle(entry.entryId, next) }}
                       actions={
                         <>
+                          {probeResult !== undefined ? (
+                            probeResult.ok
+                              ? (
+                                <span className={PROBE_OK} role="status" data-mcp-probe-ok="">
+                                  {t('probeOk', { count: String(probeResult.toolCount) })}
+                                </span>
+                              )
+                              : (
+                                <span className={PROBE_FAIL} role="status" data-mcp-probe-fail="" title={probeResult.error}>
+                                  <IconWarningOutline16 size={14} />
+                                  <span className={PROBE_FAIL_TEXT}>{t('probeFail', { reason: probeResult.error })}</span>
+                                </span>
+                              )
+                          ) : null}
+                          <ShadcnButton
+                            variant="ghost"
+                            className={ROW_ACTION}
+                            disabled={probeBusy}
+                            onClick={() => { void runProbe(entry) }}
+                            title={t('test')}
+                          >
+                            {probePending ? t('testing') : t('test')}
+                          </ShadcnButton>
                           <ShadcnButton
                             variant="ghost"
                             className={ROW_ACTION}

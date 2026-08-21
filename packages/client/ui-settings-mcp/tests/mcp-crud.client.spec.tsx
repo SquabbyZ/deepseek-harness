@@ -39,11 +39,12 @@ function project(spec: McpServerSpec): McpInventoryEntry {
     transport: spec.transport,
     target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url,
     enabled: true,
+    spec,
   }
 }
 
 const ENTRIES: readonly McpInventoryEntry[] = [
-  { entryId: id('existing'), serverName: 'existing', transport: 'stdio', target: 'node', enabled: true },
+  { entryId: id('existing'), serverName: 'existing', transport: 'stdio', target: 'node', enabled: true, spec: { transport: 'stdio', serverName: 'existing', command: 'node', args: [], env: {}, cwd: '' } },
 ]
 
 function translate(
@@ -109,7 +110,7 @@ function buildCrudStore(initial: readonly McpInventoryEntry[]) {
       // spec replaces any seeded spec with the same slug rather than duplicating it.
       const byId = new Map<string, McpInventoryEntry>()
       for (const [entryId, spec] of specs) {
-        byId.set(entryId, { entryId: entryId as McpEntryId, serverName: spec.serverName, transport: spec.transport, target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url, enabled: true })
+        byId.set(entryId, { entryId: entryId as McpEntryId, serverName: spec.serverName, transport: spec.transport, target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url, enabled: true, spec })
       }
       for (const spec of upserted) byId.set(slug(spec.serverName), project(spec))
       return { entries: [...byId.values()] }

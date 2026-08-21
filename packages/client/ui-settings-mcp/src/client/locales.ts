@@ -43,6 +43,10 @@ export const zh = {
   deleteError: '删除 {{name}} 失败：{{reason}}',
   upsertError: '保存 {{name}} 失败：{{reason}}',
   validationRequired: '请填写必填项。',
+  test: '测试',
+  testing: '测试中…',
+  probeOk: '{{count}} 工具',
+  probeFail: '连接失败：{{reason}}',
 } satisfies Record<string, string>
 
 export const en = {
@@ -88,6 +92,10 @@ export const en = {
   deleteError: 'Failed to delete {{name}}: {{reason}}',
   upsertError: 'Failed to save {{name}}: {{reason}}',
   validationRequired: 'Please fill in the required fields.',
+  test: 'Test',
+  testing: 'Testing…',
+  probeOk: '{{count}} tools',
+  probeFail: 'Probe failed: {{reason}}',
 } satisfies Record<string, string>
 
 export type McpInventoryLocaleKey = keyof typeof zh

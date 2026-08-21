@@ -4408,12 +4408,14 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     transport: string
     target: string
     enabled: boolean
+    spec: FixtureMcpSpec
   } => ({
     entryId,
     serverName: spec.serverName,
     transport: spec.transport,
     target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url,
     enabled: mcpEnabled.get(entryId) ?? true,
+    spec,
   })
   /** Persist the current servers + enabled maps to the `mcp-inventory` namespace. */
   const persistMcpInventory = (): void => {

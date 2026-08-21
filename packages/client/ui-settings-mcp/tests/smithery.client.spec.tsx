@@ -176,6 +176,7 @@ function project(spec: McpServerSpec): McpInventoryEntry {
     transport: spec.transport,
     target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url,
     enabled: true,
+    spec,
   }
 }
 

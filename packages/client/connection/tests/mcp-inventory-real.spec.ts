@@ -105,8 +105,8 @@ describe('mcpInventory/list — persisted namespace under Tauri', () => {
     const { rpc } = createFixtureFaces()
     const entries = await mcpList(rpc)
     expect(entries).toEqual([
-      { entryId: 'filesystem', serverName: 'filesystem', transport: 'stdio', target: 'npx', enabled: false },
-      { entryId: 'remote', serverName: 'remote', transport: 'streamable-http', target: 'https://mcp.example.com/sse', enabled: true },
+      { entryId: 'filesystem', serverName: 'filesystem', transport: 'stdio', target: 'npx', enabled: false, spec: STDIO_SPEC },
+      { entryId: 'remote', serverName: 'remote', transport: 'streamable-http', target: 'https://mcp.example.com/sse', enabled: true, spec: HTTP_SPEC },
     ])
   })
 
@@ -135,7 +135,7 @@ describe('mcpInventory CRUD — persistence', () => {
     await mcpUpsert(rpc, STDIO_SPEC)
     const entries = await mcpList(rpc)
     expect(entries).toEqual([
-      { entryId: 'filesystem', serverName: 'filesystem', transport: 'stdio', target: 'npx', enabled: true },
+      { entryId: 'filesystem', serverName: 'filesystem', transport: 'stdio', target: 'npx', enabled: true, spec: STDIO_SPEC },
     ])
   })
 

@@ -25,6 +25,8 @@ export interface McpInventoryEntry {
   readonly transport: string
   readonly target: string
   readonly enabled: boolean
+  /** The full persisted spec (the list projection loses args/url detail, so the probe needs this). */
+  readonly spec: McpServerSpec
 }
 
 export interface McpInventorySnapshot {
@@ -43,6 +45,7 @@ export interface McpInventoryEntryView {
   readonly transport: string
   readonly target: string
   readonly enabled: boolean
+  readonly spec: McpServerSpec
 }
 
 /**
@@ -203,5 +206,6 @@ function toView(entry: McpInventoryEntry): McpInventoryEntryView {
     transport: entry.transport,
     target: entry.target,
     enabled: entry.enabled,
+    spec: entry.spec,
   }
 }
