@@ -22,6 +22,7 @@
  */
 
 import { stat } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { bindScopeParent, createScope, scopeOf, type Scope, type ScopeKey, type ScopeParentBinding } from '@deepseek-ai/dsh-scope'
@@ -131,7 +132,7 @@ export class AgentPresets extends Service {
     super(ctx, 'agentPresets')
     this.selfCtx = ctx
     this.resolvedRoots = config.includeUserRoot
-      ? [...config.roots, { path: dshHomePath(USER_PRESET_DIR), trust: 'user' }]
+      ? [...config.roots, { path: dshHomePath(homedir(), process.env, undefined, USER_PRESET_DIR), trust: 'user' }]
       : [...config.roots]
     // Deliberately not `installSettingsSection`: that helper exists to re-judge
     // what a consumer DERIVED from the source — memoized resolutions,

@@ -11,7 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { Context } from '@deepseek-ai/cordis'
@@ -63,7 +63,7 @@ describe.skipIf(!hasPwsh)('pwsh tool over the real pwsh executor', () => {
     await ctx.plugin(LocalJobRegistry)
     await ctx.plugin(ToolTasks)
     await ctx.plugin(LocalSubprocessRuntime)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(PwshLocalExecutor, { timeoutMs: 20_000, graceMs: 200 })
     await ctx.plugin(ToolPwsh)
   })

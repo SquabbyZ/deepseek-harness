@@ -8,6 +8,7 @@
  * @module @deepseek-ai/dsh-agent-spine-demo
  */
 
+import { homedir } from 'node:os'
 import type { Context } from '@deepseek-ai/cordis'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
 import z from '@deepseek-ai/schemastery'
@@ -212,10 +213,10 @@ export function pickSpineConfig(config: Omit<Config, 'agents'>): Omit<Config, 'a
 export function apply(ctx: Context, config: Config): void {
   const nestedDshHome = config.skills?.filesystem?.dshHome
   if (config.dshHome !== undefined && nestedDshHome !== undefined
-    && resolveDshHome(config.dshHome) !== resolveDshHome(nestedDshHome)) {
+    && resolveDshHome(homedir(), config.dshHome) !== resolveDshHome(homedir(), nestedDshHome)) {
     throw new Error('agent-spine-demo: dshHome and skills.filesystem.dshHome must resolve to the same directory')
   }
-  const dshHome = resolveDshHome(config.dshHome ?? nestedDshHome)
+  const dshHome = resolveDshHome(homedir(), config.dshHome ?? nestedDshHome)
 
   ctx.plugin(Timer)
   ctx.plugin(LlmRuntime)
@@ -248,7 +249,10 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(scopeInvariant)
   ctx.plugin(agentLoopInvariant)
   if (config.toolBash !== false) {
-    ctx.plugin(bashEnv, { dshHome })
+    // shell-env's `apply` resolves the harness home from an explicit OS home
+    // (`homedir()` here; the WebView2 host passes `appApi.configDir()`), so it
+    // is mounted through a function plugin that forwards the third argument.
+    ctx.plugin(ctx => bashEnv.apply(ctx, { dshHome }, homedir()))
     ctx.plugin(toolBash, config.toolBash ?? {})
   }
   if (config.workspaceContext !== false) {

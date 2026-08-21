@@ -23,8 +23,6 @@
     "packages/*/*/tests/**/*.client.spec.tsx",
     "packages/*/*/tests/**/*.client.tsx",
     "packages/*/*/tests/**/*.client.ts",
-    // Client package outside packages/client with a local CSS module face.
-    "packages/extensions/ui-cordis/src/css-modules.d.ts",
     "packages/client/tsdown.client.ts",
     "scripts/client-bundle-css.spec.ts",
     "scripts/client-bundle-purity.spec.ts"
@@ -33,7 +31,14 @@
   // belongs to the host aggregate, which excludes this program's `*.client.*`
   // in turn. `exclude` wins over `include`, so the test glob above stays broad.
   "exclude": [
-    "packages/client/*/tests/**/*.host.spec.ts"
+    "packages/client/*/tests/**/*.host.spec.ts",
+    // Dead packages whose host-side remotes / runner were deleted in the
+    // Phase-2 refactor (their UI is excluded from the boot roster): their
+    // client tests still reference the stripped types, so they are excluded
+    // from this program rather than failing the aggregate.
+    "packages/extensions/ui-cordis/**",
+    "packages/extensions/cordis-client-runner/**",
+    "packages/client/ui-settings-plugin-inventory/**"
   ],
   "references": [
     // Shared leaf: web e2e boots the real host webserver (fixture + real-host
@@ -56,8 +61,6 @@
     { "path": "./packages/api/gateway/tsconfig.client.json" },
     { "path": "./packages/api/remotes/tsconfig.client.json" },
     { "path": "./packages/client/runtime" },
-    { "path": "./packages/extensions/cordis-client-runner" },
-    { "path": "./packages/extensions/ui-cordis" },
     { "path": "./packages/test-support/client-runtime" },
     { "path": "./packages/client/ui-layout" },
     { "path": "./packages/client/ui-sidebar" },
@@ -90,9 +93,7 @@
     { "path": "./packages/client/ui-settings-models" },
     { "path": "./packages/client/ui-settings-usage" },
     { "path": "./packages/client/ui-settings-proxy" },
-    { "path": "./packages/client/ui-settings-plugin-inventory" },
     { "path": "./packages/client/locale" },
-    { "path": "./packages/client/web" },
-    { "path": "./apps/web" }
+    { "path": "./packages/client/web" }
   ]
 }

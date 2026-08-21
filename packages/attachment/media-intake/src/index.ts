@@ -11,6 +11,7 @@
  * @module @deepseek-ai/dsh-media-intake
  */
 
+import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -78,7 +79,7 @@ export class MediaIntake extends Service {
     this.ocrEnabled = config.ocrEnabled ?? true
     this.fileEnabled = config.fileEnabled ?? true
     this.cache = new ContentTextCache({
-      root: resolve(join(resolveDshHome(config.dshHome), 'media-intake', 'v2')),
+      root: resolve(join(resolveDshHome(homedir(), config.dshHome), 'media-intake', 'v2')),
       maxBytes: config.cacheMaxBytes ?? DEFAULT_MAX_CACHE_BYTES,
       maxEntries: config.cacheMaxEntries ?? DEFAULT_MAX_CACHE_ENTRIES,
       ttlMs: config.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS,

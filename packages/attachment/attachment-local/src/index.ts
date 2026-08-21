@@ -1,5 +1,6 @@
 /** Local durable attachment backend rooted below `DSH_HOME`. @module @deepseek-ai/dsh-attachment-local */
 
+import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -50,7 +51,7 @@ export class LocalAttachmentStore extends AttachmentStore {
 
   constructor(ctx: Context, config: Config) {
     super(ctx)
-    this.root = resolve(join(resolveDshHome(config.dshHome), 'attachments', 'v1'))
+    this.root = resolve(join(resolveDshHome(homedir(), config.dshHome), 'attachments', 'v1'))
     this.imageLimits = Object.freeze({
       maxImageBytes: config.maxImageBytes ?? DEFAULT_MAX_IMAGE_BYTES,
       maxImagesPerMessage: config.maxImagesPerMessage ?? DEFAULT_MAX_IMAGES_PER_MESSAGE,

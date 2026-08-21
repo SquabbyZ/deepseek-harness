@@ -939,6 +939,7 @@ describe('run lifecycle and quiescence', () => {
     await expect(startCodexRun(
       request(undefined, controller.signal),
       {
+        platform: 'linux',
         cwd: process.cwd(),
         env: {},
         disposeGraceMs: 10,

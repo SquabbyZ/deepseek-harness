@@ -13,6 +13,7 @@
  */
 
 import { chmod, cp, readdir, readFile, rm, stat } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { expandHomePath } from '@deepseek-ai/dsh-home-paths'
@@ -67,7 +68,7 @@ export function writableRoot(roots: readonly PresetRoot[]): string {
   if (root === undefined) {
     throw new PresetNotWritableError('', 'this deployment configures no user-writable preset root')
   }
-  return resolve(expandHomePath(root.path))
+  return resolve(expandHomePath(root.path, homedir()))
 }
 
 /**

@@ -1,5 +1,5 @@
 import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -36,7 +36,7 @@ async function setup() {
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalSubprocessRuntime)
   ;(ctx.subprocess as LocalSubprocessRuntime).internals = { spillDir }
-  await ctx.plugin(BashEnvPlugin)
+  await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
   await ctx.plugin(LocalBashExecutor, { timeoutMs: 10_000, graceMs: 200 })
   await ctx.plugin(ToolBash)
   return ctx
@@ -52,7 +52,7 @@ async function setupWithTasks() {
   await ctx.plugin(ToolTasks)
   await ctx.plugin(LocalSubprocessRuntime)
   ;(ctx.subprocess as LocalSubprocessRuntime).internals = { spillDir }
-  await ctx.plugin(BashEnvPlugin)
+  await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
   await ctx.plugin(LocalBashExecutor, { timeoutMs: 10_000, graceMs: 200 })
   await ctx.plugin(ToolBash)
   return ctx
@@ -191,7 +191,7 @@ async function setupSandboxed(withApproval = false) {
   await ctx.plugin(SandboxPolicyService, {})
   await ctx.plugin(RecordingSandboxExecutor)
   if (withApproval) await ctx.plugin(ApprovalService)
-  await ctx.plugin(BashEnvPlugin)
+  await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
   await ctx.plugin(ToolBash)
   return { ctx, bash: ctx.shell as RecordingSandboxExecutor }
 }
@@ -285,7 +285,7 @@ describe('bash tool', () => {
     await ctx.plugin(LocalSubprocessRuntime)
     ;(ctx.subprocess as LocalSubprocessRuntime).internals = { spillDir }
     await ctx.plugin(LocalBashExecutor, { maxOutputBytes: 100, graceMs: 200 })
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(ToolBash)
     const result = await call(ctx, 'bash', { command: 'for i in $(seq 1 100); do printf "line-%04d\\n" $i; done', description: 'test command' })
     expect(text(result)).toContain('[output truncated; full output: ')
@@ -397,7 +397,7 @@ describe('bash tool', () => {
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalBashExecutor, {})
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     const fiber = await ctx.plugin(ToolBash)
     expect(ctx.tools.schemas()).toHaveLength(1)
     expect((await ctx.systemPrompt.assemble()).sections.map(s => s.name)).toEqual(['harness:identity', 'deployment:persona', 'tool:bash'])
@@ -412,7 +412,7 @@ describe('bash tool', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     // inject: ['tools', 'bash'] keeps the plugin pending until bash exists.
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(ToolBash)
     expect(ctx.tools.schemas()).toHaveLength(0)
     await ctx.plugin(LocalSubprocessRuntime)
@@ -503,7 +503,7 @@ describe('background execution through the job runtime', () => {
     await ctx.plugin(LocalJobRegistry)
     await ctx.plugin(ToolTasks)
     await ctx.plugin(CountingStartExecutor)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(ToolBash)
 
     const controller = new AbortController()
@@ -531,7 +531,7 @@ describe('background execution through the job runtime', () => {
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
     await ctx.plugin(CountingStartExecutor)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(ToolBash)
 
     const result = await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', run_in_background: true })
@@ -546,7 +546,7 @@ describe('background execution through the job runtime', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(LocalBashExecutor, {})
     await ctx.plugin(ToolBash, { enableRunInBackground: false })
 
@@ -581,7 +581,7 @@ describe('sandbox escalation through the generic task producer', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(RecordingSandboxExecutor)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await expect(ctx.plugin(ToolBash)).rejects.toThrow('tool-bash: the mounted bash executor confines but ctx.sandboxPolicy is missing')
   })
 
@@ -1111,7 +1111,7 @@ describe('the model-facing bash tool builds its request from named args only (no
     }
     await ctx.plugin(LocalJobRegistry)
     await ctx.plugin(ToolTasks)
-    await ctx.plugin(BashEnvPlugin, { dshHome: recordingDshHome })
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, { dshHome: recordingDshHome }, homedir()))
     await ctx.plugin(RecordingBashExecutor)
     await ctx.plugin(ToolBash)
     return { ctx, bash: ctx.shell as RecordingBashExecutor }

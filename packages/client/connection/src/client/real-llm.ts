@@ -61,10 +61,9 @@ interface TauriHttpResponse {
 }
 
 function tauriInvoke(): TauriInvoke | undefined {
-  const internals = (globalThis as Record<string, unknown>).__TAURI_INTERNALS__
-  return internals !== undefined && typeof internals.invoke === 'function'
-    ? (internals.invoke as unknown as TauriInvoke)
-    : undefined
+  const internals = (globalThis as { __TAURI_INTERNALS__?: { invoke?: unknown } }).__TAURI_INTERNALS__
+  const invoke = internals?.invoke
+  return typeof invoke === 'function' ? (invoke as unknown as TauriInvoke) : undefined
 }
 
 /** Credential transport backed by the Rust OS-keyring commands. */

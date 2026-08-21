@@ -6,6 +6,7 @@
 
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import type { FileSystem, FsInfo, FsTarget, FsVersion } from '@deepseek-ai/dsh-fs'
 import { assertNever } from '@deepseek-ai/dsh-llm'
@@ -517,5 +518,5 @@ export async function readScopeInstruction(
 }
 
 function userGlobalDisplayPath(dshHome: string): string {
-  return `${dshHomeDisplay(dshHome)}/AGENTS.md`
+  return `${dshHomeDisplay(dshHome, homedir())}/AGENTS.md`
 }

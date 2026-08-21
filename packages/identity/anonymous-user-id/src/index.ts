@@ -18,6 +18,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
@@ -66,7 +67,7 @@ function readPersistedId(file: string): AnonymousUserId | undefined {
  * @returns the stable per-harness-home anonymous user id.
  */
 export function getOrCreateAnonymousUserId(options: AnonymousUserIdOptions = {}): AnonymousUserId {
-  const file = join(resolveDshHome(undefined, options.env ?? process.env), ANONYMOUS_USER_ID_FILE_NAME)
+  const file = join(resolveDshHome(homedir(), undefined, options.env ?? process.env), ANONYMOUS_USER_ID_FILE_NAME)
   const cached = memo.get(file)
   if (cached !== undefined) return cached
 

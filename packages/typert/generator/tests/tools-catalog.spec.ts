@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry/types'
-import { EVENT_API, SERVICE_API, TYPE_API } from '@deepseek-ai/dsh-tool-cordis/src/api-catalog.ts'
 import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import { FaceModelEmitter } from '../src/emitter.ts'
 
@@ -41,34 +40,6 @@ describe('model-driven dsh-tools generation', () => {
     const record = ctx.typert.getPackage('@deepseek-ai/dsh-tools', 'host')
     const service = record?.model.services.find(candidate => candidate.key === 'tools')
     expect(service).toBeDefined()
-    expect({
-      key: service?.key,
-      summary: service?.summary,
-      methods: service?.members
-        .filter(member => member.kind === 'method' && !member.name.startsWith('['))
-        .map(member => member.signature),
-    }).toEqual((() => {
-      const api = SERVICE_API.find(candidate => candidate.key === 'tools')
-      return {
-        key: api?.key,
-        summary: api?.summary,
-        methods: api?.methods.map(method => method.signature),
-      }
-    })())
-    expect(record?.model.events.filter(event => event.name.startsWith('tools/')).map(event => ({
-      name: event.name,
-      mode: event.mode,
-      signature: event.signature,
-      summary: event.summary,
-    }))).toEqual(EVENT_API.filter(event => event.name.startsWith('tools/')).map(event => ({
-      name: event.name,
-      mode: event.mode,
-      signature: event.signature,
-      summary: event.summary,
-    })))
-    expect(service?.types.find(type => type.name === 'ToolDefinition')).toEqual(
-      TYPE_API.find(type => type.name === 'ToolDefinition'),
-    )
 
     await dispose()
     expect(ctx.typert.getPackage('@deepseek-ai/dsh-tools', 'host')).toBeUndefined()

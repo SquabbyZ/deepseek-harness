@@ -13,7 +13,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtempSync, realpathSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join, resolve as resolvePath } from 'node:path'
 import { CallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
@@ -132,7 +132,7 @@ async function setup(toolConfig: Partial<ToolPwsh.Config> = {}, dshHome?: string
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
-  await ctx.plugin(BashEnvPlugin, dshHome === undefined ? {} : { dshHome })
+  await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, dshHome === undefined ? {} : { dshHome }, homedir()))
   await ctx.plugin(FakeBash)
   await ctx.plugin(ToolPwsh, toolConfig)
   const bash = ctx.shell as FakeBash
@@ -147,7 +147,7 @@ async function setupWithTasks(toolConfig: Partial<ToolPwsh.Config> = {}, dshHome
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalJobRegistry)
   await ctx.plugin(ToolTasks)
-  await ctx.plugin(BashEnvPlugin, dshHome === undefined ? {} : { dshHome })
+  await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, dshHome === undefined ? {} : { dshHome }, homedir()))
   await ctx.plugin(FakeBash)
   await ctx.plugin(ToolPwsh, toolConfig)
   const bash = ctx.shell as FakeBash
@@ -209,7 +209,7 @@ async function setupSandboxed(withApproval = false) {
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalJobRegistry)
   await ctx.plugin(ToolTasks)
-  await ctx.plugin(BashEnvPlugin)
+  await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
   await ctx.plugin(SandboxPolicyService, {})
   await ctx.plugin(ConfiningFakeBash)
   if (withApproval) await ctx.plugin(ApprovalService)
@@ -330,7 +330,7 @@ describe('registration', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(FakeBash)
     const fiber = await ctx.plugin(ToolPwsh)
     expect(ctx.tools.schemas()).toHaveLength(1)
@@ -536,7 +536,7 @@ describe('per-call sandbox policy resolution', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(AgentRegistry)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(ConfiningFakeBash)
     await expect(ctx.plugin(ToolPwsh)).rejects.toThrow(
       'tool-pwsh: the mounted bash executor confines but ctx.sandboxPolicy is missing',
@@ -771,7 +771,7 @@ describe('background execution through the job runtime', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalJobRegistry)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(FakeBash)
     await ctx.plugin(ToolPwsh)
     const bash = ctx.shell as FakeBash
@@ -805,7 +805,7 @@ describe('background execution through the job runtime', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
-    await ctx.plugin(BashEnvPlugin)
+    await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
     await ctx.plugin(FakeBash)
     ToolPwsh.apply(ctx, {})
     const schema = ctx.tools.schemas()[0]!

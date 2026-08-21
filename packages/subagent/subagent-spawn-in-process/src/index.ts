@@ -33,6 +33,12 @@ import type {
 import { startInProcessRun } from '@deepseek-ai/dsh-subagent-in-process-driver'
 import { shellApi, type ShellSpec, type SpawnHandle } from './bridge.ts'
 
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    subagentSpawnInProcess: SubagentSpawnInProcess
+  }
+}
+
 export const name = 'subagent-spawn-in-process'
 // `tools` is deliberately not injected: the child factory already provides it during setup,
 // and adding it here would unnecessarily change this provider's apply timing.

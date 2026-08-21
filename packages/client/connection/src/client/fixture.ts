@@ -2418,7 +2418,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         apiKey,
         model: selection.model,
         messages: buildChatMessages(id),
-        baseUrl: options.llmUrl,
+        ...(options.llmUrl === undefined ? {} : { baseUrl: options.llmUrl }),
       })
     }).then((reply) => {
       if (reply === undefined) return
@@ -3228,8 +3228,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           llmDeepseekUser = next
           llmDeepseekRevision += 1
           return ok(request, {
+            ns: LLM_DEEPSEEK_NS,
+            schema: LLM_DEEPSEEK_SCHEMA,
             value: structuredClone(llmDeepseekUser),
             user: { ...llmDeepseekUser },
+            applies: 'live',
+            secrets: [{ path: ['apiKey'], set: false }],
             revision: llmDeepseekRevision,
           })
         }
@@ -3243,8 +3247,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           }
           proxyRevision += 1
           return ok(request, {
+            ns: PROXY_SETTINGS_NS,
+            schema: { type: 'object', dict: { url: { type: 'string' } } },
             value: proxyUrl === undefined ? {} : { url: proxyUrl },
             user: proxyUrl === undefined ? {} : { url: proxyUrl },
+            applies: 'live',
+            secrets: [],
             revision: proxyRevision,
           })
         }
@@ -3254,7 +3262,14 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
               fixtureWelcomeAck = op.value
             }
           }
-          return ok(request, {})
+          return ok(request, {
+            ns: WELCOME_NOTICE_NS,
+            schema: {},
+            value: { [WELCOME_NOTICE_ACK_FIELD]: fixtureWelcomeAck },
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          })
         }
         return err(request, {
           code: 'settings-rejected',

@@ -7,6 +7,7 @@
  */
 
 import { globSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { basename, resolve } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
@@ -43,7 +44,6 @@ import * as ToolAskUser from '@deepseek-ai/dsh-tool-ask-user'
 import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
 import * as ToolPwsh from '@deepseek-ai/dsh-tool-pwsh'
 import * as ToolBashPersistent from '@deepseek-ai/dsh-tool-bash-persistent'
-import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import * as ToolFsSearch from '@deepseek-ai/dsh-tool-fs-search'
 import * as ToolStrReplaceEditor from '@deepseek-ai/dsh-tool-str-replace-editor'
@@ -228,7 +228,9 @@ const TOOL_PACKAGES: ToolPackage[] = [
     writes: ['tool/call', 'tool/result'],
     async mount(ctx) {
       await ctx.plugin(LocalSubprocessRuntime)
-      await ctx.plugin(BashEnvPlugin)
+      // shell-env's apply resolves the harness home from an explicit OS home
+      // (`homedir()` here; the WebView2 host passes `appApi.configDir()`).
+      await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
       await ctx.plugin(LocalBashExecutor)
       await ctx.plugin(ToolBash)
     },
@@ -246,24 +248,12 @@ const TOOL_PACKAGES: ToolPackage[] = [
       // mounts the pwsh-local implementation so the inject resolves without
       // executing anything (registration never spawns a process).
       await ctx.plugin(LocalSubprocessRuntime)
-      await ctx.plugin(BashEnvPlugin)
+      await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
       await ctx.plugin(PwshLocalExecutor)
       await ctx.plugin(ToolPwsh)
     },
     note:
       'The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\\...` paths and `$env:NAME` variables.',
-  },
-  {
-    pkg: '@deepseek-ai/dsh-tool-cordis',
-    dir: 'tool-cordis',
-    source: 'packages/extensions/tool-cordis/src/index.ts',
-    requires: ['ctx.tools'],
-    writes: ['tool/call', 'tool/result'],
-    async mount(ctx) {
-      await ctx.plugin(ToolCordis)
-    },
-    note:
-      'Not in any shipped tree (a deliberate opt-in — dynamic package code reaches the real runtime, see .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md). The dynamic-package machinery was retired in Phase 2 task 2.6.5 (`@deepseek-ai/dsh-cordis-host-runner` deleted); the toolset now operates without a host-side runner, deferring package lifecycle to the tool runtime itself.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash-persistent',

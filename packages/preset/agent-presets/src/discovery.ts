@@ -15,6 +15,7 @@
  */
 
 import { readdir, readFile, stat } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { load } from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
@@ -137,7 +138,7 @@ async function isFile(path: string): Promise<boolean> {
  * @returns the root's presets ordered by id.
  */
 export async function scanRoot(root: PresetRoot): Promise<AgentPreset[]> {
-  const dir = resolve(expandHomePath(root.path))
+  const dir = resolve(expandHomePath(root.path, homedir()))
   let children
   try {
     children = await readdir(dir, { withFileTypes: true })

@@ -1,3 +1,4 @@
+import { homedir } from 'node:os'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -30,7 +31,7 @@ export async function spawnHarness(workdir: string): Promise<Context> {
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(LlmDeepSeek)
   await ctx.plugin(LocalSubprocessRuntime)
-  await ctx.plugin(BashEnvPlugin)
+  await ctx.plugin(ctx => BashEnvPlugin.apply(ctx, undefined, homedir()))
   await ctx.plugin(LocalBashExecutor, { cwd: workdir, timeoutMs: 30_000 })
   await ctx.plugin(ToolBash)
   await ctx.plugin(SubagentRuntime)

@@ -4,6 +4,7 @@
  * @module @deepseek-ai/dsh-agent-instructions/config
  */
 
+import { homedir } from 'node:os'
 import { relative } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
@@ -103,7 +104,7 @@ export function resolveDiscoveryConfig(
   config: Pick<Config, 'dshHome' | 'projectRootMarkers' | 'instructionFileCandidates' | 'localInstructionFileCandidates'>,
 ): ResolvedDiscoveryConfig {
   return {
-    dshHome: resolveDshHome(config.dshHome),
+    dshHome: resolveDshHome(homedir(), config.dshHome),
     projectRootMarkers: config.projectRootMarkers ?? [...DEFAULT_PROJECT_ROOT_MARKERS],
     instructionFileCandidates: resolveInstructionFileCandidates(
       config.instructionFileCandidates,

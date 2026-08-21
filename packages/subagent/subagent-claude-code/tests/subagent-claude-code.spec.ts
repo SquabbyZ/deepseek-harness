@@ -450,10 +450,12 @@ describe('official spawn projection', () => {
     expect(() => claudeSpawnSpec(
       missingCwd,
       321,
+      'linux',
     )).toThrow('SDK spawn request omitted its workspace')
     expect(() => claudeSpawnSpec(
       sdkSpawnOptions({ cwd: '' }),
       321,
+      'linux',
     )).toThrow('SDK spawn request omitted its workspace')
   })
 
