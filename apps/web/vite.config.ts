@@ -168,39 +168,68 @@ function dshMarketServer(): Plugin {
   } catch {
     registry = { name: 'awesome-dsh-plugin', plugins: [] }
   }
+  // Session-local install bookkeeping so the market's install/installed flow
+  // works in the client-first shell (a real host would npm-install + restart).
+  const installedMap = new Map<string, string>()
+  const liveList: string[] = []
   return {
     name: 'dsh-market-server',
     configureServer(server) {
       server.middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
         const url = new URL(req.url ?? '/', 'http://x')
-        const m = /^\/dsh-market\/([a-z]+)/.exec(url.pathname)
+        const m = /^\/dsh-market\/([a-z-]+)/.exec(url.pathname)
         if (m === null) {
           next()
           return
         }
-        res.statusCode = 200
-        res.setHeader('content-type', 'application/json; charset=utf-8')
+        const json = (body: unknown): void => {
+          res.statusCode = 200
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify(body))
+        }
         switch (m[1]) {
           case 'registry':
-            res.end(JSON.stringify({ registry }))
+            json({ registry })
             break
           case 'installed':
-            res.end(JSON.stringify({ installed: [] }))
+            json({ installed: Object.fromEntries(installedMap), live: liveList, activation: {} })
             break
           case 'status':
-            res.end(JSON.stringify({ market: 'installed', versions: {} }))
+            json({ market: 'installed', versions: {} })
             break
           case 'updates':
-            res.end(JSON.stringify({ updates: [] }))
+            json({ updates: [] })
+            break
+          case 'install': {
+            let urlRaw = ''
+            req.on('data', (chunk) => { urlRaw += chunk })
+            req.on('end', () => {
+              try {
+                const body = JSON.parse(urlRaw) as { url?: string }
+                const pkg = (body.url ?? 'unknown').split('/').at(-1)?.replace(/\.git$/, '') ?? 'unknown'
+                installedMap.set(pkg, '0.0.0')
+                liveList.push(pkg)
+              } catch {
+                // non-JSON body: still report ok
+              }
+              json({ ok: true, hot: false, activation: {} })
+            })
+            break
+          }
+          case 'restart':
+            json({ ok: true })
+            break
+          case 'approve-builds':
+            json({ ok: true, approved: [] })
             break
           case 'check':
-            res.end(JSON.stringify({ ok: true }))
+            json({ ok: true })
             break
           case 'logs':
-            res.end(JSON.stringify({ entries: [] }))
+            json({ entries: [] })
             break
           default:
-            res.end('{}')
+            json({})
         }
       })
     },
