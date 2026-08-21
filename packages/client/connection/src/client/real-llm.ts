@@ -153,7 +153,13 @@ export async function callRealLlm(options: {
   api?: string
 }): Promise<RealLlmReply> {
   const { apiKey, model, messages, signal, baseUrl, api } = options
-  const url = baseUrl ?? DEEPSEEK_COMPLETIONS_URL
+  // A provider's baseURL is the API root (…/v1); the completions path must be
+  // appended unless the caller already passed a full endpoint.
+  const url = baseUrl === undefined
+    ? DEEPSEEK_COMPLETIONS_URL
+    : /\/chat\/completions$/.test(baseUrl)
+      ? baseUrl
+      : `${baseUrl.replace(/\/+$/, '')}/chat/completions`
   const body = JSON.stringify({ model: realModelOf(model), messages, stream: true })
   const headers = api === 'anthropic-messages'
     ? { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
