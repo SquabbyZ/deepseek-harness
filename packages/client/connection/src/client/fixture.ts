@@ -1729,6 +1729,18 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     } catch {
       // Ignore malformed/blocked storage — real mode still works per-session.
     }
+    // Share the DSH CLI's `~/.dsh/.credentials.yaml` so keys the CLI stores are
+    // usable in the desktop without re-entering them.
+    const invoke = tauriInvoke()
+    if (invoke !== undefined) {
+      void invoke<Record<string, string>>('dsh_read_credentials').then((file) => {
+        if (file !== undefined) {
+          for (const [ref, value] of Object.entries(file)) {
+            if (typeof value === 'string') realCredentialValues.set(ref, value)
+          }
+        }
+      }).catch(() => {})
+    }
   }
   const persistRealCredentials = (): void => {
     if (!options.realLlm) return

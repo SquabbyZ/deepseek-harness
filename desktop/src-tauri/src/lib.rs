@@ -4,7 +4,7 @@ mod services;
 mod state;
 
 use crate::commands::app::{app_config_dir, app_version, crash_log_path};
-use crate::commands::credentials::{credentials_delete, credentials_get, credentials_set};
+use crate::commands::credentials::{credentials_delete, credentials_get, credentials_set, dsh_read_credentials};
 use crate::commands::deeplink::{deeplink_import, deeplink_parse};
 use crate::commands::dialog::{dialog_message, dialog_open, dialog_save};
 use crate::commands::fs::{cwd_resolve, fs_exists, fs_list, fs_read, fs_write};
@@ -79,7 +79,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, dsh_config_dir, shell_spawn])
+        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, dsh_read_credentials, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, dsh_config_dir, shell_spawn])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }
