@@ -9,7 +9,6 @@ import type { PluginsSettingsLocaleKey } from './locales.ts'
 
 const SECTION = 'flex flex-col gap-3 max-w-[760px] text-foreground'
 const HEADING = 'm-0 text-lg font-semibold'
-const INTRO = 'm-0 text-[13px] text-[var(--dsw-alias-label-tertiary)]'
 const TABS = 'mt-0.5 flex items-end gap-[22px] border-b border-border'
 const TAB = 'relative rounded-none border-0 bg-transparent px-px pt-[7px] pb-[9px] text-[13px] leading-5 font-normal text-[var(--dsw-alias-label-tertiary)] hover:text-foreground data-[active=true]:text-foreground focus-visible:rounded-[2px] focus-visible:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--dsw-alias-state-business-primary)] focus-visible:outline-offset-2 focus-visible:ring-0 dsh-settings-tab'
 const PANEL = 'min-w-0 pt-0.5'
@@ -60,7 +59,6 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
   return (
     <div className={SECTION}>
       <h2 className={HEADING}>{t('title')}</h2>
-      <p className={INTRO}>{t('intro')}</p>
       {rows.length === 0 ? <p className={EMPTY}>{t('empty')}</p> : rows.length === 1 ? (
         // A single configurable page renders directly — no tab chrome.
         <div className={PANEL} role="tabpanel">

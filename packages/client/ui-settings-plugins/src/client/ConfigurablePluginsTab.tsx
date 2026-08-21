@@ -17,8 +17,9 @@ export type ConfigurablePluginsTabProps =
   & InjectFace<ConfigurablePluginsTabInjected>
 
 /** Render cards registered by plugins that expose editable settings. */
-export function ConfigurablePluginsTab({ t, renderSlot, cardCount }: ConfigurablePluginsTabProps) {
-  return cardCount === 0
-    ? <p className="m-0 text-[13px] text-[var(--dsw-alias-label-tertiary)]">{t('empty')}</p>
-    : <ul className="m-0 flex list-none flex-col gap-2.5 p-0">{renderSlot('settings.plugin.item', {})}</ul>
+export function ConfigurablePluginsTab({ renderSlot }: ConfigurablePluginsTabProps) {
+  // Always render the card slot — the registration ledger materializes the
+  // generator lazily, so a `cardCount` gate read too early would show "empty"
+  // even though the cards exist. The slot renders nothing when truly empty.
+  return <ul className="m-0 flex list-none flex-col gap-2.5 p-0">{renderSlot('settings.plugin.item', {})}</ul>
 }

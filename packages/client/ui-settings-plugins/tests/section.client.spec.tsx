@@ -115,7 +115,6 @@ describe('PluginsSettingsSection', () => {
     renderSection([{ id: 'configurable', order: 0, label: en.configurableTab }])
 
     expect(screen.getByRole('heading', { name: en.title })).toBeTruthy()
-    expect(screen.getByText(en.intro)).toBeTruthy()
   })
 
   it('moves focus and selection with standard horizontal tab keys', () => {
@@ -152,11 +151,12 @@ describe('PluginsSettingsSection', () => {
 })
 
 describe('ConfigurablePluginsTab', () => {
-  it('says so when no plugin contributed a card', () => {
+  it('renders the card slot regardless of the registered-card count', () => {
     renderConfigurable(0)
 
-    expect(screen.getByText(en.empty)).toBeTruthy()
-    expect(screen.queryByText('cards')).toBeNull()
+    // The card slot is the source of truth — the ledger materializes lazily,
+    // so a count gate read too early would hide cards that exist.
+    expect(screen.getByText('cards')).toBeTruthy()
   })
 
   it('renders the card list once a plugin contributed one', () => {
