@@ -1,3 +1,8 @@
+import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { request as httpRequest } from 'node:http'
+import { connect as netConnect } from 'node:net'
+import { connect as tlsConnect } from 'node:tls'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,6 +14,138 @@ import tailwindcss from '@tailwindcss/vite'
 import { workspaceResolver } from './src/dsh/inbox/workspace-resolver.ts'
 
 const src = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url))
+
+/** sha1 content hash shortened to 12 hex chars — the host's rev scheme. */
+function shortHash(input: string): string {
+  return createHash('sha1').update(input).digest('hex').slice(0, 12)
+}
+
+/**
+ * Fetch one raw text URL, preferring curl (honors HTTP(S)_PROXY, which the
+ * desktop needs to reach GitHub) and falling back to Node's global fetch when
+ * curl is not on PATH. Non-2xx responses reject with the status.
+ */
+/**
+ * CONNECT-tunneled HTTPS GET through an http proxy, in pure Node. The desktop
+ * needs the local proxy to reach GitHub; Node's global fetch ignores
+ * HTTP(S)_PROXY and curl may be absent, so this is the deterministic path.
+ */
+function httpsViaProxy(urlStr: string, proxy: string, timeoutMs: number): Promise<string> {
+  const url = new URL(urlStr)
+  const [proxyHost, proxyPortRaw] = proxy.replace(/^https?:\/\//, '').split(':')
+  const proxyPort = Number(proxyPortRaw) || 443
+  return new Promise((resolve, reject) => {
+    const socket = netConnect({ host: proxyHost, port: proxyPort, timeout: timeoutMs })
+    const timer = setTimeout(() => { socket.destroy(); reject(new Error('proxy tunnel timeout')) }, timeoutMs)
+    socket.on('error', (error) => { clearTimeout(timer); reject(error) })
+    socket.on('timeout', () => { clearTimeout(timer); socket.destroy(); reject(new Error('proxy connect timeout')) })
+    socket.on('connect', () => {
+      socket.write(`CONNECT ${url.hostname}:443 HTTP/1.1\r\nHost: ${url.hostname}:443\r\n\r\n`)
+    })
+    let buffered = Buffer.alloc(0)
+    let handed = false
+    socket.on('data', (chunk) => {
+      if (handed) return
+      buffered = Buffer.concat([buffered, chunk])
+      const split = buffered.indexOf('\r\n\r\n')
+      if (split === -1) return
+      const statusLine = buffered.slice(0, buffered.indexOf('\r\n')).toString('latin1')
+      if (!/^HTTP\/1\.[01] 200/.test(statusLine)) {
+        clearTimeout(timer); socket.destroy(); reject(new Error(`proxy CONNECT failed: ${statusLine}`)); return
+      }
+      const rest = buffered.slice(split + 4)
+      handed = true
+      socket.removeAllListeners('data')
+      const tls = tlsConnect({ socket, servername: url.hostname })
+      tls.on('error', (error) => { clearTimeout(timer); reject(error) })
+      // TLS bytes that arrived inside the CONNECT response chunk.
+      if (rest.length > 0) tls.push(rest)
+      tls.on('secureConnect', () => {
+        const req = httpRequest({
+          hostname: url.hostname,
+          port: 443,
+          path: url.pathname + url.search,
+          method: 'GET',
+          createConnection: () => tls,
+          headers: { Host: url.hostname, 'User-Agent': 'dsh-desktop' },
+        }, (res) => {
+          if (res.statusCode !== 200) { clearTimeout(timer); reject(new Error(`HTTP ${res.statusCode}`)); return }
+          let body = ''
+          res.setEncoding('utf8')
+          res.on('data', (part) => { body += part })
+          res.on('end', () => { clearTimeout(timer); resolve(body) })
+        })
+        req.on('error', (error) => { clearTimeout(timer); reject(error) })
+        req.end()
+      })
+    })
+  })
+}
+
+/** Working outbound proxy, detected once (env vars, then common local ports). */
+let detectedProxyUrl: string | undefined
+
+/**
+ * Probe a proxy by opening a fast CONNECT tunnel to a neutral host. Returns
+ * true when the proxy answers 200 — a live local proxy that can carry HTTPS.
+ */
+function probeProxy(proxy: string, timeoutMs = 2000): Promise<boolean> {
+  const [host, portRaw] = proxy.replace(/^https?:\/\//, '').split(':')
+  const port = Number(portRaw) || 443
+  return new Promise((resolve) => {
+    const socket = netConnect({ host, port, timeout: timeoutMs })
+    const timer = setTimeout(() => { socket.destroy(); resolve(false) }, timeoutMs)
+    socket.on('error', () => { clearTimeout(timer); resolve(false) })
+    socket.on('timeout', () => { clearTimeout(timer); socket.destroy(); resolve(false) })
+    socket.on('connect', () => {
+      socket.write('CONNECT raw.githubusercontent.com:443 HTTP/1.1\r\nHost: raw.githubusercontent.com:443\r\n\r\n')
+      socket.once('data', (chunk) => {
+        clearTimeout(timer)
+        resolve(/^HTTP\/1\.[01] 200/.test(chunk.toString('latin1')))
+        socket.destroy()
+      })
+    })
+  })
+}
+
+/** Resolve the first usable outbound proxy (env order, then common local ports). */
+async function detectProxy(): Promise<string | undefined> {
+  if (detectedProxyUrl !== undefined) return detectedProxyUrl
+  const env = [process.env.HTTPS_PROXY, process.env.https_proxy, process.env.HTTP_PROXY, process.env.http_proxy]
+    .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+  const candidates = [
+    ...new Set([...env, 'http://127.0.0.1:7890', 'http://127.0.0.1:7897', 'http://127.0.0.1:10809', 'http://127.0.0.1:1080', 'http://127.0.0.1:2080', 'http://127.0.0.1:58309']),
+  ]
+  // Probe all candidates in parallel (1s each) so a dead env proxy never delays
+  // a working local one; first hit wins.
+  const results = await Promise.all(candidates.map(async (proxy) => ({ proxy, ok: await probeProxy(proxy, 1000) })))
+  const working = results.find((r) => r.ok)
+  detectedProxyUrl = working?.proxy
+  return detectedProxyUrl
+}
+
+/**
+ * Fetch one raw text URL: curl first (honors HTTP(S)_PROXY), then the pure-Node
+ * CONNECT tunnel through the detected local proxy, then direct fetch.
+ */
+function fetchViaCurl(url: string, timeoutMs: number): Promise<string> {
+  const direct = (): Promise<string> => fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+    .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text() })
+  return new Promise((resolve) => {
+    execFile('curl', ['-sS', '-f', '--max-time', String(Math.ceil(timeoutMs / 1000)), url], {
+      encoding: 'utf8', timeout: timeoutMs,
+    }, (error, stdout) => {
+      if (error === null) return resolve(stdout)
+      void detectProxy().then((proxy) => {
+        if (proxy !== undefined) {
+          httpsViaProxy(url, proxy, timeoutMs).then(resolve, () => resolve(direct()))
+        } else {
+          resolve(direct())
+        }
+      })
+    })
+  })
+}
 
 /**
  * Drop-in replacement for `vite-plugin-node-polyfills`. The upstream
@@ -56,6 +193,15 @@ function nodeShimPlugin(): Plugin {
  * restart. Built bundles only — regenerate the roster and restart the server
  * after `pnpm run build:lib:client` changes a bundle's content hash.
  */
+/**
+ * Market-installed plugin bundles fetched from GitHub at install time, keyed by
+ * plugin id. `officialBundleServer` serves them at `/plugins/<id>/client.js`
+ * (falling back after the workspace package map) and `dshMarketServer`
+ * publishes them via `/dsh-market/installed` so the boot graph can pick them up
+ * after the market's install → restart flow.
+ */
+const installedBundles = new Map<string, { rev: string; code: string }>()
+
 function officialBundleServer(): Plugin {
   // package name -> built client bundle path.
   const bundles = new Map<string, string>()
@@ -96,14 +242,17 @@ function officialBundleServer(): Plugin {
         // The graph id may carry a scope slash (@deepseek-ai/dsh-…), which is
         // a literal path segment, so the captured group is already decoded.
         const id = match[1] as string
-        const bundlePath = bundles.get(id)
-        if (bundlePath === undefined) {
+        // Workspace package bundles first; market-installed plugin bundles
+        // (fetched from GitHub at install time) second.
+        const installed = installedBundles.get(id)
+        const bundlePath = installed === undefined ? bundles.get(id) : undefined
+        if (bundlePath === undefined && installed === undefined) {
           res.statusCode = 404
           res.end(`unknown client bundle ${id}`)
           return
         }
         try {
-          const code = readFileSync(bundlePath, 'utf8')
+          const code = installed !== undefined ? installed.code : readFileSync(bundlePath as string, 'utf8')
           res.statusCode = 200
           res.setHeader('content-type', 'text/javascript; charset=utf-8')
           res.setHeader('cache-control', 'no-cache')
@@ -172,6 +321,37 @@ function dshMarketServer(): Plugin {
   // works in the client-first shell (a real host would npm-install + restart).
   const installedMap = new Map<string, string>()
   const liveList: string[] = []
+  // Market-facing repo name → the bundle's own module id (the boot graph keys
+  // entries on the module id; the market's uninstall sends the repo name).
+  const repoModule = new Map<string, string>()
+
+  /**
+   * Fetch a plugin's client bundle from its GitHub repo (raw). The bundle path
+   * is read from the plugin's `package.json` `exports["./client"]`; DSH client
+   * bundles are closure-factory modules (`__ModuleLoader__.load`) the loader
+   * can boot directly. The bundle's OWN registered module id is what the boot
+   * graph must key on, so it is parsed out of the bundle head.
+   */
+  async function fetchPluginBundle(owner: string, repo: string): Promise<{ code: string; version: string; moduleId: string }> {
+    const raw = async (path: string): Promise<string> => {
+      const url = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${path}`
+      // Node's global fetch ignores HTTP(S)_PROXY; curl honors it (the desktop
+      // runs behind a local proxy). Fall back to fetch when curl is absent.
+      const text = await fetchViaCurl(url, 30000)
+      return text
+    }
+    const pkgText = await raw('package.json')
+    const pkg = JSON.parse(pkgText) as { version?: string; exports?: Record<string, unknown> }
+    let bundlePath = 'client/client.js'
+    const client = pkg.exports?.['./client'] as unknown
+    const rel = typeof client === 'string' ? client : (client as { default?: string } | undefined)?.default
+    if (typeof rel === 'string' && rel.length > 0) bundlePath = rel.replace(/^\.\//, '')
+    const code = await raw(bundlePath)
+    if (code.length < 16) throw new Error(`client bundle (${bundlePath}) is empty`)
+    const idMatch = /__ModuleLoader__\.load\(\s*\{\s*id:\s*"([^"]+)"/.exec(code)
+    if (idMatch === null) throw new Error(`client bundle (${bundlePath}) is not a DSH module (no __ModuleLoader__.load id)`)
+    return { code, version: pkg.version ?? '0.0.0', moduleId: idMatch[1] }
+  }
   return {
     name: 'dsh-market-server',
     configureServer(server) {
@@ -192,10 +372,24 @@ function dshMarketServer(): Plugin {
             json({ registry })
             break
           case 'installed':
-            json({ installed: Object.fromEntries(installedMap), live: liveList, activation: {} })
+            json({
+              installed: Object.fromEntries(installedMap),
+              live: liveList,
+              activation: {},
+              // Bundle URLs for the boot graph to pick up after restart.
+              bundles: Object.fromEntries([...installedBundles].map(([id, b]) => [id, `/plugins/${id}/client.js?rev=${b.rev}`])),
+            })
             break
           case 'status':
             json({ market: 'installed', versions: {} })
+            break
+          case 'debug-env':
+            json({
+              HTTPS_PROXY: process.env.HTTPS_PROXY ?? null,
+              http_proxy: process.env.http_proxy ?? null,
+              HTTP_PROXY: process.env.HTTP_PROXY ?? null,
+              detectedProxy: detectedProxyUrl,
+            })
             break
           case 'updates':
             json({ updates: [] })
@@ -204,15 +398,28 @@ function dshMarketServer(): Plugin {
             let urlRaw = ''
             req.on('data', (chunk) => { urlRaw += chunk })
             req.on('end', () => {
-              try {
-                const body = JSON.parse(urlRaw) as { url?: string }
-                const pkg = (body.url ?? 'unknown').split('/').at(-1)?.replace(/\.git$/, '') ?? 'unknown'
-                installedMap.set(pkg, '0.0.0')
-                liveList.push(pkg)
-              } catch {
-                // non-JSON body: still report ok
+              const body = (() => {
+                try { return JSON.parse(urlRaw) as { url?: string } } catch { return {} }
+              })()
+              const repoUrl = body.url ?? ''
+              const m = /github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/.exec(repoUrl)
+              if (m === null) {
+                json({ ok: false, error: 'invalid GitHub url' })
+                return
               }
-              json({ ok: true, hot: false, activation: {} })
+              const [, owner, repo] = m
+              // Try to fetch the plugin's real client bundle; a real host would
+              // npm-install + restart. On failure (offline, non-DSH repo) the
+              // install is refused with the reason rather than recorded fake.
+              void fetchPluginBundle(owner, repo).then((bundle) => {
+                installedBundles.set(bundle.moduleId, { rev: shortHash(bundle.code), code: bundle.code })
+                installedMap.set(repo, bundle.version)
+                liveList.push(repo)
+                repoModule.set(repo, bundle.moduleId)
+                json({ ok: true, hot: false, activation: {}, bundleUrl: `/plugins/${bundle.moduleId}/client.js?rev=${shortHash(bundle.code)}` })
+              }).catch((error: unknown) => {
+                json({ ok: false, error: `unable to fetch plugin bundle: ${String(error instanceof Error ? error.message : error)}` })
+              })
             })
             break
           }
@@ -228,6 +435,8 @@ function dshMarketServer(): Plugin {
                 const pkg = body.name ?? ''
                 if (pkg) {
                   installedMap.delete(pkg)
+                  installedBundles.delete(repoModule.get(pkg) ?? pkg)
+                  repoModule.delete(pkg)
                   const i = liveList.indexOf(pkg)
                   if (i >= 0) liveList.splice(i, 1)
                 }

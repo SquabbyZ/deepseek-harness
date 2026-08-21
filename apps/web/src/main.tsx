@@ -17,10 +17,37 @@
  * always on for this entry.
  */
 import { AppWebEntry } from '@deepseek-ai/dsh-client-web'
+import type { WebBootGraph } from '@deepseek-ai/dsh-client-modules/client'
 import { officialGraph } from './dsh/official-graph.ts'
 
 interface DshBootWindow extends Window {
   __DSH_BOOT__?: unknown
+}
+
+/**
+ * Append market-installed plugins to the boot graph. The market middleware
+ * publishes each installed plugin's served bundle URL under
+ * `/dsh-market/installed` (keyed by plugin id); this turns those into graph
+ * rows the AppWebEntry loader fetches and boots — the "install → restart →
+ * actually usable" pipeline for the client-first shell.
+ */
+async function mergeInstalledPlugins(base: WebBootGraph): Promise<WebBootGraph> {
+  try {
+    const response = await fetch('/dsh-market/installed', { cache: 'no-store' })
+    if (!response.ok) return base
+    const body = (await response.json()) as { bundles?: Record<string, string> }
+    const bundles = body.bundles ?? {}
+    const extra = Object.entries(bundles).map(([id, url]) => ({
+      id,
+      url,
+      rev: url.split('rev=')[1] ?? '',
+    }))
+    if (extra.length === 0) return base
+    const seen = new Set(base.entries.map(entry => entry.id))
+    return { ...base, entries: [...base.entries, ...extra.filter(entry => !seen.has(entry.id))] }
+  } catch {
+    return base
+  }
 }
 
 async function main(): Promise<void> {
@@ -37,7 +64,12 @@ async function main(): Promise<void> {
     history.replaceState(null, '', `${location.pathname}?${params.toString()}`)
   }
 
-  ;(globalThis as DshBootWindow).__DSH_BOOT__ = officialGraph
+  // Merge market-installed plugins into the boot graph: the market's install →
+  // restart flow publishes served bundle URLs under `/dsh-market/installed`,
+  // so after a reload the module loader can fetch and boot them like the
+  // roster plugins. Failures (no host, offline) keep the base graph.
+  const bootGraph = await mergeInstalledPlugins(officialGraph)
+  ;(globalThis as DshBootWindow).__DSH_BOOT__ = bootGraph
 
   const root = document.getElementById('root')
   if (root === null) throw new Error('web app: missing #root')
