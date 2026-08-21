@@ -1601,8 +1601,20 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
    * back through `settings.mutate`.
    */
   const LLM_DEEPSEEK_NS = 'llm-deepseek'
-  const llmDeepseekBase: Record<string, unknown> = { apiKeyEnv: 'DEEPSEEK_API_KEY' }
-  let llmDeepseekUser: Record<string, unknown> = {}
+  /**
+   * The DeepSeek route lives at `providers.deepseek-official` under the user
+   * layer (mirroring the real adapter's `Config = { providers: { … } }`), NOT
+   * the base layer. Serving it as a user-layer profile makes it a removable
+   * provider in the Models editor (the official store marks a provider
+   * removable exactly when its profile is in `namespace.user` and absent from
+   * `namespace.base`) — deleting it unsets the profile and credential, so a
+   * user who adds another vendor can drop DeepSeek. On a fresh boot it is
+   * pre-seeded so the shipped route is still there until removed.
+   */
+  const DEEPSEEK_PROFILE_PATH: readonly string[] = ['providers', 'deepseek-official']
+  let llmDeepseekUser: Record<string, unknown> = {
+    providers: { 'deepseek-official': { apiKeyEnv: 'DEEPSEEK_API_KEY' } },
+  }
   let llmDeepseekRevision = 0
   /** Outbound-proxy settings (`ui-settings-proxy` reads the `proxy` namespace). */
   const PROXY_SETTINGS_NS = 'proxy'
@@ -1616,16 +1628,18 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
    * (the DeepSeek profile's `models` default feeds `inheritedModels`).
    */
   const LLM_DEEPSEEK_SCHEMA = z.object({
-    apiKeyEnv: z.string().default('DEEPSEEK_API_KEY'),
-    baseURL: z.string(),
-    models: z.array(z.object({
-      id: z.string().required(),
-      name: z.string(),
-      contextWindow: z.number().min(1),
-    })).default([
-      { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', contextWindow: 1_000_000 },
-      { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
-    ]),
+    providers: z.dict(z.object({
+      apiKeyEnv: z.string().default('DEEPSEEK_API_KEY'),
+      baseURL: z.string(),
+      models: z.array(z.object({
+        id: z.string().required(),
+        name: z.string(),
+        contextWindow: z.number().min(1),
+      })).default([
+        { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', contextWindow: 1_000_000 },
+        { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
+      ]),
+    })).default({}),
   }).toJSON()
   /**
    * The `llm-pi-ai` namespace schema: the Models editor reads the custom-provider
@@ -3157,7 +3171,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         namespaces: [{
           ns: LLM_DEEPSEEK_NS,
           schema: LLM_DEEPSEEK_SCHEMA,
-          value: { ...llmDeepseekBase, ...llmDeepseekUser },
+          value: structuredClone(llmDeepseekUser),
           user: { ...llmDeepseekUser },
           applies: 'live',
           secrets: [{ path: ['apiKey'], set: false }],
@@ -3214,7 +3228,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           llmDeepseekUser = next
           llmDeepseekRevision += 1
           return ok(request, {
-            value: { ...llmDeepseekBase, ...llmDeepseekUser },
+            value: structuredClone(llmDeepseekUser),
             user: { ...llmDeepseekUser },
             revision: llmDeepseekRevision,
           })
@@ -3299,7 +3313,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     llm: {
       providers: request => ok(request, {
         providers: [
-          { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [], active: true },
+          { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [...DEEPSEEK_PROFILE_PATH], active: true },
           { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true, declared: false },
           { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: false, declared: false },
           // One hand-declared route, so a surface reading this fixture meets
