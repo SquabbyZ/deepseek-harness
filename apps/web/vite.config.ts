@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { request as httpRequest } from 'node:http'
 import { connect as netConnect } from 'node:net'
 import { connect as tlsConnect } from 'node:tls'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -202,8 +202,12 @@ function nodeShimPlugin(): Plugin {
  */
 const installedBundles = new Map<string, { rev: string; code: string }>()
 
-function officialBundleServer(): Plugin {
-  // package name -> built client bundle path.
+/**
+ * Scan every `dsh.client.platform: 'web'` workspace/external package for its
+ * built client bundle (the same source the roster generator reads). Returns
+ * plugin id -> bundle path.
+ */
+function scanClientBundles(): Map<string, string> {
   const bundles = new Map<string, string>()
   for (const root of [src('../../packages'), src('../../external')]) {
     if (!existsSync(root)) continue
@@ -229,6 +233,34 @@ function officialBundleServer(): Plugin {
       }
     }
   }
+  return bundles
+}
+
+/**
+ * Build-time copy of every client plugin bundle into `dist/plugins/<id>/`
+ * so the Tauri production build (which has no vite dev middleware) can serve
+ * the `/plugins/<id>/client.js` URLs the boot graph fetches.
+ */
+function packagePluginBundles(): Plugin {
+  let outDir = 'dist'
+  return {
+    name: 'dsh-package-plugin-bundles',
+    apply: 'build',
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
+    closeBundle() {
+      for (const [id, bundlePath] of scanClientBundles()) {
+        const dest = join(outDir, 'plugins', id, 'client.js')
+        mkdirSync(dirname(dest), { recursive: true })
+        copyFileSync(bundlePath, dest)
+      }
+    },
+  }
+}
+
+function officialBundleServer(): Plugin {
+  const bundles = scanClientBundles()
   return {
     name: 'dsh-official-bundles',
     configureServer(server) {
@@ -584,6 +616,7 @@ export default defineConfig({
     officialBundleServer(),
     sessionExportServer(),
     dshMarketServer(),
+    packagePluginBundles(),
   ],
   server: {
     port: 5173,
