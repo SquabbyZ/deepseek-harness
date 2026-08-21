@@ -40,6 +40,41 @@ import type { RequestPayload, ResponseValue, RpcMethodMap } from '@deepseek-ai/d
 import { AbstractApiClient, RpcId, SESSION_SEARCH_RESULT_LIMIT } from './api.ts'
 import { randomUuid } from './random-uuid.ts'
 import { callRealLlm, tauriCredentialBackend, tauriInvoke } from './real-llm.ts'
+
+/**
+ * Fetch a provider's model list from its official `/models` endpoint. OpenAI-
+ * compatible and Anthropic shapes are handled; the request rides the Tauri
+ * reqwest client (proxy-aware) when present, else the browser fetch.
+ */
+async function fetchProviderModels(
+  baseURL: string,
+  api: string,
+  apiKey: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const url = `${baseURL.replace(/\/+$/, '')}/models`
+  const headers = api === 'anthropic-messages'
+    ? { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+    : { Authorization: `Bearer ${apiKey}` }
+  const invoke = tauriInvoke()
+  const bodyText = invoke === undefined
+    ? await fetch(url, { headers }).then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.text()
+    })
+    : await invoke<{ status: number; body: number[] }>('http_request', {
+      req: { method: 'GET', url, headers, timeout_ms: 30_000 },
+    }).then((res) => {
+      if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`)
+      return new TextDecoder().decode(new Uint8Array(res.body))
+    })
+  const data = JSON.parse(bodyText) as { data?: unknown; models?: unknown }
+  const list = Array.isArray(data.data) ? data.data : (Array.isArray(data.models) ? data.models : [])
+  return list.flatMap((raw: { id?: unknown; name?: unknown }) => {
+    const id = typeof raw?.id === 'string' ? raw.id : ''
+    const name = typeof raw?.name === 'string' ? raw.name : (id || String(raw?.id ?? ''))
+    return id === '' ? [] : [{ id, name }]
+  })
+}
 import z from '@deepseek-ai/schemastery'
 import type { ClientConnectionRpc } from '../rpc.ts'
 import type { Context } from '@deepseek-ai/cordis'
@@ -400,6 +435,39 @@ function fixtureModelGroups(): ModelProviderGroup[] {
       models: [{ id: 'kimi-k2', name: 'Kimi-K2' }, { id: 'kimi-k2-turbo', name: 'Kimi-K2-Turbo' }],
     },
   ]
+}
+
+/**
+ * The model catalog a session sees: the providers the user actually configured
+ * in 设置-模型 (llm-deepseek + llm-pi-ai), each with its saved models. Falls
+ * back to the hardcoded defaults only when nothing is configured, so the
+ * composer picker always has choices.
+ */
+function configuredModelGroups(
+  deepseek: Record<string, unknown>,
+  piAi: Record<string, unknown>,
+): ModelProviderGroup[] {
+  const groups: ModelProviderGroup[] = []
+  const dsProfile = deepseek.providers as Record<string, { displayName?: string; models?: ModelProviderGroup['models'] }> | undefined
+  const ds = dsProfile?.['deepseek-official']
+  if (ds !== undefined) {
+    // DeepSeek ships with its default models even before the user edits them.
+    const defaultDs = fixtureModelGroups().find(group => group.id === 'deepseek-official')
+    groups.push({
+      id: 'deepseek-official',
+      name: ds.displayName ?? 'DeepSeek',
+      models: ds.models !== undefined && ds.models.length > 0 ? ds.models : (defaultDs?.models ?? []),
+    })
+  }
+  const pi = piAi.providers as Record<string, { displayName?: string; models?: ModelProviderGroup['models'] }> | undefined
+  if (pi !== undefined) {
+    for (const [pid, profile] of Object.entries(pi)) {
+      if (profile?.models !== undefined && profile.models.length > 0) {
+        groups.push({ id: pid, name: profile.displayName ?? pid, models: profile.models })
+      }
+    }
+  }
+  return groups.length > 0 ? groups : fixtureModelGroups()
 }
 
 function sid(id: string): SessionId {
@@ -2956,7 +3024,9 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         // The fixture's routes all serve; a surface exercising the blocked
         // posture drives it through its own stub.
         routable: true,
-        groups: fixtureModelGroups(),
+        // The composer picker shows the providers configured in 设置-模型, not
+        // the hardcoded fixture catalog.
+        groups: configuredModelGroups(llmDeepseekUser, llmPiAiUser),
         failures: [],
       }),
       selectModel: (request) => {
@@ -3860,9 +3930,28 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       // The fixture endpoint is imaginary, so the interrogation answers the
       // catalog it already serves — enough for a surface to exercise adopting
       // candidates without a reachable provider.
-      discoverModels: request => ok(request, {
-        models: fixtureModelGroups().flatMap(group => group.models.map(model => ({ id: model.id, name: model.name }))),
-      }),
+      discoverModels: async (request) => {
+        // Fetch the provider's real model list from its official endpoint
+        // instead of returning the hardcoded fixture catalog.
+        const { baseURL, api, apiKey } = request.payload as {
+          baseURL?: string
+          api?: string
+          apiKey?: string
+        }
+        if (baseURL === undefined || baseURL.length === 0 || apiKey === undefined || apiKey.length === 0) {
+          return err(request, { code: 'internal', message: 'baseURL and apiKey are required', details: {} })
+        }
+        try {
+          const models = await fetchProviderModels(baseURL, api ?? 'openai-completions', apiKey)
+          return ok(request, { models })
+        } catch (error) {
+          return err(request, {
+            code: 'internal',
+            message: error instanceof Error ? error.message : String(error),
+            details: {},
+          })
+        }
+      },
     },
     usage: {
       query: request => ok(request, {

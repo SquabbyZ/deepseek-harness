@@ -185,7 +185,9 @@ describe('createFixtureApi', () => {
     const sessionId = sid('fx-alpha')
     const catalog = await api.sessions.models(req({ sessionId }))
     if (!catalog.result.ok) throw new Error('models failed')
-    expect(catalog.result.value.groups.map(group => group.name)).toEqual(['DeepSeek', 'OpenAI GPT', 'Anthropic Claude', 'OpenAI Codex', 'MiniMax', '智谱 GLM', 'Moonshot Kimi'])
+    // The catalog is the CONFIGURED providers (not the hardcoded vendor list);
+    // by default that is just the DeepSeek profile with its shipped models.
+    expect(catalog.result.value.groups.map(group => group.name)).toEqual(['DeepSeek'])
     expect(catalog.result.value.groups[0]?.models.map(model => model.id))
       .toEqual(['deepseek-v4-flash', 'deepseek-v4-pro'])
 
@@ -209,6 +211,35 @@ describe('createFixtureApi', () => {
     const after = await api.sessions.history(req({ sessionId }))
     if (!after.result.ok) throw new Error('history failed')
     expect(JSON.stringify(after.result.value.events)).toContain('openai/gpt-5')
+  })
+
+  it('reflects providers configured in 设置-模型 in the session model catalog', async () => {
+    const api = createFixtureApi()
+    const sessionId = sid('fx-alpha')
+    // The Models editor saves a custom provider into llm-pi-ai; the composer
+    // picker must then show that provider + its models (not the hardcoded list).
+    const mutate = await api.settings.mutate(req({
+      ns: 'llm-pi-ai',
+      ops: [{
+        op: 'set',
+        path: ['providers', 'groq'],
+        value: {
+          displayName: 'Groq',
+          api: 'openai-completions',
+          baseURL: 'https://api.groq.com/openai/v1',
+          models: [{ id: 'llama-3.3-70b', name: 'Llama 3.3 70B' }],
+        },
+      }],
+    }))
+    expect(mutate.result.ok).toBe(true)
+    const models = await api.sessions.models(req({ sessionId }))
+    if (!models.result.ok) throw new Error('models failed')
+    const names = models.result.value.groups.map((group: { name: string }) => group.name)
+    expect(names).toContain('Groq')
+    const groq = models.result.value.groups.find((group: { name: string }) => group.name === 'Groq')
+    expect(groq?.models.map((model: { id: string }) => model.id)).toContain('llama-3.3-70b')
+    // The DeepSeek default is still present.
+    expect(names).toContain('DeepSeek')
   })
 
   it('serves configured DeepSeek readiness and keeps credential values write-only', async () => {
