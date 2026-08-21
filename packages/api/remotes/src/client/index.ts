@@ -221,9 +221,61 @@ const mcpSetEnabledDescriptor: InvocationDescriptor = {
   cancellation: { parameter: 'signal' },
   result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/setEnabled:result', schema: z.object({}) },
 }
+// One persisted McpServerSpec (the `mcp-inventory` namespace value); kept exact
+// to the ui-settings-mcp store type so the fixture and the tab agree on shape.
+const mcpSpecSchema = z.union([
+  z.object({
+    transport: z.literal('stdio'),
+    serverName: z.string(),
+    command: z.string(),
+    args: z.array(z.string()),
+    env: z.record(z.string(), z.string()),
+    cwd: z.string(),
+  }),
+  z.object({
+    transport: z.literal('streamable-http'),
+    serverName: z.string(),
+    url: z.string(),
+    headers: z.record(z.string(), z.string()),
+  }),
+])
+const mcpUpsertDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/upsertServer',
+  service: 'mcpInventory',
+  namespace: 'mcpInventory',
+  method: 'upsertServer',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'spec',
+      wire: 'spec',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-server-spec', schema: mcpSpecSchema },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/upsertServer:result', schema: z.object({}) },
+}
+const mcpDeleteDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/deleteServer',
+  service: 'mcpInventory',
+  namespace: 'mcpInventory',
+  method: 'deleteServer',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'entry',
+      wire: 'entry',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-entry-id', schema: z.object({ entryId: z.string() }) },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/deleteServer:result', schema: z.object({}) },
+}
 const mcpInventoryRemote: TypertRemoteContribution = {
   package: '@deepseek-ai/dsh-mcp-inventory',
-  descriptors: [mcpListDescriptor, mcpSetEnabledDescriptor],
+  descriptors: [mcpListDescriptor, mcpSetEnabledDescriptor, mcpUpsertDescriptor, mcpDeleteDescriptor],
 }
 
 /**

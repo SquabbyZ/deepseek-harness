@@ -1916,8 +1916,8 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           const value = await invoke<Record<string, unknown> | null>('settings_get', { key })
           return value ?? null
         }
-        const [llmDs, pi, proxyNs, perm, preset, agentNs, skillInv] = await Promise.all([
-          read(LLM_DEEPSEEK_NS), read('llm-pi-ai'), read(PROXY_SETTINGS_NS), read(PERMISSION_NS), read(AGENT_PRESET_SETTINGS_NS), read(AGENT_SETTINGS_NS), read(SKILL_INVENTORY_NS),
+        const [llmDs, pi, proxyNs, perm, preset, agentNs, skillInv, mcpInv] = await Promise.all([
+          read(LLM_DEEPSEEK_NS), read('llm-pi-ai'), read(PROXY_SETTINGS_NS), read(PERMISSION_NS), read(AGENT_PRESET_SETTINGS_NS), read(AGENT_SETTINGS_NS), read(SKILL_INVENTORY_NS), read(MCP_INVENTORY_NS),
         ])
         if (llmDs !== null) llmDeepseekUser = { ...llmDeepseekUser, ...llmDs }
         if (pi?.providers) llmPiAiUser = { ...llmPiAiUser, ...pi }
@@ -1936,6 +1936,23 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         if (typeof sInvEnabled === 'object' && sInvEnabled !== null) {
           for (const [id, enabled] of Object.entries(sInvEnabled as Record<string, unknown>)) {
             if (typeof enabled === 'boolean') skillEnabled.set(id, enabled)
+          }
+        }
+        // MCP inventory persistence (`mcp-inventory` namespace, shape
+        // `{ servers: { [id]: McpServerSpec }, enabled: { [id]: boolean } }`).
+        // The persisted servers are the source of truth for `mcpInventory/list`
+        // under Tauri; the enabled map overlays the toggles.
+        const mInv = mcpInv as { servers?: unknown; enabled?: unknown } | null
+        const mInvServers = mInv?.servers
+        if (typeof mInvServers === 'object' && mInvServers !== null) {
+          for (const [id, spec] of Object.entries(mInvServers as Record<string, unknown>)) {
+            if (isFixtureMcpSpec(spec)) mcpServers.set(id, spec)
+          }
+        }
+        const mInvEnabled = mInv?.enabled
+        if (typeof mInvEnabled === 'object' && mInvEnabled !== null) {
+          for (const [id, enabled] of Object.entries(mInvEnabled as Record<string, unknown>)) {
+            if (typeof enabled === 'boolean') mcpEnabled.set(id, enabled)
           }
         }
       } catch {
@@ -4338,6 +4355,57 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   const mcpEnabled = new Map<string, boolean>()
   /** Persistence namespace for skill enable/disable (`{ enabled: { [id]: boolean } }`). */
   const SKILL_INVENTORY_NS = 'skill-inventory'
+  /** Persistence namespace for MCP servers (`{ servers: { [id]: McpServerSpec }, enabled: { [id]: boolean } }`). */
+  const MCP_INVENTORY_NS = 'mcp-inventory'
+  /** One persisted MCP server spec; kept exact to the ui-settings-mcp store type. */
+  type FixtureMcpSpec =
+    | { transport: 'stdio'; serverName: string; command: string; args: string[]; env: Record<string, string>; cwd: string }
+    | { transport: 'streamable-http'; serverName: string; url: string; headers: Record<string, string> }
+  /** The persisted servers map (seeded once from settings_get, mutated on upsert/delete). */
+  const mcpServers = new Map<string, FixtureMcpSpec>()
+  /** Stable entry id derived from a server name (slug); the tab and the fixture agree on it. */
+  const mcpServerId = (serverName: string): string => {
+    const slug = serverName.trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    return slug.length > 0 ? slug : 'mcp'
+  }
+  /** Structural guard for an untrusted settings_get `mcp-inventory` server value. */
+  const isFixtureMcpSpec = (value: unknown): value is FixtureMcpSpec => {
+    if (typeof value !== 'object' || value === null) return false
+    const record = value as Record<string, unknown>
+    if (typeof record.serverName !== 'string' || typeof record.transport !== 'string') return false
+    if (record.transport === 'stdio') {
+      return typeof record.command === 'string'
+        && Array.isArray(record.args)
+        && typeof record.env === 'object' && record.env !== null
+        && typeof record.cwd === 'string'
+    }
+    if (record.transport === 'streamable-http') {
+      return typeof record.url === 'string'
+        && typeof record.headers === 'object' && record.headers !== null
+    }
+    return false
+  }
+  /** Project one persisted `[id, spec]` pair into a list entry (`target` = command 首词 or url). */
+  const projectMcpEntry = ([entryId, spec]: [string, FixtureMcpSpec]): {
+    entryId: string
+    serverName: string
+    transport: string
+    target: string
+    enabled: boolean
+  } => ({
+    entryId,
+    serverName: spec.serverName,
+    transport: spec.transport,
+    target: spec.transport === 'stdio' ? spec.command.split(/\s+/)[0] ?? '' : spec.url,
+    enabled: mcpEnabled.get(entryId) ?? true,
+  })
+  /** Persist the current servers + enabled maps to the `mcp-inventory` namespace. */
+  const persistMcpInventory = (): void => {
+    persistSettings(MCP_INVENTORY_NS, {
+      servers: Object.fromEntries(mcpServers),
+      enabled: Object.fromEntries(mcpEnabled),
+    })
+  }
   /** Project one skill directory (a folder holding SKILL.md) into an entry. */
   const readSkillDir = async (
     invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
@@ -4476,12 +4544,43 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           return Promise.resolve({ ok: true, value: {} })
         }
         case 'mcpInventory/list': {
-          const entries = fixtureMcps.map(mcp => ({ ...mcp, enabled: mcpEnabled.get(mcp.entryId) ?? mcp.enabled }))
+          const invoke = tauriInvoke()
+          if (invoke === undefined) {
+            // Browser / no bridge: fall back to the hardcoded fixture roster.
+            const entries = fixtureMcps.map(mcp => ({ ...mcp, enabled: mcpEnabled.get(mcp.entryId) ?? mcp.enabled }))
+            return Promise.resolve({ ok: true, value: { entries } })
+          }
+          // Tauri: seed once so the persisted `mcp-inventory` namespace is
+          // applied, then project the persisted servers (the source of truth).
+          await seedSettings()
+          const entries = [...mcpServers.entries()].map(projectMcpEntry)
           return Promise.resolve({ ok: true, value: { entries } })
         }
         case 'mcpInventory/setEnabled': {
           const entry = (args as { entry?: { entryId?: string; enabled?: boolean } }).entry
-          if (entry?.entryId !== undefined) mcpEnabled.set(entry.entryId, entry.enabled === true)
+          if (entry?.entryId !== undefined) {
+            mcpEnabled.set(entry.entryId, entry.enabled === true)
+            persistMcpInventory()
+          }
+          return Promise.resolve({ ok: true, value: {} })
+        }
+        case 'mcpInventory/upsertServer': {
+          const spec = (args as { spec?: unknown }).spec
+          if (isFixtureMcpSpec(spec) && spec.serverName.trim().length > 0) {
+            const entryId = mcpServerId(spec.serverName)
+            mcpServers.set(entryId, spec)
+            if (!mcpEnabled.has(entryId)) mcpEnabled.set(entryId, true)
+            persistMcpInventory()
+          }
+          return Promise.resolve({ ok: true, value: {} })
+        }
+        case 'mcpInventory/deleteServer': {
+          const entryId = (args as { entry?: { entryId?: string } }).entry?.entryId
+          if (typeof entryId === 'string' && entryId.length > 0) {
+            mcpServers.delete(entryId)
+            mcpEnabled.delete(entryId)
+            persistMcpInventory()
+          }
           return Promise.resolve({ ok: true, value: {} })
         }
         case 'pluginInventory/list': {

@@ -45,13 +45,42 @@ export interface McpInventoryEntryView {
   readonly enabled: boolean
 }
 
+/**
+ * The persisted spec of one MCP server, stored under the `mcp-inventory`
+ * settings namespace (`{ servers: { [id]: McpServerSpec } }`). Kept exact to
+ * the plan: stdio carries command/args/env/cwd, streamable-http carries url.
+ */
+export type McpServerSpec =
+  | {
+    readonly transport: 'stdio'
+    readonly serverName: string
+    readonly command: string
+    readonly args: string[]
+    readonly env: Record<string, string>
+    readonly cwd: string
+  }
+  | {
+    readonly transport: 'streamable-http'
+    readonly serverName: string
+    readonly url: string
+    readonly headers: Record<string, string>
+  }
+
 export interface McpInventoryPort {
   list: (signal: AbortSignal) => Promise<McpInventorySnapshot>
+  /** Create or overwrite one server (the id is derived from serverName); throws on RPC failure. */
+  upsertServer: (spec: McpServerSpec) => Promise<void>
+  /** Remove one server by its stable id; throws on RPC failure. */
+  deleteServer: (entryId: string) => Promise<void>
 }
 
 export interface McpInventoryStore extends HostObservable<McpInventoryPanelSnapshot> {
   refresh(): void
   reset(): void
+  /** Create or overwrite one server, then re-read the roster. */
+  upsertServer(spec: McpServerSpec): Promise<void>
+  /** Remove one server, then re-read the roster. */
+  deleteServer(entryId: string): Promise<void>
 }
 
 export function createMcpInventoryStore(
@@ -68,42 +97,53 @@ export function createMcpInventoryStore(
     for (const listener of [...listeners]) listener()
   }
 
+  /** Single-flight read of the roster; a no-op while one is already in flight. */
+  const read = (): void => {
+    if (inFlight !== undefined) return
+    const issued = generation
+    const controller = new AbortController()
+    inFlight = port.list(controller.signal).then(
+      (value) => {
+        if (issued !== generation) return
+        publish({
+          entries: value.entries.map(toView),
+          read: true,
+        })
+      },
+      (error: unknown) => {
+        if (issued !== generation) return
+        if (controller.signal.aborted) return
+        onError(error)
+        publish({
+          entries: snapshot.entries,
+          read: snapshot.read,
+          error: error instanceof Error ? error.message : 'mcp-inventory read failed',
+        })
+      },
+    ).finally(() => {
+      if (issued === generation) inFlight = undefined
+    })
+  }
+
   return {
     getSnapshot: () => snapshot,
     subscribe: (fn) => {
       listeners.add(fn)
       return () => { listeners.delete(fn) }
     },
-    refresh: () => {
-      if (inFlight !== undefined) return
-      const issued = generation
-      const controller = new AbortController()
-      inFlight = port.list(controller.signal).then(
-        (value) => {
-          if (issued !== generation) return
-          publish({
-            entries: value.entries.map(toView),
-            read: true,
-          })
-        },
-        (error: unknown) => {
-          if (issued !== generation) return
-          if (controller.signal.aborted) return
-          onError(error)
-          publish({
-            entries: snapshot.entries,
-            read: snapshot.read,
-            error: error instanceof Error ? error.message : 'mcp-inventory read failed',
-          })
-        },
-      ).finally(() => {
-        if (issued === generation) inFlight = undefined
-      })
-    },
+    refresh: read,
     reset: () => {
       generation += 1
       if (inFlight !== undefined) inFlight = undefined
       publish({ entries: [], read: false })
+    },
+    upsertServer: async (spec) => {
+      await port.upsertServer(spec)
+      read()
+    },
+    deleteServer: async (entryId) => {
+      await port.deleteServer(entryId)
+      read()
     },
   }
 }

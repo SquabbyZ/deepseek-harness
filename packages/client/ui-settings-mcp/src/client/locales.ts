@@ -15,6 +15,21 @@ export const zh = {
   transportStdio: 'stdio',
   transportStreamableHttp: 'streamable-http',
   transportUnknown: '未知',
+  addServer: '新增 MCP 服务',
+  editServer: '编辑 {{name}}',
+  transport: '传输方式',
+  serverName: '服务名称',
+  command: '启动命令',
+  args: '参数',
+  url: 'URL',
+  save: '保存',
+  saving: '保存中…',
+  cancel: '取消',
+  edit: '编辑',
+  delete: '删除',
+  deleteError: '删除 {{name}} 失败：{{reason}}',
+  upsertError: '保存 {{name}} 失败：{{reason}}',
+  validationRequired: '请填写必填项。',
 } satisfies Record<string, string>
 
 export const en = {
@@ -32,6 +47,21 @@ export const en = {
   transportStdio: 'stdio',
   transportStreamableHttp: 'streamable-http',
   transportUnknown: 'unknown',
+  addServer: 'Add MCP server',
+  editServer: 'Edit {{name}}',
+  transport: 'Transport',
+  serverName: 'Server name',
+  command: 'Command',
+  args: 'Arguments',
+  url: 'URL',
+  save: 'Save',
+  saving: 'Saving…',
+  cancel: 'Cancel',
+  edit: 'Edit',
+  delete: 'Delete',
+  deleteError: 'Failed to delete {{name}}: {{reason}}',
+  upsertError: 'Failed to save {{name}}: {{reason}}',
+  validationRequired: 'Please fill in the required fields.',
 } satisfies Record<string, string>
 
 export type McpInventoryLocaleKey = keyof typeof zh
