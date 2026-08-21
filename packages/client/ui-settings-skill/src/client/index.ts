@@ -72,11 +72,11 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
-    name: 'settings.plugins.tab',
-    id: 'skill-list',
-    order: 20,
-    label: () => t('tab'),
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'skill-manager',
+    order: 17,
+    label: () => t('nav'),
     locale: NS,
     inject: injected,
   }, SkillInventorySettingsTab))

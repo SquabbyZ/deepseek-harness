@@ -1,5 +1,5 @@
 {
-  "rev": "af7568f3167e",
+  "rev": "33109e14a8a5",
   "entries": [
     {
       "id": "@deepseek-ai/dsh-api-gateway",
@@ -13,8 +13,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-api-remotes",
-      "url": "/plugins/@deepseek-ai/dsh-api-remotes/client.js?rev=315c2976bb35",
-      "rev": "315c2976bb35",
+      "url": "/plugins/@deepseek-ai/dsh-api-remotes/client.js?rev=766d184b212e",
+      "rev": "766d184b212e",
       "inject": [
         "@deepseek-ai/dsh-api-gateway"
       ],
@@ -22,8 +22,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-client-connection",
-      "url": "/plugins/@deepseek-ai/dsh-client-connection/client.js?rev=433c00c321f2",
-      "rev": "433c00c321f2",
+      "url": "/plugins/@deepseek-ai/dsh-client-connection/client.js?rev=f73af4e2ce4d",
+      "rev": "f73af4e2ce4d",
       "immediately": true
     },
     {
@@ -227,6 +227,17 @@
       ]
     },
     {
+      "id": "@deepseek-ai/dsh-client-ui-settings-mcp",
+      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-mcp/client.js?rev=90c5fa426fd9",
+      "rev": "90c5fa426fd9",
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    },
+    {
       "id": "@deepseek-ai/dsh-client-ui-settings-models",
       "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-models/client.js?rev=2124d05bd924",
       "rev": "2124d05bd924",
@@ -250,8 +261,8 @@
     },
     {
       "id": "@deepseek-ai/dsh-client-ui-settings-plugins",
-      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-plugins/client.js?rev=49e6492975fb",
-      "rev": "49e6492975fb",
+      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-plugins/client.js?rev=d3fc3d8390cc",
+      "rev": "d3fc3d8390cc",
       "inject": [
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
@@ -269,6 +280,17 @@
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-api-remotes"
+      ]
+    },
+    {
+      "id": "@deepseek-ai/dsh-client-ui-settings-skill",
+      "url": "/plugins/@deepseek-ai/dsh-client-ui-settings-skill/client.js?rev=e684801f45e5",
+      "rev": "e684801f45e5",
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale"
       ]
     },
     {

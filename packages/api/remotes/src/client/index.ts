@@ -143,6 +143,90 @@ const pluginInventoryRemote: TypertRemoteContribution = {
 }
 
 /**
+ * Skill / MCP inventory remotes for the top-level 技能管理 / MCP 管理 sections.
+ * Both follow the plugin-inventory shape (list + setEnabled, one `entry` object
+ * param) so the management panels share the same toggle machinery.
+ */
+const skillEntrySchema = z.object({
+  entryId: z.string(),
+  name: z.string(),
+  description: z.string(),
+  whenToUse: z.string().optional(),
+  source: z.string(),
+  provider: z.string(),
+  modelInvocable: z.boolean(),
+  userInvocable: z.boolean(),
+  enabled: z.boolean(),
+})
+const skillListDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-skill-inventory#skillInventory/list',
+  service: 'skillInventory',
+  namespace: 'skillInventory',
+  method: 'list',
+  invocation: { kind: 'direct' },
+  parameters: [],
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillInventory/list:result', schema: z.object({ entries: z.array(skillEntrySchema) }) },
+}
+const skillSetEnabledDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-skill-inventory#skillInventory/setEnabled',
+  service: 'skillInventory',
+  namespace: 'skillInventory',
+  method: 'setEnabled',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'entry',
+      wire: 'entry',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skill-entry', schema: z.object({ entryId: z.string(), enabled: z.boolean() }) },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillInventory/setEnabled:result', schema: z.object({}) },
+}
+const skillInventoryRemote: TypertRemoteContribution = {
+  package: '@deepseek-ai/dsh-skill-inventory',
+  descriptors: [skillListDescriptor, skillSetEnabledDescriptor],
+}
+const mcpEntrySchema = z.object({
+  entryId: z.string(),
+  serverName: z.string(),
+  transport: z.string(),
+  target: z.string(),
+  enabled: z.boolean(),
+})
+const mcpListDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/list',
+  service: 'mcpInventory',
+  namespace: 'mcpInventory',
+  method: 'list',
+  invocation: { kind: 'direct' },
+  parameters: [],
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/list:result', schema: z.object({ entries: z.array(mcpEntrySchema) }) },
+}
+const mcpSetEnabledDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/setEnabled',
+  service: 'mcpInventory',
+  namespace: 'mcpInventory',
+  method: 'setEnabled',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'entry',
+      wire: 'entry',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-entry', schema: z.object({ entryId: z.string(), enabled: z.boolean() }) },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpInventory/setEnabled:result', schema: z.object({}) },
+}
+const mcpInventoryRemote: TypertRemoteContribution = {
+  package: '@deepseek-ai/dsh-mcp-inventory',
+  descriptors: [mcpListDescriptor, mcpSetEnabledDescriptor],
+}
+
+/**
  * Mount the Host capabilities explicitly selected for this Client assembly.
  * @param ctx - Client Cordis root carrying the typed API service.
  * @returns disposer after every selected Remote namespace is ready.
@@ -152,7 +236,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       commandsRemote, goalsRemote,
-      messageFeedbackRemote, pluginInventoryRemote,
+      messageFeedbackRemote, pluginInventoryRemote, skillInventoryRemote, mcpInventoryRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

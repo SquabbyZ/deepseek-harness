@@ -1,6 +1,7 @@
 /** Copy dictionaries for the MCP server inventory Settings section. */
 
 export const zh = {
+  nav: 'MCP 管理',
   tab: 'MCP 服务',
   loading: '正在读取 MCP 服务…',
   error: '暂时无法读取 MCP 服务。',
@@ -17,6 +18,7 @@ export const zh = {
 } satisfies Record<string, string>
 
 export const en = {
+  nav: 'MCP Management',
   tab: 'MCP servers',
   loading: 'Reading MCP servers…',
   error: 'MCP servers are temporarily unavailable.',

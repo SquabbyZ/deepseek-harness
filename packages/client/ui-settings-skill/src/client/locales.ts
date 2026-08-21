@@ -1,6 +1,7 @@
 /** Copy dictionaries for the skill inventory Settings section. */
 
 export const zh = {
+  nav: '技能管理',
   tab: '技能列表',
   loading: '正在读取技能…',
   error: '暂时无法读取技能。',
@@ -22,6 +23,7 @@ export const zh = {
 } satisfies Record<string, string>
 
 export const en = {
+  nav: 'Skill Management',
   tab: 'Skills',
   loading: 'Reading skills…',
   error: 'Skills are temporarily unavailable.',

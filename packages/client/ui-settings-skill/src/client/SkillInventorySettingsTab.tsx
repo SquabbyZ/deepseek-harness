@@ -32,7 +32,7 @@ export interface SkillInventorySettingsTabInjected {
 
 /** Full component props assembled by the Settings slot renderer. */
 export type SkillInventorySettingsTabProps =
-  PropsRuntime<'settings.plugins.tab'>
+  PropsRuntime<'settings.section'>
   & PropsLocale<'settings.skill'>
   & InjectFace<SkillInventorySettingsTabInjected>
 

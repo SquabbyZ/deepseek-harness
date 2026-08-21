@@ -69,11 +69,11 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
-    name: 'settings.plugins.tab',
-    id: 'mcp-list',
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'mcp-manager',
     order: 30,
-    label: () => t('tab'),
+    label: () => t('nav'),
     locale: NS,
     inject: injected,
   }, McpInventorySettingsTab))

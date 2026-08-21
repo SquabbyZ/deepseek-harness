@@ -4273,6 +4273,18 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   const feedbackStore = new Map<string, Map<string, FeedbackItem>>()
   const feedbackVersion = (): string => randomUuid()
 
+  // Skill / MCP inventories (the 技能管理 / MCP 管理 sections). Curated defaults
+  // mirroring the client's shipped capabilities; the host would list its skill
+  // registry + configured MCP servers.
+  const fixtureSkills = [
+    { entryId: 'shell', name: 'Shell', description: '在受控范围内执行 shell 命令', source: 'builtin', provider: 'dsh', modelInvocable: true, userInvocable: true, enabled: true },
+    { entryId: 'web-search', name: 'Web Search', description: '联网搜索并返回结构化证据', source: 'builtin', provider: 'dsh', modelInvocable: true, userInvocable: true, enabled: true },
+    { entryId: 'agent-loop', name: 'Agent Loop', description: '编排工具调用与任务规划的智能体循环', source: 'builtin', provider: 'dsh', modelInvocable: true, userInvocable: false, enabled: true },
+  ]
+  const fixtureMcps: Array<{ entryId: string; serverName: string; transport: string; target: string; enabled: boolean }> = []
+  const skillEnabled = new Map<string, boolean>()
+  const mcpEnabled = new Map<string, boolean>()
+
   const rpc: ClientConnectionRpc = {
     async call(channel, endpoint, payload) {
       if (channel !== '/api') {
@@ -4333,6 +4345,24 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           }
           map?.delete(req.messageId ?? '')
           return Promise.resolve({ ok: true, value: { ok: true as const, value: null } })
+        }
+        case 'skillInventory/list': {
+          const entries = fixtureSkills.map(skill => ({ ...skill, enabled: skillEnabled.get(skill.entryId) ?? skill.enabled }))
+          return Promise.resolve({ ok: true, value: { entries } })
+        }
+        case 'skillInventory/setEnabled': {
+          const entry = (args as { entry?: { entryId?: string; enabled?: boolean } }).entry
+          if (entry?.entryId !== undefined) skillEnabled.set(entry.entryId, entry.enabled === true)
+          return Promise.resolve({ ok: true, value: {} })
+        }
+        case 'mcpInventory/list': {
+          const entries = fixtureMcps.map(mcp => ({ ...mcp, enabled: mcpEnabled.get(mcp.entryId) ?? mcp.enabled }))
+          return Promise.resolve({ ok: true, value: { entries } })
+        }
+        case 'mcpInventory/setEnabled': {
+          const entry = (args as { entry?: { entryId?: string; enabled?: boolean } }).entry
+          if (entry?.entryId !== undefined) mcpEnabled.set(entry.entryId, entry.enabled === true)
+          return Promise.resolve({ ok: true, value: {} })
         }
         case 'pluginInventory/list': {
           // Prefer the live Loader graph; fall back to the stub table only when

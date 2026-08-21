@@ -22,7 +22,7 @@ export interface McpInventorySettingsTabInjected {
 }
 
 export type McpInventorySettingsTabProps =
-  PropsRuntime<'settings.plugins.tab'>
+  PropsRuntime<'settings.section'>
   & PropsLocale<'settings.mcp'>
   & InjectFace<McpInventorySettingsTabInjected>
 
