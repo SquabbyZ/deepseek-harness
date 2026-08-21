@@ -45,15 +45,37 @@ function mount({
     ? { phase: 'ready', current: undefined, byId: {} }
     : { phase: 'loading', current: undefined, byId: {} })) as never
   const unusedHook = (() => { throw new Error('unused by SettingsRoot') }) as never
+  // Mutable nav store so the trigger's openSection/close actually flips the
+  // panel open (the shell reads `open` through useNav).
+  let navState = { open: false, activeId: undefined as string | undefined }
+  const navListeners = new Set<() => void>()
   const props: SettingsRootComponentProps = {
     useSessions,
     useWorkspaces: unusedHook,
     wide,
     useOnboardingSteps: select => select(steps),
-    useNav: select => select({ open: false, activeId: undefined }),
+    useNav: (select) => {
+      const [, force] = useState(0)
+      useEffect(() => {
+        const listener = () => { force(n => n + 1) }
+        navListeners.add(listener)
+        return () => { navListeners.delete(listener) }
+      }, [])
+      return select(navState)
+    },
     navActions: {
-      openSection: () => { /* no-op in tests */ },
-      close: () => { /* no-op in tests */ },
+      openSection: (id?: string) => {
+        act(() => {
+          navState = { open: true, activeId: id }
+          for (const fn of [...navListeners]) fn()
+        })
+      },
+      close: () => {
+        act(() => {
+          navState = { open: false, activeId: undefined }
+          for (const fn of [...navListeners]) fn()
+        })
+      },
     },
     useSections: (select) => {
       const [, force] = useState(0)
