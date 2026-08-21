@@ -1,6 +1,6 @@
 /** Plugins settings section: localized tabs around feature-owned pages. */
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { Component, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type {
   HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime,
 } from '@deepseek-ai/dsh-client-ui-slots'
@@ -37,7 +37,23 @@ export type PluginsSettingsSectionProps =
   & InjectFace<PluginsSettingsSectionInjected>
 
 /** Render one Plugins page whose contents arrive from feature-owned tabs. */
-export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettingsSectionProps) {
+/** Section render error boundary: a crash here must not silently blank the page. */
+class SectionErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  override state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  override componentDidCatch(error: Error) {
+    console.error('[plugins-settings] section crashed:', error)
+  }
+  override render() {
+    if (this.state.error !== null) {
+      return <p className="m-0 text-[13px] text-[var(--dsw-alias-state-error-primary)]" data-plugins-error>{this.state.error.message}</p>
+    }
+    return this.props.children
+  }
+}
+
+export function PluginsSettingsSection(props: PluginsSettingsSectionProps) {
+  const { t, renderSlot, useTabs } = props
   const tabsId = useId()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const rows = useTabs(value => value)
@@ -56,72 +72,79 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
     })
   }, [active])
 
+  // Expose the internal state so an unexpected blank render is diagnosable.
+  useEffect(() => {
+    console.info(`[plugins-settings] rows=${rows.length}`, rows.map(row => row.id))
+  }, [rows])
+
   return (
-    <div className={SECTION}>
+    <div className={SECTION} data-plugins-rows={rows.length}>
       <h2 className={HEADING}>{t('title')}</h2>
-      {rows.length === 0 ? <p className={EMPTY}>{t('empty')}</p> : rows.length === 1 ? (
-        // A single configurable page renders directly — no tab chrome.
-        <div className={PANEL} role="tabpanel">
-          {renderSlot('settings.plugins.tab', {}, { only: rows[0]?.id ?? '' })}
-        </div>
-      ) : (
-        <>
-          <div className={TABS} role="tablist" aria-label={t('tabs')}>
-            {rows.map((row, index) => {
-              const selected = row.id === active
-              return (
-                <ShadcnButton
-                  key={row.id}
-                  ref={(element) => { tabRefs.current[index] = element }}
-                  id={`${tabsId}-tab-${row.id}`}
-                  variant="ghost"
-                  role="tab"
-                  className={TAB}
-                  aria-selected={selected}
-                  aria-controls={`${tabsId}-panel-${row.id}`}
-                  data-active={selected ? 'true' : undefined}
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => { setActiveId(row.id) }}
-                  onKeyDown={(event) => {
-                    let nextIndex: number
-                    switch (event.key) {
-                      case 'ArrowRight': nextIndex = (index + 1) % rows.length; break
-                      case 'ArrowLeft': nextIndex = (index - 1 + rows.length) % rows.length; break
-                      case 'Home': nextIndex = 0; break
-                      case 'End': nextIndex = rows.length - 1; break
-                      default: return
-                    }
-                    event.preventDefault()
-                    const nextRow = rows[nextIndex] as PluginsSettingsTabEntry
-                    const nextTab = tabRefs.current[nextIndex] as HTMLButtonElement
-                    setActiveId(nextRow.id)
-                    nextTab.focus()
-                  }}
-                >
-                  {row.label}
-                </ShadcnButton>
-              )
-            })}
+      <SectionErrorBoundary>
+        {rows.length === 0 ? <p className={EMPTY}>{t('empty')}</p> : rows.length === 1 ? (
+          // A single configurable page renders directly — no tab chrome.
+          <div className={PANEL} role="tabpanel">
+            {renderSlot('settings.plugins.tab', {}, { only: rows[0]?.id ?? '' })}
           </div>
-          {rows
-            .filter(row => row.id === active || visitedIds.has(row.id))
-            .map((row) => {
-              const selected = row.id === active
-              return (
-                <div
-                  key={row.id}
-                  id={`${tabsId}-panel-${row.id}`}
-                  className={PANEL}
-                  role="tabpanel"
-                  aria-labelledby={`${tabsId}-tab-${row.id}`}
-                  hidden={!selected}
-                >
-                  {renderSlot('settings.plugins.tab', {}, { only: row.id })}
-                </div>
-              )
-            })}
-        </>
-      )}
+        ) : (
+          <>
+            <div className={TABS} role="tablist" aria-label={t('tabs')}>
+              {rows.map((row, index) => {
+                const selected = row.id === active
+                return (
+                  <ShadcnButton
+                    key={row.id}
+                    ref={(element) => { tabRefs.current[index] = element }}
+                    id={`${tabsId}-tab-${row.id}`}
+                    variant="ghost"
+                    role="tab"
+                    className={TAB}
+                    aria-selected={selected}
+                    aria-controls={`${tabsId}-panel-${row.id}`}
+                    data-active={selected ? 'true' : undefined}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => { setActiveId(row.id) }}
+                    onKeyDown={(event) => {
+                      let nextIndex: number
+                      switch (event.key) {
+                        case 'ArrowRight': nextIndex = (index + 1) % rows.length; break
+                        case 'ArrowLeft': nextIndex = (index - 1 + rows.length) % rows.length; break
+                        case 'Home': nextIndex = 0; break
+                        case 'End': nextIndex = rows.length - 1; break
+                        default: return
+                      }
+                      event.preventDefault()
+                      const nextRow = rows[nextIndex] as PluginsSettingsTabEntry
+                      const nextTab = tabRefs.current[nextIndex] as HTMLButtonElement
+                      setActiveId(nextRow.id)
+                      nextTab.focus()
+                    }}
+                  >
+                    {row.label}
+                  </ShadcnButton>
+                )
+              })}
+            </div>
+            {rows
+              .filter(row => row.id === active || visitedIds.has(row.id))
+              .map((row) => {
+                const selected = row.id === active
+                return (
+                  <div
+                    key={row.id}
+                    id={`${tabsId}-panel-${row.id}`}
+                    className={PANEL}
+                    role="tabpanel"
+                    aria-labelledby={`${tabsId}-tab-${row.id}`}
+                    hidden={!selected}
+                  >
+                    {renderSlot('settings.plugins.tab', {}, { only: row.id })}
+                  </div>
+                )
+              })}
+          </>
+        )}
+      </SectionErrorBoundary>
     </div>
   )
 }
