@@ -438,6 +438,34 @@ function fixtureModelGroups(): ModelProviderGroup[] {
 }
 
 /**
+ * Declared provider routes the Models section offers: their default endpoint
+ * (ConfigurableProviderView.baseUrl) pre-fills the editor's API 地址 field and
+ * is the fallback baseUrl for model discovery / real-LLM calls when the user
+ * hasn't saved an override.
+ */
+const DECLARED_PROVIDERS: ReadonlyArray<{
+  provider: string
+  displayName: string
+  settingsNs: string
+  settingsPath: string[]
+  baseUrl: string
+}> = [
+  { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: ['providers', 'deepseek-official'], baseUrl: 'https://api.deepseek.com' },
+  { provider: 'openai', displayName: 'OpenAI GPT', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], baseUrl: 'https://api.openai.com/v1' },
+  { provider: 'anthropic', displayName: 'Anthropic Claude', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], baseUrl: 'https://api.anthropic.com' },
+  { provider: 'codex', displayName: 'OpenAI Codex', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'codex'], baseUrl: 'https://api.openai.com/v1' },
+  { provider: 'minimax', displayName: 'MiniMax', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'minimax'], baseUrl: 'https://api.minimaxi.com/v1' },
+  { provider: 'glm', displayName: '智谱 GLM', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'glm'], baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+  { provider: 'kimi', displayName: 'Moonshot Kimi', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'kimi'], baseUrl: 'https://api.moonshot.cn/v1' },
+  { provider: 'acme-gateway', displayName: 'Acme Gateway', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'acme-gateway'], baseUrl: 'https://gateway.example/v1' },
+]
+
+/** The default endpoint for a declared provider route, or undefined. */
+function declaredProviderBaseUrl(provider: string): string | undefined {
+  return DECLARED_PROVIDERS.find(entry => entry.provider === provider)?.baseUrl
+}
+
+/**
  * The model catalog a session sees: the providers the user actually configured
  * in 设置-模型 (llm-deepseek + llm-pi-ai), each with its saved models. Falls
  * back to the hardcoded defaults only when nothing is configured, so the
@@ -1751,7 +1779,6 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
    * user who adds another vendor can drop DeepSeek. On a fresh boot it is
    * pre-seeded so the shipped route is still there until removed.
    */
-  const DEEPSEEK_PROFILE_PATH: readonly string[] = ['providers', 'deepseek-official']
   let llmDeepseekUser: Record<string, unknown> = {
     providers: { 'deepseek-official': { apiKeyEnv: 'DEEPSEEK_API_KEY' } },
   }
@@ -2772,7 +2799,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
    */
   const startRealReply = (id: SessionId, turn: number): void => {
     const step = 0
-    const selection = modelSelections.get(id) ?? { provider: 'deepseek', model: 'deepseek-v4-flash' }
+    const selection = modelSelections.get(id) ?? { provider: 'deepseek-official', model: 'deepseek-v4-flash' }
     append(id, { type: 'step/start', data: { turn, step } })
     const finish = (aborted: boolean, replyText: string, usage?: TokenUsage): void => {
       replays.delete(id)
@@ -2790,18 +2817,42 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       setRunning(id, false)
     }
     append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'block-start', index: 0, blockType: 'text' } } })
-    void readRealCredential('DEEPSEEK_API_KEY').then((apiKey) => {
+    // The real call uses the SELECTED model's provider: its endpoint + credential
+    // from the 设置-模型 config, not a hardcoded DeepSeek key.
+    const providerProfile = ((selection.provider === 'deepseek-official' ? llmDeepseekUser : llmPiAiUser).providers as
+      Record<string, { baseURL?: unknown; api?: unknown; apiKeyEnv?: unknown; displayName?: unknown }> | undefined)?.[selection.provider]
+    const providerBaseURL = typeof providerProfile?.baseURL === 'string' && providerProfile.baseURL.length > 0
+      ? providerProfile.baseURL
+      : declaredProviderBaseUrl(selection.provider)
+    const providerApi = typeof providerProfile?.api === 'string' ? providerProfile.api : 'openai-completions'
+    const providerKeyRef = typeof providerProfile?.apiKeyEnv === 'string' && providerProfile.apiKeyEnv.length > 0
+      ? providerProfile.apiKeyEnv
+      : (selection.provider === 'deepseek-official' ? 'DEEPSEEK_API_KEY' : undefined)
+    const providerLabel = typeof providerProfile?.displayName === 'string' && providerProfile.displayName.length > 0
+      ? providerProfile.displayName
+      : selection.provider
+    // A custom provider without a configured endpoint must not silently fall
+    // back to the DeepSeek URL with its own key.
+    if (providerBaseURL === undefined && selection.provider !== 'deepseek-official' && options.llmUrl === undefined) {
+      const notice = `提供方 ${providerLabel} 未配置 API 地址：请在 设置 → 模型 中填写后重试。`
+      append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: notice } } })
+      finish(true, notice)
+      return
+    }
+    void readRealCredential(providerKeyRef ?? 'DEEPSEEK_API_KEY').then((apiKey) => {
       if (apiKey === null || apiKey === '') {
-        const notice = '未配置 DeepSeek API Key：请在 设置 → 模型 的凭据中填写后重试。'
+        const notice = `未配置 ${providerLabel} API Key：请在 设置 → 模型 的凭据中填写后重试。`
         append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: notice } } })
         finish(true, notice)
         return
       }
+      const effectiveBaseUrl = options.llmUrl ?? providerBaseURL
       return callRealLlm({
         apiKey,
         model: selection.model,
         messages: buildChatMessages(id),
-        ...(options.llmUrl === undefined ? {} : { baseUrl: options.llmUrl }),
+        api: providerApi,
+        ...(effectiveBaseUrl === undefined ? {} : { baseUrl: effectiveBaseUrl }),
       })
     }).then((reply) => {
       if (reply === undefined) return
@@ -3913,18 +3964,15 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         // default endpoint (ConfigurableProviderView.baseUrl) so the Models
         // editor pre-fills the API 地址 field; all non-DeepSeek routes live
         // under the generic llm-pi-ai providers dict and are addable/removable.
-        providers: [
-          { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [...DEEPSEEK_PROFILE_PATH], active: true, baseUrl: 'https://api.deepseek.com' },
-          { provider: 'openai', displayName: 'OpenAI GPT', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true, declared: false, baseUrl: 'https://api.openai.com/v1' },
-          { provider: 'anthropic', displayName: 'Anthropic Claude', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: true, declared: false, baseUrl: 'https://api.anthropic.com' },
-          { provider: 'codex', displayName: 'OpenAI Codex', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'codex'], active: true, declared: false, baseUrl: 'https://api.openai.com/v1' },
-          { provider: 'minimax', displayName: 'MiniMax', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'minimax'], active: true, declared: false, baseUrl: 'https://api.minimaxi.com/v1' },
-          { provider: 'glm', displayName: '智谱 GLM', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'glm'], active: true, declared: false, baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
-          { provider: 'kimi', displayName: 'Moonshot Kimi', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'kimi'], active: true, declared: false, baseUrl: 'https://api.moonshot.cn/v1' },
-          // One hand-declared route, so a surface reading this fixture meets
-          // the tagged shape rather than only the shipped one.
-          { provider: 'acme-gateway', displayName: 'Acme Gateway', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'acme-gateway'], active: true, declared: true, baseUrl: 'https://gateway.example/v1' },
-        ],
+        providers: DECLARED_PROVIDERS.map(({ provider, displayName, settingsNs, settingsPath, baseUrl }) => ({
+          provider,
+          displayName,
+          settingsNs,
+          settingsPath,
+          active: true,
+          baseUrl,
+          ...(provider === 'acme-gateway' ? { declared: true } : { declared: false }),
+        })),
       }),
       models: request => ok(request, { groups: fixtureModelGroups(), failures: [] }),
       // The fixture endpoint is imaginary, so the interrogation answers the
@@ -3947,7 +3995,9 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         const profile = provider === undefined ? undefined : profiles?.[provider]
         const baseURL = passedBase !== undefined && passedBase.length > 0
           ? passedBase
-          : (typeof profile?.baseURL === 'string' && profile.baseURL.length > 0 ? profile.baseURL : undefined)
+          : (typeof profile?.baseURL === 'string' && profile.baseURL.length > 0
+            ? profile.baseURL
+            : declaredProviderBaseUrl(provider ?? ''))
         const api = passedApi ?? (typeof profile?.api === 'string' ? profile.api : undefined) ?? 'openai-completions'
         let apiKey = passedKey ?? ''
         if (apiKey.length === 0 && typeof profile?.apiKeyEnv === 'string' && profile.apiKeyEnv.length > 0) {

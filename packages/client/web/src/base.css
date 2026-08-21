@@ -17,6 +17,11 @@ body,
 
 body {
   font-family: var(--dsw-font-family);
+  /* The desktop shell never scrolls as a page: the app frame is the viewport
+     and inner surfaces (conversation, settings) scroll themselves. Without
+     this a long conversation makes the body grow and a page-level scrollbar
+     appears. */
+  overflow: hidden;
   /* Grayscale antialiasing over subpixel rendering: WebKit/Blink and the
      Firefox macOS equivalent; other engines ignore both lines. */
   -webkit-font-smoothing: antialiased;

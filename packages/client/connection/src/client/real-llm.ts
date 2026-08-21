@@ -149,14 +149,15 @@ export async function callRealLlm(options: {
   signal?: AbortSignal
   /** Completions endpoint override (tests / self-hosted providers). */
   baseUrl?: string
+  /** Provider protocol: `anthropic-messages` sends x-api-key; default Bearer. */
+  api?: string
 }): Promise<RealLlmReply> {
-  const { apiKey, model, messages, signal, baseUrl } = options
+  const { apiKey, model, messages, signal, baseUrl, api } = options
   const url = baseUrl ?? DEEPSEEK_COMPLETIONS_URL
   const body = JSON.stringify({ model: realModelOf(model), messages, stream: true })
-  const headers = {
-    'content-type': 'application/json',
-    authorization: `Bearer ${apiKey}`,
-  }
+  const headers = api === 'anthropic-messages'
+    ? { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+    : { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` }
 
   // Tauri: buffered Rust reqwest (no CORS). Non-streaming is unnecessary —
   // the body is complete when the invoke resolves, so parse the SSE body.
