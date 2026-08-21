@@ -30,7 +30,7 @@ interface TauriMockOpts {
 function installTauriMock(opts: TauriMockOpts = {}): { calls: Array<{ cmd: string; args?: Record<string, unknown> }> } {
   const calls: Array<{ cmd: string; args?: Record<string, unknown> }> = []
   const invoke: InvokeFn = async (cmd, args) => {
-    calls.push({ cmd, args })
+    calls.push(args === undefined ? { cmd } : { cmd, args })
     switch (cmd) {
       case 'fs_list': {
         const dir = String(args?.dir)
