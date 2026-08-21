@@ -15,8 +15,22 @@ pub fn is_allowed(config_dir: &Path, path: &Path) -> bool {
     canonical.starts_with(config_canonical)
 }
 
-pub fn read(config_dir: &Path, path: &Path) -> AppResult<Vec<u8>> {
-    if !is_allowed(config_dir, path) {
+/// Allow a path when it lives under EITHER the Tauri app config dir OR the DSH
+/// home (`~/.dsh`). The skill inventory reads `~/.dsh/skills`, which sits under
+/// `dsh_home` — a sibling of the app config dir — so the single-root check alone
+/// would reject it. Both roots are canonicalized before comparison so a
+/// symlinked path still resolves within the allowlist.
+pub fn is_allowed_roots(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool {
+    let Ok(canonical) = path.canonicalize() else { return false };
+    [config_dir, dsh_home].iter().any(|root| {
+        root.canonicalize()
+            .map(|root_canonical| canonical.starts_with(root_canonical))
+            .unwrap_or(false)
+    })
+}
+
+pub fn read(config_dir: &Path, dsh_home: &Path, path: &Path) -> AppResult<Vec<u8>> {
+    if !is_allowed_roots(config_dir, dsh_home, path) {
         return Err(AppError::FsPermissionDenied {
             path: path.to_string_lossy().into_owned(),
         });
@@ -26,8 +40,8 @@ pub fn read(config_dir: &Path, path: &Path) -> AppResult<Vec<u8>> {
     })
 }
 
-pub fn write(config_dir: &Path, path: &Path, content: &[u8]) -> AppResult<()> {
-    if !is_allowed(config_dir, path) {
+pub fn write(config_dir: &Path, dsh_home: &Path, path: &Path, content: &[u8]) -> AppResult<()> {
+    if !is_allowed_roots(config_dir, dsh_home, path) {
         return Err(AppError::FsPermissionDenied {
             path: path.to_string_lossy().into_owned(),
         });
@@ -37,8 +51,8 @@ pub fn write(config_dir: &Path, path: &Path, content: &[u8]) -> AppResult<()> {
     })
 }
 
-pub fn list(config_dir: &Path, dir: &Path) -> AppResult<Vec<FsEntry>> {
-    if !is_allowed(config_dir, dir) {
+pub fn list(config_dir: &Path, dsh_home: &Path, dir: &Path) -> AppResult<Vec<FsEntry>> {
+    if !is_allowed_roots(config_dir, dsh_home, dir) {
         return Err(AppError::FsPermissionDenied {
             path: dir.to_string_lossy().into_owned(),
         });
@@ -62,8 +76,8 @@ pub fn list(config_dir: &Path, dir: &Path) -> AppResult<Vec<FsEntry>> {
     Ok(out)
 }
 
-pub fn exists(config_dir: &Path, path: &Path) -> bool {
-    is_allowed(config_dir, path) && path.exists()
+pub fn exists(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool {
+    is_allowed_roots(config_dir, dsh_home, path) && path.exists()
 }
 
 #[cfg(test)]
@@ -80,5 +94,23 @@ mod tests {
         let outside = std::env::temp_dir().join("dsh_test_outside");
         assert!(!is_allowed(&config, &outside));
         assert!(is_allowed(&config, &subfile));
+    }
+
+    #[test]
+    fn allowlist_accepts_dsh_home_root() {
+        let config = temp_dir().join("dsh_test_config");
+        let dsh_home = temp_dir().join("dsh_test_home");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::create_dir_all(&dsh_home).unwrap();
+        let skills = dsh_home.join("skills");
+        std::fs::create_dir_all(&skills).unwrap();
+        let skill_file = skills.join("SKILL.md");
+        std::fs::write(&skill_file, b"x").unwrap();
+        // A path under dsh_home is allowed even when it lives outside config_dir.
+        assert!(is_allowed_roots(&config, &dsh_home, &skill_file));
+        // A sibling of dsh_home (~/.agents/skills) stays outside both roots.
+        let agents = temp_dir().join("dsh_test_agents");
+        std::fs::create_dir_all(&agents).unwrap();
+        assert!(!is_allowed_roots(&config, &dsh_home, &agents));
     }
 }
