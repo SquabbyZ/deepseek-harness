@@ -15,7 +15,7 @@ try {
   await page.waitForTimeout(5000)
   await page.getByRole('button', { name: '设置' }).first().click()
   await page.waitForTimeout(2500)
-  await page.getByText('插件', { exact: true }).first().click()
+  await page.getByText('插件设置', { exact: true }).first().click()
   await page.waitForTimeout(2000)
 
   // The three cards should be visible.

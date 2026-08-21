@@ -155,6 +155,59 @@ function sessionExportServer(): Plugin {
 }
 
 /**
+ * Serve the dsh-market plugin's HOST endpoints from the dev shell. The market
+ * fetches its catalog from `/dsh-market/registry` (the real host serves this
+ * from its bundled registry snapshot); the client-first desktop has no host,
+ * so this middleware answers from the vendored registry snapshot and returns
+ * empty install/update state so the market UI loads.
+ */
+function dshMarketServer(): Plugin {
+  let registry: unknown
+  try {
+    registry = JSON.parse(readFileSync(src('../../external/dsh-market/data/registry-snapshot.json'), 'utf8'))
+  } catch {
+    registry = { name: 'awesome-dsh-plugin', plugins: [] }
+  }
+  return {
+    name: 'dsh-market-server',
+    configureServer(server) {
+      server.middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
+        const url = new URL(req.url ?? '/', 'http://x')
+        const m = /^\/dsh-market\/([a-z]+)/.exec(url.pathname)
+        if (m === null) {
+          next()
+          return
+        }
+        res.statusCode = 200
+        res.setHeader('content-type', 'application/json; charset=utf-8')
+        switch (m[1]) {
+          case 'registry':
+            res.end(JSON.stringify({ registry }))
+            break
+          case 'installed':
+            res.end(JSON.stringify({ installed: [] }))
+            break
+          case 'status':
+            res.end(JSON.stringify({ market: 'installed', versions: {} }))
+            break
+          case 'updates':
+            res.end(JSON.stringify({ updates: [] }))
+            break
+          case 'check':
+            res.end(JSON.stringify({ ok: true }))
+            break
+          case 'logs':
+            res.end(JSON.stringify({ entries: [] }))
+            break
+          default:
+            res.end('{}')
+        }
+      })
+    },
+  }
+}
+
+/**
  * Vendored cordis / dsh packages whose main/module exports don't point at
  * source. The WebView2 build compiles source directly so the `define`
  * blocks below (`process.versions.node` etc.) take effect.
@@ -266,6 +319,7 @@ export default defineConfig({
     workspaceResolver(),
     officialBundleServer(),
     sessionExportServer(),
+    dshMarketServer(),
   ],
   server: {
     port: 5173,
