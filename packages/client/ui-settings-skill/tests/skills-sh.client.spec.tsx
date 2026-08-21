@@ -172,7 +172,9 @@ describe('skillRegistry/install — tarball download + extract', () => {
       },
     })
     // The downloaded bytes are persisted under a temp dir, then extracted by
-    // the system tar with the {repo}-{sha} top dir stripped.
+    // the system tar with the {repo}-{sha} top dir stripped. The spawn cmd is
+    // platform-correct: the jsdom test UA (`(win32)`, no "windows" marker)
+    // resolves to the POSIX `tar`; the Windows branch is covered below.
     expect(bridge.calls).toContainEqual({
       cmd: 'fs_write',
       args: { path: 'C:/Users/test/.dsh/skills/.dsh-tmp/shellcheck-configuration/source.tar.gz', content: expect.any(Array) },
@@ -186,6 +188,38 @@ describe('skillRegistry/install — tarball download + extract', () => {
         }),
       }),
     }))
+  })
+
+  it('sends tar.exe on a Windows host (shell whitelist gate is exact-match)', async () => {
+    // jsdom exposes a read-only-ish navigator; replace it for this test with a
+    // Windows-style UA (the same surface `isWindowsHost` sniffs), then restore.
+    const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 like Gecko' },
+      writable: true,
+      configurable: true,
+    })
+    try {
+      const bridge = installTauriMock({ httpBody: 'not-a-real-tarball' })
+      const { rpc } = createFixtureFaces()
+      const value = await installSkill(rpc, { name: 'shellcheck-configuration', source: 'wshobson/agents' })
+      expect(value).toEqual({ ok: true })
+      expect(bridge.calls).toContainEqual(expect.objectContaining({
+        cmd: 'shell_spawn',
+        args: expect.objectContaining({
+          spec: expect.objectContaining({
+            cmd: 'tar.exe',
+            args: expect.arrayContaining(['-xzf']),
+          }),
+        }),
+      }))
+    } finally {
+      if (originalNavigator === undefined) {
+        delete (globalThis as { navigator?: unknown }).navigator
+      } else {
+        Object.defineProperty(globalThis, 'navigator', originalNavigator)
+      }
+    }
   })
 
   it('fails gracefully without a Tauri bridge', async () => {

@@ -80,6 +80,22 @@ import type { ClientConnectionRpc } from '../rpc.ts'
 import type { Context } from '@deepseek-ai/cordis'
 
 /**
+ * Detect whether the fixture is running on Windows via the same
+ * `navigator.userAgent` sniff used elsewhere in the ecosystem
+ * (`subagent-codex`, `subagent-claude-code`). The desktop shell whitelist
+ * (`services::platform` in `desktop/src-tauri`) matches shell binaries
+ * exactly — `tar.exe` on Windows, bare `tar` on macOS/Linux — so the skills.sh
+ * install flow must send the platform-correct binary name or the spawn is
+ * rejected with PermissionDenied.
+ */
+function isWindowsHost(): boolean {
+  if (typeof navigator !== 'undefined' && typeof navigator.userAgent === 'string') {
+    return navigator.userAgent.toLowerCase().includes('windows')
+  }
+  return false
+}
+
+/**
  * Parse YAML frontmatter from a skill's SKILL.md (`---\n...\n---`) with simple
  * line parsing (no YAML dependency). Only top-level string fields feed the
  * inventory: `name`, `description`, `whenToUse`. Quoted scalars and folded
@@ -4625,9 +4641,11 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           await invoke('fs_write', { path: `${dest}/SKILL.md`, content: [] })
           // 4. Extract, stripping the tarball's `{repo}-{sha}` top-level dir so
           //    the skill contents land directly in ~/.dsh/skills/{name}.
+          //    The shell whitelist gate is an exact string match, so Windows
+          //    requires `tar.exe` (bare `tar` is rejected with PermissionDenied).
           await invoke('shell_spawn', {
             spec: {
-              cmd: 'tar',
+              cmd: isWindowsHost() ? 'tar.exe' : 'tar',
               args: ['-xzf', tmpTar, '-C', dest, '--strip-components=1'],
               env: {},
             },

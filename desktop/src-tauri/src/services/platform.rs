@@ -74,6 +74,25 @@ mod tests {
     }
 
     #[test]
+    fn shell_binary_gate_accepts_frontend_spawn_commands() {
+        // The web frontend (skills.sh install in `connection/src/client/fixture.ts`)
+        // sends `tar.exe` on Windows and `tar` on macOS/Linux. The gate is an
+        // exact string match, so these are the regression guards: the old buggy
+        // frontend sent bare `tar` unconditionally, which failed on Windows.
+        if cfg!(target_os = "windows") {
+            assert!(is_shell_binary_allowed("tar.exe"));
+            assert!(is_shell_binary_allowed("node.exe"));
+            assert!(is_shell_binary_allowed("cmd.exe"));
+            assert!(is_shell_binary_allowed("powershell.exe"));
+            assert!(!is_shell_binary_allowed("tar"));
+        } else if cfg!(target_os = "macos") {
+            assert!(is_shell_binary_allowed("tar"));
+            assert!(!is_shell_binary_allowed("tar.exe"));
+            assert!(!is_shell_binary_allowed("node"));
+        }
+    }
+
+    #[test]
     fn npx_is_platform_specific() {
         let expected = if cfg!(target_os = "windows") {
             "npx.cmd"
