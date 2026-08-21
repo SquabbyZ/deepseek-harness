@@ -2197,10 +2197,15 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   // Under Tauri the fixture starts empty (no demo data); replace that with the
   // user's REAL workspaces + sessions from ~/.dsh/storages/workspace.json so
   // the sidebar shows their actual state after reinstall.
-  const loadRealWorkspaces = (): void => {
+  let workspacesLoaded: Promise<void> | undefined
+  const loadRealWorkspaces = (): Promise<void> => {
+    if (workspacesLoaded !== undefined) return workspacesLoaded
     const invoke = tauriInvoke()
-    if (invoke === undefined) return
-    void invoke<Array<{ workspaceId: string; path: string; title: string; sessionIds: string[] }>>('dsh_read_workspaces')
+    if (invoke === undefined) {
+      workspacesLoaded = Promise.resolve()
+      return workspacesLoaded
+    }
+    workspacesLoaded = invoke<Array<{ workspaceId: string; path: string; title: string; sessionIds: string[] }>>('dsh_read_workspaces')
       .then((rows) => {
         if (rows === undefined || rows.length === 0) return
         const epoch = new Date(Date.now() - 300_000).toISOString()
@@ -2221,8 +2226,9 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         })))
       })
       .catch(() => {})
+    return workspacesLoaded
   }
-  loadRealWorkspaces()
+  void loadRealWorkspaces()
   // Registry-global archive set mirroring the host: archived sessions keep
   // their workspace accounting slot and only grouping surfaces hide them.
   const archivedSessionIds: SessionId[] = []
@@ -3005,7 +3011,10 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
 
   const api: ApiProxy = {
     sessions: {
-      list: request => ok(request, { items: [...sessions].sort((a, b) => b.updatedAt - a.updatedAt) }),
+      list: async (request) => {
+        await loadRealWorkspaces()
+        return ok(request, { items: [...sessions].sort((a, b) => b.updatedAt - a.updatedAt) })
+      },
       search: (request, signal) => {
         if (signal.aborted) {
           return err(request, {
@@ -3456,10 +3465,13 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       },
     },
     workspace: {
-      list: request => ok(request, {
-        items: workspaces.map(w => ({ ...w })),
-        archivedSessionIds: [...archivedSessionIds],
-      }),
+      list: async (request) => {
+        await loadRealWorkspaces()
+        return ok(request, {
+          items: workspaces.map(w => ({ ...w })),
+          archivedSessionIds: [...archivedSessionIds],
+        })
+      },
       create: (request) => {
         const { path } = request.payload
         const existing = workspaces.find(w => w.path === path)
