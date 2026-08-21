@@ -42,6 +42,54 @@ import { randomUuid } from './random-uuid.ts'
 import { callRealLlm, tauriCredentialBackend, tauriInvoke } from './real-llm.ts'
 import z from '@deepseek-ai/schemastery'
 import type { ClientConnectionRpc } from '../rpc.ts'
+import type { Context } from '@deepseek-ai/cordis'
+
+/**
+ * Structural face of the client-side Loader the fixture reaches for the real
+ * plugin inventory. The Loader (cordis-plugin-loader) augments `Context.loader`
+ * with the full EntryTree API; the fixture only needs enumeration + one-entry
+ * option updates, so it declares the minimal shape instead of importing the
+ * loader package (which would drag the whole tree into the connection bundle).
+ */
+interface FixtureLoaderLike {
+  entries(): Iterable<FixtureLoaderEntryLike>
+}
+interface FixtureLoaderEntryLike {
+  options: { name?: string; disabled?: boolean | null }
+  disabled: boolean
+  fiber?: { state: number } | undefined
+  update(options: { disabled?: boolean }): Promise<void>
+}
+
+/** Cordis FiberState ordinal → the phase string the inventory UI renders. */
+const FIBER_PHASE_LABEL: Record<number, string> = {
+  0: 'pending',
+  1: 'loading',
+  2: 'active',
+  3: 'failed',
+  4: 'disposed',
+  5: 'unloading',
+}
+
+/**
+ * Shell-critical plugin ids that must never be disabled from the inventory
+ * panel: turning them off would cut off the settings UI (or its RPC fabric)
+ * with no way back in the client-first desktop shell.
+ */
+const SHELL_CRITICAL = new Set([
+  '@deepseek-ai/dsh-client-connection',
+  '@deepseek-ai/dsh-client-ui-layout',
+  '@deepseek-ai/dsh-client-ui-sidebar',
+  '@deepseek-ai/dsh-client-ui-settings',
+  '@deepseek-ai/dsh-client-ui-settings-plugins',
+  '@deepseek-ai/dsh-client-ui-settings-plugin-inventory',
+  // Service providers that runtime testing showed cascade when disabled in the
+  // single-process shell (their services are consumed at child-fiber level the
+  // inject-edge check cannot see). Keep them locked.
+  '@deepseek-ai/dsh-api-remotes',
+  '@deepseek-ai/dsh-client-ui-conversation',
+  '@deepseek-ai/dsh-client-ui-settings-general',
+])
 
 /** The fake carrier mints like a real one (business code never mints). */
 function rpcRequest<P>(payload: P): RpcRequest<P> {
@@ -1518,8 +1566,8 @@ class FxInbox<F> implements StreamConn<F> {
  * @param options - fixture branches for empty state and failure timing.
  * @returns an ApiProxy backed entirely by in-memory state — no host process, no network.
  */
-export function createFixtureApi(options: FixtureOptions = {}): ApiProxy {
-  return createFixtureWorld(options).api
+export function createFixtureApi(options: FixtureOptions = {}, ctx?: Context): ApiProxy {
+  return createFixtureWorld(options, ctx).api
 }
 
 /** Both fixture faces over one state graph. */
@@ -1536,12 +1584,12 @@ export interface FixtureWorld {
  * @param options - fixture branches for empty state and failure timing.
  * @returns the legacy API face and the Remote RPC face.
  */
-export function createFixtureFaces(options: FixtureOptions = {}): FixtureWorld {
-  return createFixtureWorld(options)
+export function createFixtureFaces(options: FixtureOptions = {}, ctx?: Context): FixtureWorld {
+  return createFixtureWorld(options, ctx)
 }
 
 /** Build the fixture's legacy API and Remote RPC faces over one state graph. */
-function createFixtureWorld(options: FixtureOptions): FixtureWorld {
+function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorld {
   // The resident fixture sessions all carry history, so none of them is blank.
   const sessions: SessionSummary[] = options.empty ? [] : [
     { sessionId: sid('fx-alpha'), updatedAt: Date.now(), running: true, blank: false, cwd: '/tmp/fixture' },
@@ -1821,6 +1869,110 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       scope: 'external' as 'builtin' | 'external',
     })),
   ]
+  /**
+   * The real plugin inventory: every entry the client Loader actually mounted.
+   * When the fixture runs inside the client graph (it does — `?fixture` boots
+   * the connection plugin in-browser), the client `ctx.loader` IS the plugin
+   * graph the official UI is made of, so the list shows the genuine built-in
+   * plugins with their live fiber phase instead of the stale stub table above.
+   * Shell and modules entries are not user-facing plugins and stay hidden.
+   */
+  /**
+   * Service-injection ground truth: which loader entry provides each live
+   * service, read from the cordis reflect registry (`ctx.reflect.store`).
+   * A service that a DIFFERENT entry's fiber injects makes its provider
+   * "needed" — disabling the provider would strand the dependent fiber and
+   * cascade (the single-process shell has no host to re-serve it).
+   */
+  const neededEntryNames = (): ReadonlySet<string> => {
+    const loader = ctx === undefined
+      ? undefined
+      : (ctx as { loader?: FixtureLoaderLike }).loader
+    if (loader === undefined) return new Set()
+    const entries = [...loader.entries()]
+    const nameOf = (e: FixtureLoaderEntryLike | undefined): string | undefined => e?.options.name
+    // service name → providing entry name
+    const providerByService = new Map<string, string>()
+    type ReflectStore = Record<PropertyKey, { name?: string; fiber?: { entry?: FixtureLoaderEntryLike } }>
+    const reflect = (ctx as { reflect?: { store?: ReflectStore } }).reflect
+    if (reflect?.store !== undefined) {
+      // The store is keyed by a per-service symbol (`Symbol(serviceName)`), so
+      // `Object.values` is blind to it — enumerate own keys and index each.
+      const store = reflect.store
+      for (const key of Reflect.ownKeys(store)) {
+        const impl = store[key]
+        const provider = nameOf(impl?.fiber?.entry)
+        if (impl?.name !== undefined && provider !== undefined) {
+          providerByService.set(impl.name, provider)
+        }
+      }
+    }
+    const needed = new Set<string>()
+    for (const dependent of entries) {
+      const dependentName = nameOf(dependent)
+      if (dependentName === undefined) continue
+      // Services this fiber injects (requires).
+      const injectMap = (dependent.fiber as { inject?: Record<string, unknown> } | undefined)?.inject
+      if (injectMap === undefined) continue
+      for (const service of Object.keys(injectMap)) {
+        const provider = providerByService.get(service)
+        if (provider !== undefined && provider !== dependentName) {
+          needed.add(provider)
+        }
+      }
+    }
+    // The shell owns the layout/settings/RPC chain structurally; those rows
+    // stay locked even if no explicit service edge is visible.
+    for (const name of SHELL_CRITICAL) needed.add(name)
+    return needed
+  }
+
+  const realInventoryEntries = (): Array<{
+    entryId: string
+    moduleName: string
+    enabled: boolean
+    disabledReason: 'user' | 'cordis' | null
+    fiberPhase: string
+    scope: 'builtin' | 'external'
+  }> | null => {
+    const loader = ctx === undefined
+      ? undefined
+      : (ctx as { loader?: FixtureLoaderLike }).loader
+    if (loader === undefined) return null
+    const needed = neededEntryNames()
+    const entries: Array<{
+      entryId: string
+      moduleName: string
+      enabled: boolean
+      disabledReason: 'user' | 'cordis' | null
+      fiberPhase: string
+      scope: 'builtin' | 'external'
+    }> = []
+    const seen = new Set<string>()
+    for (const entry of loader.entries()) {
+      const name = entry.options.name
+      if (name === undefined || name === '') continue
+      if (name.startsWith('@deepseek-ai/dsh-client-modules')) continue
+      if (name.startsWith('@deepseek-ai/dsh-client-app-shell')) continue
+      if (seen.has(name)) continue
+      seen.add(name)
+      // "needed" rows are locked ON — disabling would strand a dependent fiber
+      // (or the settings shell itself). Only true leaves stay toggleable.
+      const locked = needed.has(name)
+      entries.push({
+        entryId: name,
+        moduleName: name,
+        enabled: !entry.disabled,
+        disabledReason: locked ? 'cordis' : (entry.disabled ? 'user' : null),
+        fiberPhase: entry.fiber === undefined
+          ? 'inactive'
+          : FIBER_PHASE_LABEL[entry.fiber.state] ?? 'unknown',
+        scope: name.startsWith('@deepseek-ai/') ? 'builtin' : 'external',
+      })
+    }
+    // Loader iteration order is boot creation order; keep it stable.
+    return entries
+  }
   const nextTurn = new Map<SessionId, number>([[sid('fx-alpha'), 75]])
   let nextSession = 1
   let nextRpc = 1
@@ -3607,7 +3759,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   }
 
   const rpc: ClientConnectionRpc = {
-    call(channel, endpoint, payload) {
+    async call(channel, endpoint, payload) {
       if (channel !== '/api') {
         return Promise.reject(new Error(`fixture connection RPC channel ${JSON.stringify(channel)} is unavailable`))
       }
@@ -3632,12 +3784,37 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'goals/resume': return Promise.resolve(goalRemotes.resume(sessionId, args.ref as FxGoalRef))
         case 'goals/complete': return Promise.resolve(goalRemotes.complete(sessionId, args.ref as FxGoalRef))
         case 'goals/clear': return Promise.resolve(goalRemotes.clear(sessionId, args.ref as FxGoalRef))
-        case 'pluginInventory/list': return Promise.resolve({ ok: true, value: { entries: fixturePluginEntries() } })
+        case 'pluginInventory/list': {
+          // Prefer the live Loader graph; fall back to the stub table only when
+          // the fixture is not running inside a client (unit tests, isolation).
+          const live = realInventoryEntries()
+          return Promise.resolve({ ok: true, value: { entries: live ?? fixturePluginEntries() } })
+        }
         case 'pluginInventory/setEnabled': {
           const entry = (args as { entry?: { entryId?: string; enabled?: boolean } }).entry
-          if (entry !== undefined && typeof entry.entryId === 'string') {
-            pluginEnabled.set(entry.entryId, entry.enabled === true)
+          const entryId = entry?.entryId
+          const enabled = entry?.enabled === true
+          if (typeof entryId !== 'string') {
+            return Promise.resolve({ ok: false, error: { code: 'internal', message: 'missing entry id', details: {} } })
           }
+          // Shell-critical rows cannot be disabled — no switch is shown for them.
+          if (SHELL_CRITICAL.has(entryId)) {
+            return Promise.resolve({ ok: false, error: { code: 'internal', message: 'shell-critical plugin cannot be disabled', details: {} } })
+          }
+          const loader = ctx === undefined
+            ? undefined
+            : (ctx as { loader?: FixtureLoaderLike }).loader
+          if (loader !== undefined) {
+            // Entry ids are boot-generated; find the row by its module name.
+            for (const row of loader.entries()) {
+              if (row.options.name !== entryId) continue
+              // Real enable/disable: restarts the fiber (stop or re-init).
+              await row.update({ disabled: !enabled })
+              return Promise.resolve({ ok: true, value: {} })
+            }
+          }
+          // Stub path: record the intent only.
+          pluginEnabled.set(entryId, enabled)
           return Promise.resolve({ ok: true, value: {} })
         }
         default:
@@ -3660,9 +3837,9 @@ export class FixtureApiClient extends AbstractApiClient {
   /** Generic Remote caller backed by the same in-memory state as the legacy fixture API. */
   readonly rpc: ClientConnectionRpc
 
-  constructor() {
+  constructor(ctx?: Context) {
     super()
-    const world = createFixtureWorld(fixtureOptionsFromLocation())
+    const world = createFixtureWorld(fixtureOptionsFromLocation(), ctx)
     this.api = world.api
     this.rpc = world.rpc
   }

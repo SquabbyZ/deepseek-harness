@@ -84,7 +84,9 @@ export interface ConnectionHandle {
 export function apply(ctx: Context): void {
   const pageLocation = typeof location === 'undefined' ? undefined : location
   const fixture = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
-  const fixtureClient = fixture ? new FixtureApiClient() : undefined
+  // Pass the client ctx so the fixture's plugin inventory can read the REAL
+  // loaded plugin graph (`ctx.loader`) instead of its static stub table.
+  const fixtureClient = fixture ? new FixtureApiClient(ctx) : undefined
   const api: IApiClient = fixtureClient ?? new WebApiClient()
   const rpc = fixtureClient?.rpc ?? createWebConnectionRpc()
   let started = false

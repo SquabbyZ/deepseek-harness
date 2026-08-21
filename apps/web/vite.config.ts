@@ -219,6 +219,32 @@ function dshMarketServer(): Plugin {
           case 'restart':
             json({ ok: true })
             break
+          case 'uninstall': {
+            let raw = ''
+            req.on('data', (chunk) => { raw += chunk })
+            req.on('end', () => {
+              try {
+                const body = JSON.parse(raw) as { name?: string }
+                const pkg = body.name ?? ''
+                if (pkg) {
+                  installedMap.delete(pkg)
+                  const i = liveList.indexOf(pkg)
+                  if (i >= 0) liveList.splice(i, 1)
+                }
+              } catch {
+                // non-JSON body: still report ok
+              }
+              json({ ok: true })
+            })
+            break
+          }
+          case 'update':
+          case 'cancel':
+          case 'rollback':
+            // The dev shell has no real package store to update; acknowledge so
+            // the market's operation buttons settle instead of 404ing.
+            json({ ok: true })
+            break
           case 'approve-builds':
             json({ ok: true, approved: [] })
             break

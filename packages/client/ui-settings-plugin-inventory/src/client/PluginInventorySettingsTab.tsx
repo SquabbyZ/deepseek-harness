@@ -165,6 +165,7 @@ export function PluginInventorySettingsTab({
                       label={shortName(entry.moduleName)}
                       caption={captionFor(entry, effective, t)}
                       checked={effective}
+                      disabled={entry.disabledReason === 'cordis'}
                       phase={entry.fiberPhase as PluginFiberPhase}
                       onCheckedChange={(next) => { scheduleToggle(entry.entryId, next) }}
                     />

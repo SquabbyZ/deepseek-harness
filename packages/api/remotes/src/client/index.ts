@@ -72,6 +72,8 @@ const pluginEntrySchema = z.object({
   enabled: z.boolean(),
   disabledReason: z.union([z.literal('user'), z.literal('cordis'), z.null()]),
   fiberPhase: z.string(),
+  // The inventory panel groups entries by deployment origin; carry it through.
+  scope: z.union([z.literal('builtin'), z.literal('external')]).optional(),
 })
 const listResultSchema = z.object({ entries: z.array(pluginEntrySchema) })
 const listDescriptor: InvocationDescriptor = {
