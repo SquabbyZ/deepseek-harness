@@ -268,7 +268,19 @@ describe('probeMcpServer', () => {
     expect(writes).toHaveLength(2)
     expect(JSON.parse(writes[0] ?? '{}')).toEqual(expect.objectContaining({ id: 1, method: 'initialize' }))
     expect(JSON.parse(writes[1] ?? '{}')).toEqual(expect.objectContaining({ id: 2, method: 'tools/list' }))
-    expect(mock.calls.some(call => call.cmd === 'mcp_stdio_close')).toBe(true)
+    // Tauri v2 maps the Rust snake_case `conn_id` params to camelCase `connId` on
+    // the JS side — every flat stdio arg must carry `connId` (never `conn_id`).
+    for (const call of mock.calls) {
+      if (call.cmd === 'mcp_stdio_spawn') continue // nested `spec` object, no flat connId
+      if (call.cmd.startsWith('mcp_stdio_')) {
+        expect(call.args).toHaveProperty('connId')
+        expect(call.args).not.toHaveProperty('conn_id')
+      }
+    }
+    // The spawn's connId (7) is threaded through every write/read/close call.
+    expect(mock.calls.filter(call => call.cmd === 'mcp_stdio_write').every(call => call.args?.connId === 7)).toBe(true)
+    expect(mock.calls.filter(call => call.cmd === 'mcp_stdio_read').every(call => call.args?.connId === 7)).toBe(true)
+    expect(mock.calls.some(call => call.cmd === 'mcp_stdio_close' && call.args?.connId === 7)).toBe(true)
   })
 
   it('returns ok:false when the stdio server never answers (timeout)', async () => {
@@ -287,6 +299,9 @@ describe('probeMcpServer', () => {
       cmd: 'mcp_stdio_spawn',
       args: { spec: { command: 'npx', args: [], env: {}, cwd: '/tmp' } },
     }))
+    // The write/read calls still carry the camelCase `connId` (here 1).
+    expect(mock.calls.filter(call => call.cmd === 'mcp_stdio_write').every(call => call.args?.connId === 1)).toBe(true)
+    expect(mock.calls.filter(call => call.cmd === 'mcp_stdio_read').every(call => call.args?.connId === 1)).toBe(true)
   })
 
   it('returns unavailable without a Tauri bridge', async () => {

@@ -149,12 +149,12 @@ async function stdioRequest(
   timeoutMs: number,
 ): Promise<JsonRpcMessage> {
   await invoke<void>('mcp_stdio_write', {
-    conn_id: connId,
+    connId,
     line: JSON.stringify({ jsonrpc: '2.0', id, method, ...(params === undefined ? {} : { params }) }),
   })
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const line = await invoke<string | null>('mcp_stdio_read', { conn_id: connId })
+    const line = await invoke<string | null>('mcp_stdio_read', { connId })
     if (line !== null) {
       const trimmed = line.trim()
       if (trimmed.length === 0) continue
@@ -197,7 +197,7 @@ async function probeStdio(
     // Best-effort teardown: a close failure after a successful handshake must
     // not turn the probe into a failure.
     try {
-      await invoke<void>('mcp_stdio_close', { conn_id: connId })
+      await invoke<void>('mcp_stdio_close', { connId })
     } catch {
       /* the child is orphaned; the probe verdict already stands */
     }
