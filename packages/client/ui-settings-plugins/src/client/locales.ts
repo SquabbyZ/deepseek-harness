@@ -14,8 +14,8 @@ export type PluginsSettingsLocaleKey =
 
 /** English copy. */
 export const en: Record<PluginsSettingsLocaleKey, string> = {
-  nav: 'Plugins',
-  title: 'Plugins',
+  nav: 'Plugin Settings',
+  title: 'Plugin Settings',
   intro: 'Configure and inspect the plugins installed in this deployment.',
   tabs: 'Plugin views',
   configurableTab: 'Plugin configuration',
@@ -55,8 +55,8 @@ export const en: Record<PluginsSettingsLocaleKey, string> = {
 
 /** Simplified Chinese copy. */
 export const zh: Record<PluginsSettingsLocaleKey, string> = {
-  nav: '插件',
-  title: '插件',
+  nav: '插件设置',
+  title: '插件设置',
   intro: '配置和查看本部署已安装的插件。',
   tabs: '插件视图',
   configurableTab: '插件配置',

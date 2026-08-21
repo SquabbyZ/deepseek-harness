@@ -54,6 +54,7 @@ const CATALOG_HEADING = 'flex items-baseline gap-[7px] px-0.5'
 const CATALOG_HEADING_H3 = 'm-0 text-[13px] leading-5 font-semibold'
 const CATALOG_HEADING_COUNT = 'text-xs leading-[18px] text-[var(--dsw-alias-label-tertiary)] [font-variant-numeric:tabular-nums]'
 const LIST = 'm-0 flex list-none flex-col gap-2 p-0'
+const GROUP_HEADING = 'm-0 mb-1.5 mt-3 flex items-baseline gap-[7px] px-0.5 text-[13px] leading-5 font-semibold'
 
 const HOLD_MS = 3000
 const FADE_MS = 1000
@@ -153,8 +154,8 @@ export function PluginInventorySettingsTab({
             ? <p className={STATUS}>{t('emptySearch')}</p>
             : null}
           {filteredEntries.length > 0 ? (
-            <ul className={LIST}>
-              {filteredEntries.map((entry) => {
+            (() => {
+              const renderRow = (entry: PluginInventoryEntryView): ReactNode => {
                 const intended = intendedSnapshot().get(entry.entryId)
                 const effective = intended !== undefined ? intended : entry.enabled
                 return (
@@ -169,8 +170,26 @@ export function PluginInventorySettingsTab({
                     />
                   </li>
                 )
-              })}
-            </ul>
+              }
+              const builtin = filteredEntries.filter(e => e.scope !== 'external')
+              const external = filteredEntries.filter(e => e.scope === 'external')
+              return (
+                <>
+                  {builtin.length > 0 ? (
+                    <section data-plugin-group="builtin" aria-label={t('builtin')}>
+                      <h4 className={GROUP_HEADING}>{t('builtin')} <span className={CATALOG_HEADING_COUNT}>{builtin.length}</span></h4>
+                      <ul className={LIST}>{builtin.map(renderRow)}</ul>
+                    </section>
+                  ) : null}
+                  {external.length > 0 ? (
+                    <section data-plugin-group="external" aria-label={t('external')}>
+                      <h4 className={GROUP_HEADING}>{t('external')} <span className={CATALOG_HEADING_COUNT}>{external.length}</span></h4>
+                      <ul className={LIST}>{external.map(renderRow)}</ul>
+                    </section>
+                  ) : null}
+                </>
+              )
+            })()
           ) : null}
         </div>
       ) : null}

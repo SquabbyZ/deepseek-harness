@@ -4,7 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
-import { createPluginInventoryStore } from './inventory-store.ts'
+import { createPluginInventoryStore, type PluginInventoryEntry } from './inventory-store.ts'
 import { en, zh } from './locales.ts'
 
 export type { PluginInventorySettingsTabInjected, PluginInventorySettingsTabProps } from './PluginInventorySettingsTab.tsx'
@@ -38,13 +38,29 @@ export function apply(ctx: ClientContext): void {
   // forwarded `plugin-inventory/changed` event so the panel refreshes on
   // every host commit. The store is recreated on every plugin mount so its
   // generation counter and listeners stay fiber-local.
+  // The pluginInventory namespace is mounted by the fixture client assembly
+  // (api-remotes) — its wire type is not declared by a generated package, so
+  // the call face is narrowed here.
+  const inventoryRemote = ctx.remote as unknown as {
+    pluginInventory: {
+      list(): Promise<{
+        ok: boolean
+        value: { entries: readonly PluginInventoryEntry[] }
+        error?: { code: string; message: string }
+      }>
+      setEnabled(
+        args: { entryId: string; enabled: boolean },
+        signal?: AbortSignal,
+      ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
+    }
+  }
   const store = createPluginInventoryStore(
     {
       list: async (signal) => {
         void signal
-        const result = await ctx.remote.pluginInventory.list()
+        const result = await inventoryRemote.pluginInventory.list()
         if (!result.ok) {
-          throw new Error(`pluginInventory.list failed: ${result.error.code}: ${result.error.message}`)
+          throw new Error(`pluginInventory.list failed: ${result.error?.code}: ${result.error?.message}`)
         }
         return result.value
       },
@@ -56,25 +72,25 @@ export function apply(ctx: ClientContext): void {
 
   // Refresh the store on every forwarded change; also re-read after a
   // reconnect so the new generation re-baselines the panel.
-  ctx.effect(() => ctx.remote.$on('plugin-inventory/changed', () => { store.refresh() }),
+  ctx.effect(() => (ctx.remote as { $on(event: string, fn: () => void): () => void }).$on('plugin-inventory/changed', () => { store.refresh() }),
     'ui-settings-plugin-inventory: refresh on remote event')
   ctx.effect(() => ctx.on('connection/reset', () => { store.reset(); store.refresh() }),
     'ui-settings-plugin-inventory: reset on reconnect')
 
   const injected = (): PluginInventorySettingsTabInjected => ({
     list: async () => {
-      const result = await ctx.remote.pluginInventory.list()
+      const result = await inventoryRemote.pluginInventory.list()
       if (!result.ok) {
-        throw new Error(`pluginInventory.list failed: ${result.error.code}: ${result.error.message}`)
+        throw new Error(`pluginInventory.list failed: ${result.error?.code}: ${result.error?.message}`)
       }
       return result.value
     },
     refresh: () => { store.refresh() },
     store,
     setEnabled: async ({ entryId, enabled }, { signal }) => {
-      const result = await ctx.remote.pluginInventory.setEnabled({ entryId, enabled }, signal)
+      const result = await inventoryRemote.pluginInventory.setEnabled({ entryId, enabled }, signal)
       if (!result.ok) {
-        throw new Error(`pluginInventory.setEnabled failed: ${result.error.code}: ${result.error.message}`)
+        throw new Error(`pluginInventory.setEnabled failed: ${result.error?.code}: ${result.error?.message}`)
       }
     },
   })

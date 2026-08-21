@@ -1,10 +1,13 @@
 /** Platform-neutral assembly of generated Host Remote contributions. */
 
+import { z } from 'zod'
 import type { Context } from '@deepseek-ai/cordis'
 import commandsRemote from '@deepseek-ai/dsh-commands/remote'
 import goalsRemote from '@deepseek-ai/dsh-goal/remote'
 import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
-import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
+import type {
+  InvocationDescriptor, TypertClientRemote, TypertRemoteContribution,
+} from '@deepseek-ai/dsh-typert-protocol'
 
 export type { TypertClientRemote as ClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 export type {} from '@deepseek-ai/dsh-commands/remote'
@@ -58,6 +61,51 @@ declare module '@deepseek-ai/cordis' {
 export const inject = ['remote']
 
 /**
+ * The plugin-inventory Remote. The Host api-proxy would generate this from the
+ * inventory service; the fixture client assembly declares it so the
+ * ui-settings-plugin-inventory tab activates. Codecs are strict zod schemas
+ * (the gateway rejects any non-strict codec).
+ */
+const pluginEntrySchema = z.object({
+  entryId: z.string(),
+  moduleName: z.string(),
+  enabled: z.boolean(),
+  disabledReason: z.union([z.literal('user'), z.literal('cordis'), z.null()]),
+  fiberPhase: z.string(),
+})
+const listResultSchema = z.object({ entries: z.array(pluginEntrySchema) })
+const listDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/list',
+  service: 'pluginInventory',
+  namespace: 'pluginInventory',
+  method: 'list',
+  invocation: { kind: 'direct' },
+  parameters: [],
+  result: {
+    mode: 'strict',
+    typeSymbol: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/list:result',
+    schema: listResultSchema,
+  },
+}
+const setEnabledDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/setEnabled',
+  service: 'pluginInventory',
+  namespace: 'pluginInventory',
+  method: 'setEnabled',
+  invocation: { kind: 'direct' },
+  parameters: [
+    { name: 'entryId', wire: 'entryId', source: 'json', codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#entryId', schema: z.string() } },
+    { name: 'enabled', wire: 'enabled', source: 'json', codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#enabled', schema: z.boolean() } },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-plugin-inventory#pluginInventory/setEnabled:result', schema: z.object({}) },
+}
+const pluginInventoryRemote: TypertRemoteContribution = {
+  package: '@deepseek-ai/dsh-plugin-inventory',
+  descriptors: [listDescriptor, setEnabledDescriptor],
+}
+
+/**
  * Mount the Host capabilities explicitly selected for this Client assembly.
  * @param ctx - Client Cordis root carrying the typed API service.
  * @returns disposer after every selected Remote namespace is ready.
@@ -67,7 +115,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       commandsRemote, goalsRemote,
-      messageFeedbackRemote,
+      messageFeedbackRemote, pluginInventoryRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

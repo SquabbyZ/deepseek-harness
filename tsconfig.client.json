@@ -37,8 +37,7 @@
     // client tests still reference the stripped types, so they are excluded
     // from this program rather than failing the aggregate.
     "packages/extensions/ui-cordis/**",
-    "packages/extensions/cordis-client-runner/**",
-    "packages/client/ui-settings-plugin-inventory/**"
+    "packages/extensions/cordis-client-runner/**"
   ],
   "references": [
     // Shared leaf: web e2e boots the real host webserver (fixture + real-host
@@ -83,6 +82,7 @@
     { "path": "./packages/client/ui-permission-presets" },
     { "path": "./packages/client/ui-plan" },
     { "path": "./packages/client/ui-settings-plugins" },
+    { "path": "./packages/client/ui-settings-plugin-inventory" },
     { "path": "./packages/client/ui-user-questions" },
     { "path": "./packages/client/ui-trajectory" },
     { "path": "./packages/session-query/session-log-export" },

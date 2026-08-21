@@ -109,7 +109,6 @@ const DESKTOP_EXCLUDES = new Set([
   '@deepseek-ai/dsh-client-hmr',
   '@deepseek-ai/dsh-client-ui-settings-agent',
   '@deepseek-ai/dsh-client-ui-settings-mcp',
-  '@deepseek-ai/dsh-client-ui-settings-plugin-inventory',
   '@deepseek-ai/dsh-client-ui-settings-skill',
   '@deepseek-ai/dsh-client-ui-cordis',
   '@deepseek-ai/dsh-cordis-client-runner',

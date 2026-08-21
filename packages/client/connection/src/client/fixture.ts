@@ -1770,6 +1770,57 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     ['my-agent', { trust: 'user', content: "- id: tool-read\n  name: '@deepseek-ai/dsh-tool-read'\n" }],
   ])
   let fixtureDefaultPreset = 'standard'
+  /**
+   * Plugin inventory served to the ui-settings-plugin-inventory tab. Built-in
+   * entries are the official client plugins; external entries are market /
+   * user-installed plugins (dsh-market), enabled state kept in the map so
+   * toggling persists for the session.
+   */
+  const BUILTIN_PLUGINS: ReadonlyArray<readonly [string, string]> = [
+    ['@deepseek-ai/dsh-client-ui-sidebar', 'Sidebar'],
+    ['@deepseek-ai/dsh-client-ui-layout', 'Layout'],
+    ['@deepseek-ai/dsh-client-ui-conversation', 'Conversation'],
+    ['@deepseek-ai/dsh-client-ui-settings', 'Settings'],
+    ['@deepseek-ai/dsh-client-ui-settings-general', 'General Settings'],
+    ['@deepseek-ai/dsh-client-ui-settings-models', 'Model Settings'],
+    ['@deepseek-ai/dsh-client-ui-settings-plugins', 'Plugin Settings'],
+    ['@deepseek-ai/dsh-client-ui-workspace', 'Workspace'],
+    ['@deepseek-ai/dsh-client-ui-tool', 'Tool Views'],
+    ['@deepseek-ai/dsh-client-ui-agent-preset', 'Agent Presets'],
+    ['@deepseek-ai/dsh-client-ui-theme', 'Theme'],
+    ['@deepseek-ai/dsh-client-ui-input-trigger', 'Input Triggers'],
+    ['@deepseek-ai/dsh-client-ui-commands', 'Commands'],
+    ['@deepseek-ai/dsh-client-ui-goal', 'Goal'],
+    ['@deepseek-ai/dsh-client-runtime', 'Client Runtime'],
+    ['@deepseek-ai/dsh-client-locale', 'Locale'],
+  ]
+  const EXTERNAL_PLUGINS: ReadonlyArray<readonly [string, string]> = []
+  const pluginEnabled = new Map<string, boolean>()
+  const fixturePluginEntries = (): Array<{
+    entryId: string
+    moduleName: string
+    enabled: boolean
+    disabledReason: 'user' | 'cordis' | null
+    fiberPhase: string
+    scope: 'builtin' | 'external'
+  }> => [
+    ...BUILTIN_PLUGINS.map(([entryId, name]) => ({
+      entryId,
+      moduleName: name,
+      enabled: pluginEnabled.get(entryId) ?? true,
+      disabledReason: null,
+      fiberPhase: 'active',
+      scope: 'builtin' as 'builtin' | 'external',
+    })),
+    ...EXTERNAL_PLUGINS.map(([entryId, name]) => ({
+      entryId,
+      moduleName: name,
+      enabled: pluginEnabled.get(entryId) ?? true,
+      disabledReason: null,
+      fiberPhase: 'active',
+      scope: 'external' as 'builtin' | 'external',
+    })),
+  ]
   const nextTurn = new Map<SessionId, number>([[sid('fx-alpha'), 75]])
   let nextSession = 1
   let nextRpc = 1
@@ -3581,6 +3632,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'goals/resume': return Promise.resolve(goalRemotes.resume(sessionId, args.ref as FxGoalRef))
         case 'goals/complete': return Promise.resolve(goalRemotes.complete(sessionId, args.ref as FxGoalRef))
         case 'goals/clear': return Promise.resolve(goalRemotes.clear(sessionId, args.ref as FxGoalRef))
+        case 'pluginInventory/list': return Promise.resolve({ ok: true, value: { entries: fixturePluginEntries() } })
+        case 'pluginInventory/setEnabled': {
+          const { entryId, enabled } = args as { entryId?: string; enabled?: boolean }
+          if (typeof entryId === 'string') pluginEnabled.set(entryId, enabled === true)
+          return Promise.resolve({ ok: true, value: {} })
+        }
         default:
           return Promise.reject(new Error(`fixture connection RPC endpoint ${JSON.stringify(endpoint)} is unavailable`))
       }

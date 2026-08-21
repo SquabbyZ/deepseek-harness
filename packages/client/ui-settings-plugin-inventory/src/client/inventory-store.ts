@@ -33,6 +33,8 @@ export interface PluginInventoryEntry {
   readonly enabled: boolean
   readonly disabledReason: PluginDisabledReason
   readonly fiberPhase: PluginFiberPhase
+  /** Whether the plugin ships with the deployment (built-in) or came from a market / user install. */
+  readonly scope?: 'builtin' | 'external'
 }
 
 /** Point-in-time inventory returned by the plugin inventory Remote. */
