@@ -8,7 +8,7 @@ use crate::commands::credentials::{credentials_delete, credentials_get, credenti
 use crate::commands::deeplink::{deeplink_import, deeplink_parse};
 use crate::commands::dialog::{dialog_message, dialog_open, dialog_save};
 use crate::commands::fs::{cwd_resolve, fs_exists, fs_list, fs_read, fs_write};
-use crate::commands::http::http_request;
+use crate::commands::http::{http_request, http_set_proxy};
 use crate::commands::inventory::inventory_set_enabled;
 use crate::commands::plugin::{
     plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload,
@@ -49,11 +49,19 @@ pub fn run() {
                 SettingsStore::new(&*conn).init_schema()?;
                 PluginRegistry::new(&*conn).init_schema()?;
             }
-            let http = Arc::new(
-                reqwest::Client::builder()
-                    .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
-                    .build()?,
-            );
+            // Honor a persisted outbound proxy (the settings panel writes
+            // `proxy.url`); fall back to a direct client when none is set.
+            let persisted_proxy: Option<String> = SettingsStore::new(&*db.lock().expect("db mutex poisoned"))
+                .get("proxy")
+                .ok()
+                .flatten()
+                .and_then(|v| v.get("url").and_then(|u| u.as_str()).map(String::from));
+            let mut http_builder = reqwest::Client::builder()
+                .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")));
+            if let Some(proxy_url) = persisted_proxy.as_deref().filter(|u| !u.trim().is_empty()) {
+                http_builder = http_builder.proxy(reqwest::Proxy::all(proxy_url)?);
+            }
+            let http = Arc::new(http_builder.build()?);
             let state = AppState {
                 config_dir,
                 db,
@@ -68,7 +76,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, shell_spawn])
+        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, shell_spawn])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }

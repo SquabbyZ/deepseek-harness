@@ -3582,6 +3582,16 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             }
           }
           proxyRevision += 1
+          // Live-apply the proxy to the Tauri reqwest client and persist it so
+          // the real-LLM HTTP path (and the next launch) honor the setting.
+          const invoke = tauriInvoke()
+          if (invoke !== undefined) {
+            void invoke('http_set_proxy', { url: proxyUrl ?? null })
+            void invoke('settings_update', {
+              key: 'proxy',
+              value: proxyUrl === undefined ? {} : { url: proxyUrl },
+            })
+          }
           return ok(request, {
             ns: PROXY_SETTINGS_NS,
             schema: { type: 'object', dict: { url: { type: 'string' } } },
