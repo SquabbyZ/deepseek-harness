@@ -4444,21 +4444,26 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             const entries = fixtureSkills.map(skill => ({ ...skill, enabled: skillEnabled.get(skill.entryId) ?? skill.enabled }))
             return Promise.resolve({ ok: true, value: { entries } })
           }
-          // Real mode: read ~/.dsh/skills (relative `skills` resolves under the
-          // fs whitelist) + best-effort ~/.agents/skills (absolute path; a
-          // permission error is tolerated). Seed first so the persisted `enabled`
-          // overlay is applied to the projected entries.
+          // Real mode: resolve ~/.dsh first, then read the ABSOLUTE
+          // ~/.dsh/skills path (the fs allowlist now permits reads under
+          // dsh_home) + best-effort ~/.agents/skills (a sibling of dsh_home
+          // that stays outside the allowlist; a permission error is
+          // tolerated). Seed first so the persisted `enabled` overlay is
+          // applied to the projected entries.
           await seedSettings()
           const entries: Array<Record<string, unknown>> = []
-          entries.push(...await readSkillDir(invoke, 'skills', 'user-dsh'))
           try {
             const dshHome = await invoke<string>('dsh_config_dir')
             if (typeof dshHome === 'string' && dshHome.length > 0) {
-              const home = dshHome.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]+$/, '')
-              if (home.length > 0) entries.push(...await readSkillDir(invoke, `${home}/.agents/skills`, 'user-agents'))
+              const home = dshHome.replace(/[\\/]+$/, '')
+              if (home.length > 0) {
+                entries.push(...await readSkillDir(invoke, `${home}/skills`, 'user-dsh'))
+                const parent = home.replace(/[\\/][^\\/]+$/, '')
+                if (parent.length > 0) entries.push(...await readSkillDir(invoke, `${parent}/.agents/skills`, 'user-agents'))
+              }
             }
           } catch {
-            // dsh_config_dir unavailable → no agents root; keep the dsh-only list.
+            // dsh_config_dir unavailable → no roots; keep the empty list.
           }
           return Promise.resolve({ ok: true, value: { entries } })
         }

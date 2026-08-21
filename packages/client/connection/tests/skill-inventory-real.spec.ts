@@ -1,11 +1,11 @@
 /**
  * Skill inventory real-directory read + persistence (Task 2): with a Tauri
  * bridge installed (`__TAURI_INTERNALS__`), `skillInventory/list` must project
- * real skill directories (`~/.dsh/skills` via the relative `skills` path and
- * `~/.agents/skills` via the absolute home path) through `fs_list`/`fs_read`,
- * overlay the persisted `enabled` map, and `skillInventory/setEnabled` must
- * persist through `settings_update`. Without a bridge the fixture falls back to
- * the hardcoded list.
+ * real skill directories — `~/.dsh/skills` via the ABSOLUTE path derived from
+ * `dsh_config_dir`, and `~/.agents/skills` via the parent home path — through
+ * `fs_list`/`fs_read`, overlay the persisted `enabled` map, and
+ * `skillInventory/setEnabled` must persist through `settings_update`. Without a
+ * bridge the fixture falls back to the hardcoded list.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SessionId } from '../src/client/api.ts'
@@ -83,7 +83,7 @@ async function skillSetEnabled(
   if (!result.ok) throw new Error(`skillInventory/setEnabled failed: ${result.error.code}`)
 }
 
-const SKILLS_DIR = 'skills'
+const SKILLS_DIR = 'C:/Users/test/.dsh/skills'
 const AGENTS_DIR = 'C:/Users/test/.agents/skills'
 
 describe('parseSkillFrontmatter', () => {
@@ -120,7 +120,7 @@ description: |
 
 describe('skillInventory/list — real directories under Tauri', () => {
   it('projects ~/.dsh/skills and ~/.agents/skills into skill entries', async () => {
-    installTauriMock({
+    const { calls } = installTauriMock({
       list: {
         [SKILLS_DIR]: [
           { name: 'shell', is_dir: true, size: 0 },
@@ -139,6 +139,12 @@ describe('skillInventory/list — real directories under Tauri', () => {
     })
     const { rpc } = createFixtureFaces()
     const entries = await skillList(rpc)
+    // The browser must read the ABSOLUTE ~/.dsh/skills path (derived from
+    // dsh_config_dir), never the relative `skills` that canonicalizes against
+    // the (unset) process CWD and fails the Rust fs allowlist.
+    expect(calls).toContainEqual({ cmd: 'fs_list', args: { dir: SKILLS_DIR } })
+    expect(calls).not.toContainEqual({ cmd: 'fs_list', args: { dir: 'skills' } })
+    expect(calls).toContainEqual({ cmd: 'fs_list', args: { dir: AGENTS_DIR } })
     expect(entries.map(e => e.entryId)).toEqual(['shell', 'web-search', 'agent-loop'])
     expect(entries[0]).toMatchObject({
       entryId: 'shell',
