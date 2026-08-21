@@ -80,6 +80,48 @@ import type { ClientConnectionRpc } from '../rpc.ts'
 import type { Context } from '@deepseek-ai/cordis'
 
 /**
+ * Parse YAML frontmatter from a skill's SKILL.md (`---\n...\n---`) with simple
+ * line parsing (no YAML dependency). Only top-level string fields feed the
+ * inventory: `name`, `description`, `whenToUse`. Quoted scalars and folded
+ * block scalars (`|` / `>`) are handled; everything else is ignored.
+ */
+export function parseSkillFrontmatter(markdown: string): { name?: string; description?: string; whenToUse?: string } {
+  const out: { name?: string; description?: string; whenToUse?: string } = {}
+  const lines = markdown.split(/\r?\n/)
+  const text = (n: number): string => lines[n] ?? ''
+  let i = 0
+  while (i < lines.length && text(i).trim() === '') i++
+  if (text(i).trim() !== '---') return out
+  i++
+  for (; i < lines.length; i++) {
+    const line = text(i)
+    if (line.trim() === '---') break
+    if (line.trim() === '' || line.trim().startsWith('#')) continue
+    const colon = line.indexOf(':')
+    if (colon <= 0) continue
+    const key = line.slice(0, colon).trim()
+    if (key !== 'name' && key !== 'description' && key !== 'whenToUse') continue
+    let value = line.slice(colon + 1).trim()
+    if (value === '|' || value === '>') {
+      const block: string[] = []
+      i++
+      while (i < lines.length && text(i).trim() !== '---' && (text(i).startsWith(' ') || text(i).startsWith('\t'))) {
+        block.push(text(i).trim())
+        i++
+      }
+      value = block.join(' ')
+      i--
+    } else if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+      value = value.slice(1, -1)
+    } else if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
+      value = value.slice(1, -1)
+    }
+    if (value !== '') out[key as 'name' | 'description' | 'whenToUse'] = value
+  }
+  return out
+}
+
+/**
  * Structural face of the client-side Loader the fixture reaches for the real
  * plugin inventory. The Loader (cordis-plugin-loader) augments `Context.loader`
  * with the full EntryTree API; the fixture only needs enumeration + one-entry
@@ -1874,8 +1916,8 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           const value = await invoke<Record<string, unknown> | null>('settings_get', { key })
           return value ?? null
         }
-        const [llmDs, pi, proxyNs, perm, preset, agentNs] = await Promise.all([
-          read(LLM_DEEPSEEK_NS), read('llm-pi-ai'), read(PROXY_SETTINGS_NS), read(PERMISSION_NS), read(AGENT_PRESET_SETTINGS_NS), read(AGENT_SETTINGS_NS),
+        const [llmDs, pi, proxyNs, perm, preset, agentNs, skillInv] = await Promise.all([
+          read(LLM_DEEPSEEK_NS), read('llm-pi-ai'), read(PROXY_SETTINGS_NS), read(PERMISSION_NS), read(AGENT_PRESET_SETTINGS_NS), read(AGENT_SETTINGS_NS), read(SKILL_INVENTORY_NS),
         ])
         if (llmDs !== null) llmDeepseekUser = { ...llmDeepseekUser, ...llmDs }
         if (pi?.providers) llmPiAiUser = { ...llmPiAiUser, ...pi }
@@ -1887,6 +1929,15 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         if (typeof pPreset === 'string' && pPreset.length > 0) fixtureDefaultPreset = pPreset
         const aPrompt = agentNs?.systemPrompt
         if (typeof aPrompt === 'string' && aPrompt.length > 0) agentSystemPrompt = aPrompt
+        // Skill inventory persistence (`skill-inventory` namespace, shape
+        // `{ enabled: { [id]: boolean } }`). Apply the persisted map so the
+        // toggles survive a restart; entries absent from the map stay enabled.
+        const sInvEnabled = (skillInv as { enabled?: unknown } | null)?.enabled
+        if (typeof sInvEnabled === 'object' && sInvEnabled !== null) {
+          for (const [id, enabled] of Object.entries(sInvEnabled as Record<string, unknown>)) {
+            if (typeof enabled === 'boolean') skillEnabled.set(id, enabled)
+          }
+        }
       } catch {
         // ~/.dsh unreadable or not under Tauri: keep the in-memory defaults.
       }
@@ -4273,9 +4324,10 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   const feedbackStore = new Map<string, Map<string, FeedbackItem>>()
   const feedbackVersion = (): string => randomUuid()
 
-  // Skill / MCP inventories (the 技能管理 / MCP 管理 sections). Curated defaults
-  // mirroring the client's shipped capabilities; the host would list its skill
-  // registry + configured MCP servers.
+  // Skill / MCP inventories (the 技能管理 / MCP 管理 sections). Under Tauri the
+  // skill list reads real ~/.dsh/skills + ~/.agents/skills directories through
+  // the fs bridge; the curated defaults below are the no-bridge fallback that
+  // mirrors the client's shipped capabilities.
   const fixtureSkills = [
     { entryId: 'shell', name: 'Shell', description: '在受控范围内执行 shell 命令', source: 'builtin', provider: 'dsh', modelInvocable: true, userInvocable: true, enabled: true },
     { entryId: 'web-search', name: 'Web Search', description: '联网搜索并返回结构化证据', source: 'builtin', provider: 'dsh', modelInvocable: true, userInvocable: true, enabled: true },
@@ -4284,6 +4336,46 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   const fixtureMcps: Array<{ entryId: string; serverName: string; transport: string; target: string; enabled: boolean }> = []
   const skillEnabled = new Map<string, boolean>()
   const mcpEnabled = new Map<string, boolean>()
+  /** Persistence namespace for skill enable/disable (`{ enabled: { [id]: boolean } }`). */
+  const SKILL_INVENTORY_NS = 'skill-inventory'
+  /** Project one skill directory (a folder holding SKILL.md) into an entry. */
+  const readSkillDir = async (
+    invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
+    dir: string,
+    source: 'user-dsh' | 'user-agents',
+  ): Promise<Array<Record<string, unknown>>> => {
+    let listing: Array<{ name: string; is_dir: boolean; size: number }>
+    try {
+      listing = await invoke<Array<{ name: string; is_dir: boolean; size: number }>>('fs_list', { dir })
+    } catch {
+      return [] // FsPermissionDenied / unreadable → skip this root silently.
+    }
+    const entries: Array<Record<string, unknown>> = []
+    for (const item of listing ?? []) {
+      if (!item.is_dir) continue
+      const entryId = item.name
+      let markdown = ''
+      try {
+        const bytes = await invoke<number[]>('fs_read', { path: `${dir}/${entryId}/SKILL.md` })
+        markdown = new TextDecoder().decode(new Uint8Array(bytes))
+      } catch {
+        continue // No SKILL.md → not a skill.
+      }
+      const fm = parseSkillFrontmatter(markdown)
+      entries.push({
+        entryId,
+        name: fm.name ?? entryId,
+        description: fm.description ?? '',
+        ...(fm.whenToUse !== undefined ? { whenToUse: fm.whenToUse } : {}),
+        source,
+        provider: 'dsh',
+        modelInvocable: true,
+        userInvocable: true,
+        enabled: skillEnabled.get(entryId) ?? true,
+      })
+    }
+    return entries
+  }
 
   const rpc: ClientConnectionRpc = {
     async call(channel, endpoint, payload) {
@@ -4347,12 +4439,35 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           return Promise.resolve({ ok: true, value: { ok: true as const, value: null } })
         }
         case 'skillInventory/list': {
-          const entries = fixtureSkills.map(skill => ({ ...skill, enabled: skillEnabled.get(skill.entryId) ?? skill.enabled }))
+          const invoke = tauriInvoke()
+          if (invoke === undefined) {
+            const entries = fixtureSkills.map(skill => ({ ...skill, enabled: skillEnabled.get(skill.entryId) ?? skill.enabled }))
+            return Promise.resolve({ ok: true, value: { entries } })
+          }
+          // Real mode: read ~/.dsh/skills (relative `skills` resolves under the
+          // fs whitelist) + best-effort ~/.agents/skills (absolute path; a
+          // permission error is tolerated). Seed first so the persisted `enabled`
+          // overlay is applied to the projected entries.
+          await seedSettings()
+          const entries: Array<Record<string, unknown>> = []
+          entries.push(...await readSkillDir(invoke, 'skills', 'user-dsh'))
+          try {
+            const dshHome = await invoke<string>('dsh_config_dir')
+            if (typeof dshHome === 'string' && dshHome.length > 0) {
+              const home = dshHome.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]+$/, '')
+              if (home.length > 0) entries.push(...await readSkillDir(invoke, `${home}/.agents/skills`, 'user-agents'))
+            }
+          } catch {
+            // dsh_config_dir unavailable → no agents root; keep the dsh-only list.
+          }
           return Promise.resolve({ ok: true, value: { entries } })
         }
         case 'skillInventory/setEnabled': {
           const entry = (args as { entry?: { entryId?: string; enabled?: boolean } }).entry
-          if (entry?.entryId !== undefined) skillEnabled.set(entry.entryId, entry.enabled === true)
+          if (entry?.entryId !== undefined) {
+            skillEnabled.set(entry.entryId, entry.enabled === true)
+            persistSettings(SKILL_INVENTORY_NS, { enabled: Object.fromEntries(skillEnabled) })
+          }
           return Promise.resolve({ ok: true, value: {} })
         }
         case 'mcpInventory/list': {
