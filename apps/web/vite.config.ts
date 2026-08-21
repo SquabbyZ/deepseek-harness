@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { strToU8, zipSync } from 'fflate'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -106,6 +107,43 @@ function officialBundleServer(): Plugin {
           res.statusCode = 500
           res.end(`failed to serve ${id}: ${String(error)}`)
         }
+      })
+    },
+  }
+}
+
+/**
+ * The session-log export endpoint. The official Session Header's download
+ * button (session-log-export) HEADs `/api/session.export` then downloads the
+ * ZIP the host streams. The client-first shell has no host, so this dev
+ * middleware serves a real ZIP (fflate) so the download works in the desktop
+ * app; the payload is the session summary + a dev-mode marker rather than the
+ * full transcript a host deployment would stream.
+ */
+function sessionExportServer(): Plugin {
+  return {
+    name: 'dsh-session-export',
+    configureServer(server) {
+      server.middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
+        const url = new URL(req.url ?? '/', 'http://x')
+        if (url.pathname !== '/api/session.export') {
+          next()
+          return
+        }
+        const sessionId = url.searchParams.get('sessionId') ?? 'unknown'
+        const body = [
+          '# DeepSeek Harness — session log',
+          '',
+          `session: ${sessionId}`,
+          'exported: dev fixture transport (no host stream)',
+          '',
+          'A host deployment streams the full session transcript here.',
+        ].join('\n')
+        const zip = zipSync({ [`session-${sessionId}.md`]: strToU8(body) })
+        res.statusCode = 200
+        res.setHeader('content-type', 'application/zip')
+        res.setHeader('content-disposition', `attachment; filename="session-${sessionId}.zip"`)
+        res.end(Buffer.from(zip))
       })
     },
   }
@@ -222,6 +260,7 @@ export default defineConfig({
     nodeShimPlugin(),
     workspaceResolver(),
     officialBundleServer(),
+    sessionExportServer(),
   ],
   server: {
     port: 5173,

@@ -60,7 +60,7 @@ interface TauriHttpResponse {
   body: number[]
 }
 
-function tauriInvoke(): TauriInvoke | undefined {
+export function tauriInvoke(): TauriInvoke | undefined {
   const internals = (globalThis as { __TAURI_INTERNALS__?: { invoke?: unknown } }).__TAURI_INTERNALS__
   const invoke = internals?.invoke
   return typeof invoke === 'function' ? (invoke as unknown as TauriInvoke) : undefined

@@ -510,8 +510,12 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
               <ShadcnInput
                 className={INPUT}
                 type="text"
-                value={stringAt(draft, 'baseURL') ?? ''}
-                placeholder={props.baseUrl ?? stringAt(fallback, 'baseURL') ?? t('baseUrlDefault')}
+                // Pre-fill the adapter's default endpoint (props.baseUrl) so a
+                // newly added provider shows its API 地址 ready to go instead
+                // of a blank field (stringAt returns '' when unset, so the
+                // fallback is a falsy ||, not a nullish ??).
+                value={stringAt(draft, 'baseURL') || props.baseUrl || stringAt(fallback, 'baseURL') || ''}
+                placeholder={stringAt(draft, 'baseURL') || props.baseUrl || stringAt(fallback, 'baseURL') || t('baseUrlDefault')}
                 aria-label={t('baseUrl')}
                 disabled={disabled}
                 onChange={(event) => {

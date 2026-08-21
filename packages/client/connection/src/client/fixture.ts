@@ -39,7 +39,7 @@ import type {
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { AbstractApiClient, RpcId, SESSION_SEARCH_RESULT_LIMIT } from './api.ts'
 import { randomUuid } from './random-uuid.ts'
-import { callRealLlm, tauriCredentialBackend } from './real-llm.ts'
+import { callRealLlm, tauriCredentialBackend, tauriInvoke } from './real-llm.ts'
 import z from '@deepseek-ai/schemastery'
 import type { ClientConnectionRpc } from '../rpc.ts'
 
@@ -309,24 +309,45 @@ function fixtureModelGroups(): ModelProviderGroup[] {
       id: 'deepseek-official',
       name: 'DeepSeek',
       models: [
-        {
-          id: 'deepseek-v4-flash',
-          name: 'DeepSeek-V4-Flash',
-          description: '快速响应',
-          reasoning: DEEPSEEK_REASONING,
-        },
-        {
-          id: 'deepseek-v4-pro',
-          name: 'DeepSeek-V4-Pro',
-          description: '复杂任务',
-          reasoning: DEEPSEEK_REASONING,
-        },
+        { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', description: '快速响应', reasoning: DEEPSEEK_REASONING },
+        { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', description: '复杂任务', reasoning: DEEPSEEK_REASONING },
       ],
     },
     {
       id: 'openai',
-      name: 'OpenAI',
-      models: [{ id: 'gpt-5', name: 'GPT-5', reasoning: OPENAI_REASONING }],
+      name: 'OpenAI GPT',
+      models: [
+        { id: 'gpt-5', name: 'GPT-5', reasoning: OPENAI_REASONING },
+        { id: 'gpt-5-mini', name: 'GPT-5 Mini', reasoning: OPENAI_REASONING },
+      ],
+    },
+    {
+      id: 'anthropic',
+      name: 'Anthropic Claude',
+      models: [
+        { id: 'claude-opus-4', name: 'Claude Opus 4', reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'medium', name: 'Medium' }, { id: 'high', name: 'High' }], defaultEffort: 'medium' } },
+        { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'medium', name: 'Medium' }, { id: 'high', name: 'High' }], defaultEffort: 'medium' } },
+      ],
+    },
+    {
+      id: 'codex',
+      name: 'OpenAI Codex',
+      models: [{ id: 'codex-1', name: 'Codex-1', reasoning: OPENAI_REASONING }],
+    },
+    {
+      id: 'minimax',
+      name: 'MiniMax',
+      models: [{ id: 'minimax-text-01', name: 'MiniMax-Text-01' }, { id: 'abab7-chat', name: 'Abab7-Chat' }],
+    },
+    {
+      id: 'glm',
+      name: '智谱 GLM',
+      models: [{ id: 'glm-4.7', name: 'GLM-4.7' }, { id: 'glm-4.5-flash', name: 'GLM-4.5-Flash' }],
+    },
+    {
+      id: 'kimi',
+      name: 'Moonshot Kimi',
+      models: [{ id: 'kimi-k2', name: 'Kimi-K2' }, { id: 'kimi-k2-turbo', name: 'Kimi-K2-Turbo' }],
     },
   ]
 }
@@ -1620,6 +1641,8 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   const PROXY_SETTINGS_NS = 'proxy'
   let proxyUrl: string | undefined
   let proxyRevision = 0
+  /** The default agent-preset setting (`ui-agent-preset` writes it via settings.update). */
+  const AGENT_PRESET_SETTINGS_NS = 'agent-presets'
   /**
    * Serialized schemastery envelope for the `llm-deepseek` namespace, built
    * through the real schema library and `.toJSON()`ed — exactly what the host's
@@ -3185,6 +3208,14 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           secrets: [],
           revision: 0,
         }, {
+          ns: AGENT_PRESET_SETTINGS_NS,
+          schema: { type: 'object', dict: { default: { type: 'string' } } },
+          value: { default: fixtureDefaultPreset },
+          user: { default: fixtureDefaultPreset },
+          applies: 'live',
+          secrets: [],
+          revision: 0,
+        }, {
           ns: PROXY_SETTINGS_NS,
           schema: { type: 'object', dict: { url: { type: 'string' } } },
           value: proxyUrl === undefined ? {} : { url: proxyUrl },
@@ -3201,13 +3232,48 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           revision: 0,
         }],
       }),
-      // Native opens are deterministic no-op successes in this fixture, as is host.openPath.
-      openDocument: request => ok(request, { opened: true as const }),
-      update: request => err(request, {
-        code: 'settings-rejected',
-        message: 'fixture: the minimal readiness settings descriptor is read-only',
-        details: { ns: request.payload.ns },
-      }),
+      // Open the settings document. Under Tauri the fixture surfaces the real
+      // app-config directory through the Rust shell_spawn (start <config dir>);
+      // outside Tauri (browser dev) it is a deterministic no-op success.
+      openDocument: async (request) => {
+        const invoke = tauriInvoke()
+        if (invoke !== undefined) {
+          try {
+            const dir = await invoke<string>('app_config_dir')
+            await invoke('shell_spawn', { spec: { program: 'cmd', args: ['/c', 'start', '', dir] } })
+          } catch (error) {
+            return err(request, {
+              code: 'internal',
+              message: error instanceof Error ? error.message : String(error),
+              details: {},
+            })
+          }
+        }
+        return ok(request, { opened: true as const })
+      },
+      update: (request) => {
+        // The default agent preset: the General settings picker writes it via
+        // settings.update (ui-agent-preset's writeDefaultPreset), not mutate.
+        if (request.payload.ns === AGENT_PRESET_SETTINGS_NS) {
+          const patch = request.payload.patch as { default?: unknown } | undefined
+          const next = patch?.default
+          if (typeof next === 'string' && next.length > 0) fixtureDefaultPreset = next
+          return ok(request, {
+            ns: AGENT_PRESET_SETTINGS_NS,
+            schema: { type: 'object', dict: { default: { type: 'string' } } },
+            value: { default: fixtureDefaultPreset },
+            user: { default: fixtureDefaultPreset },
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          })
+        }
+        return err(request, {
+          code: 'settings-rejected',
+          message: 'fixture: the minimal readiness settings descriptor is read-only',
+          details: { ns: request.payload.ns },
+        })
+      },
       replace: request => err(request, {
         code: 'settings-rejected',
         message: 'fixture: the minimal readiness settings descriptor is read-only',
@@ -3327,13 +3393,21 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     },
     llm: {
       providers: request => ok(request, {
+        // The mainstream vendor catalog. Each route carries the adapter's
+        // default endpoint (ConfigurableProviderView.baseUrl) so the Models
+        // editor pre-fills the API 地址 field; all non-DeepSeek routes live
+        // under the generic llm-pi-ai providers dict and are addable/removable.
         providers: [
-          { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [...DEEPSEEK_PROFILE_PATH], active: true },
-          { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true, declared: false },
-          { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: false, declared: false },
+          { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [...DEEPSEEK_PROFILE_PATH], active: true, baseUrl: 'https://api.deepseek.com' },
+          { provider: 'openai', displayName: 'OpenAI GPT', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], active: true, declared: false, baseUrl: 'https://api.openai.com/v1' },
+          { provider: 'anthropic', displayName: 'Anthropic Claude', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: true, declared: false, baseUrl: 'https://api.anthropic.com' },
+          { provider: 'codex', displayName: 'OpenAI Codex', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'codex'], active: true, declared: false, baseUrl: 'https://api.openai.com/v1' },
+          { provider: 'minimax', displayName: 'MiniMax', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'minimax'], active: true, declared: false, baseUrl: 'https://api.minimaxi.com/v1' },
+          { provider: 'glm', displayName: '智谱 GLM', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'glm'], active: true, declared: false, baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+          { provider: 'kimi', displayName: 'Moonshot Kimi', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'kimi'], active: true, declared: false, baseUrl: 'https://api.moonshot.cn/v1' },
           // One hand-declared route, so a surface reading this fixture meets
           // the tagged shape rather than only the shipped one.
-          { provider: 'acme-gateway', displayName: 'Acme Gateway', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'acme-gateway'], active: true, declared: true },
+          { provider: 'acme-gateway', displayName: 'Acme Gateway', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'acme-gateway'], active: true, declared: true, baseUrl: 'https://gateway.example/v1' },
         ],
       }),
       models: request => ok(request, { groups: fixtureModelGroups(), failures: [] }),
