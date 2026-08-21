@@ -3418,7 +3418,31 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         return ok(request, { path: target })
       },
       openPath: request => ok(request, { opened: true as const }),
-      testProxy: request => ok(request, { ok: true, latencyMs: 1 }),
+      testProxy: async (request) => {
+        // Real probe: under Tauri the Rust proxy_test opens a CONNECT tunnel;
+        // in the browser fall back to a format check + a direct fetch attempt.
+        const url = (request.payload as { url?: string }).url ?? ''
+        const clean = url.trim()
+        const invoke = tauriInvoke()
+        if (invoke !== undefined) {
+          const result = await invoke<{ ok: boolean; latency_ms?: number; error?: string }>('proxy_test', { url: clean })
+          return ok(request, {
+            ok: result.ok,
+            ...(result.latency_ms === undefined ? {} : { latencyMs: result.latency_ms }),
+            ...(result.error === undefined ? {} : { error: result.error }),
+          })
+        }
+        if (!/^https?:\/\/[^/]+:\d+/.test(clean)) {
+          return ok(request, { ok: false, error: '无效的代理地址（示例：http://127.0.0.1:7890）' })
+        }
+        try {
+          const t0 = performance.now()
+          await fetch(clean, { signal: AbortSignal.timeout(5000) }).catch(() => null)
+          return ok(request, { ok: true, latencyMs: Math.round(performance.now() - t0) })
+        } catch {
+          return ok(request, { ok: false, error: '无法连接代理' })
+        }
+      },
     },
     workspace: {
       list: request => ok(request, {
