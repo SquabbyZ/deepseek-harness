@@ -1817,6 +1817,18 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   let proxyUrl: string | undefined
   let proxyRevision = 0
   /**
+   * Agent harness system prompt, configurable so the assistant's persona/name
+   * can be renamed by the user (the default avoids inviting the model to
+   * self-identify with a specific vendor).
+   */
+  const AGENT_SETTINGS_NS = 'agent'
+  let agentSystemPrompt = '你是 DSH Agent，一个帮助用户的智能体助手。你会根据用户需求规划任务步骤、必要时调用可用工具，并基于工具结果给出专业回答。'
+  let agentSettingsRevision = 0
+  const AGENT_SETTINGS_SCHEMA = z.object({
+    systemPrompt: z.string(),
+  }).toJSON()
+
+  /**
    * New-session permission default (`ui-permission-presets` reads
    * `defaultPreset`). The union choices carry the product labels so the
    * settings row renders 工作区写入 / 完全访问 / 只读.
@@ -1862,8 +1874,8 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           const value = await invoke<Record<string, unknown> | null>('settings_get', { key })
           return value ?? null
         }
-        const [llmDs, pi, proxyNs, perm, preset] = await Promise.all([
-          read(LLM_DEEPSEEK_NS), read('llm-pi-ai'), read(PROXY_SETTINGS_NS), read(PERMISSION_NS), read(AGENT_PRESET_SETTINGS_NS),
+        const [llmDs, pi, proxyNs, perm, preset, agentNs] = await Promise.all([
+          read(LLM_DEEPSEEK_NS), read('llm-pi-ai'), read(PROXY_SETTINGS_NS), read(PERMISSION_NS), read(AGENT_PRESET_SETTINGS_NS), read(AGENT_SETTINGS_NS),
         ])
         if (llmDs !== null) llmDeepseekUser = { ...llmDeepseekUser, ...llmDs }
         if (pi?.providers) llmPiAiUser = { ...llmPiAiUser, ...pi }
@@ -1873,6 +1885,8 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         if (typeof pDef === 'string' && pDef in PERMISSION_PRESETS) permissionDefault = pDef
         const pPreset = preset?.default
         if (typeof pPreset === 'string' && pPreset.length > 0) fixtureDefaultPreset = pPreset
+        const aPrompt = agentNs?.systemPrompt
+        if (typeof aPrompt === 'string' && aPrompt.length > 0) agentSystemPrompt = aPrompt
       } catch {
         // ~/.dsh unreadable or not under Tauri: keep the in-memory defaults.
       }
@@ -2833,9 +2847,6 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
    * The real DSH ReactLoopAgent + goal/agent services would replace this once
    * the server core is mounted in the client; this keeps agent semantics.
    */
-  const AGENT_SYSTEM_PROMPT =
-    '你是 DeepSeek Harness 的插件式智能体（DSH Agent）。你会根据用户需求规划步骤、必要时调用可用工具，' +
-    '并基于工具结果给出最终回答。请用简洁专业的语气直接回答。'
   const AGENT_TOOLS = [
     {
       type: 'function',
@@ -2869,7 +2880,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     baseUrl: string | undefined,
     history: { role: 'system' | 'user' | 'assistant'; content: string }[],
   ): Promise<RealLlmReply> => {
-    const messages: Array<Record<string, unknown>> = [{ role: 'system', content: AGENT_SYSTEM_PROMPT }, ...history]
+    const messages: Array<Record<string, unknown>> = [{ role: 'system', content: agentSystemPrompt }, ...history]
     for (let round = 0; round < 4; round += 1) {
       const reply = await callRealLlm({
         apiKey,
@@ -3856,6 +3867,14 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             applies: 'live',
             secrets: [],
             revision: 0,
+          }, {
+            ns: AGENT_SETTINGS_NS,
+            schema: AGENT_SETTINGS_SCHEMA,
+            value: { systemPrompt: agentSystemPrompt },
+            user: { systemPrompt: agentSystemPrompt },
+            applies: 'live',
+            secrets: [],
+            revision: agentSettingsRevision,
           }],
         })
       },
@@ -4043,6 +4062,24 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             applies: 'live',
             secrets: [],
             revision: 1,
+          })
+        }
+        if (request.payload.ns === AGENT_SETTINGS_NS) {
+          for (const op of request.payload.ops) {
+            if (op.op === 'set' && op.path[0] === 'systemPrompt' && typeof op.value === 'string' && op.value.length > 0) {
+              agentSystemPrompt = op.value
+            }
+          }
+          agentSettingsRevision += 1
+          persistSettings(AGENT_SETTINGS_NS, { systemPrompt: agentSystemPrompt })
+          return ok(request, {
+            ns: AGENT_SETTINGS_NS,
+            schema: AGENT_SETTINGS_SCHEMA,
+            value: { systemPrompt: agentSystemPrompt },
+            user: { systemPrompt: agentSystemPrompt },
+            applies: 'live',
+            secrets: [],
+            revision: agentSettingsRevision,
           })
         }
         // Generic namespace fallback: accept any namespace the app writes
