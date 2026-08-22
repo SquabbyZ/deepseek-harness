@@ -4684,13 +4684,22 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             // the read below then surfaces whatever is present.
             await invoke('skill_roots_ensure')
             const dshHome = await invoke<string>('dsh_config_dir')
+            // eslint-disable-next-line no-console
+            console.debug('[skillInventory/list] dsh_config_dir =', dshHome)
             if (typeof dshHome === 'string' && dshHome.length > 0) {
               const home = homeFromDshConfigDir(dshHome)
+              // eslint-disable-next-line no-console
+              console.debug('[skillInventory/list] home =', home)
               if (home.length > 0) {
-                entries.push(...await readSkillDir(invoke, `${home}/.dsh/skills`, 'user-dsh'))
+                const read = await readSkillDir(invoke, `${home}/.dsh/skills`, 'user-dsh')
+                // eslint-disable-next-line no-console
+                console.debug('[skillInventory/list] read ~/.dsh/skills =>', read.length, 'entries')
+                entries.push(...read)
               }
             }
-          } catch {
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[skillInventory/list] real-dir read failed:', error)
             // dsh_config_dir unavailable → no roots; keep the empty list.
           }
           // Real-mode fallback: when the real read yields nothing AND the user
@@ -4721,24 +4730,30 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             // Browser / no bridge: no registry reachable; the local filter still works.
             return Promise.resolve({ ok: true, value: { skills: [] } })
           }
-          const url = `https://skills.sh/api/search?q=${encodeURIComponent(query.trim())}&limit=20`
-          const res = await invoke<{ status: number; body: number[] }>('http_request', {
-            req: { method: 'GET', url, headers: {}, timeout_ms: 30_000 },
-          })
-          if (res.status < 200 || res.status >= 300) {
-            throw new Error(`skillRegistry/search: HTTP ${res.status}`)
+          // The Rust `search_skills_sh` command performs the request via the
+          // shared proxy-aware `state.http` client — the browser `http_request`
+          // bridge path is no longer used (it had a proxy-propagation gap).
+          const trimmedQuery = query.trim()
+          let result: { skills: Array<Record<string, unknown>>; totalCount: number; query: string }
+          try {
+            result = await invoke<typeof result>('search_skills_sh', {
+              query: trimmedQuery,
+              limit: 20,
+              offset: 0,
+            })
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[skillRegistry/search] search_skills_sh threw:', error)
+            throw new Error(`skillRegistry/search: ${error instanceof Error ? error.message : String(error)}`)
           }
-          const text = new TextDecoder().decode(new Uint8Array(res.body))
-          const data = JSON.parse(text) as { skills?: Array<Record<string, unknown>> }
-          const skills = Array.isArray(data.skills) ? data.skills : []
-          const projected = skills.flatMap((raw) => {
+          const projected = result.skills.flatMap((raw) => {
             const name = typeof raw?.name === 'string' ? raw.name : ''
             if (name === '') return []
             const description = typeof raw?.description === 'string' ? raw.description : ''
             const installs = typeof raw?.installs === 'number' ? raw.installs : 0
-            const source = typeof raw?.source === 'string' && raw.source.length > 0
-              ? raw.source
-              : (typeof raw?.id === 'string' ? raw.id.split('/').slice(0, 2).join('/') : '')
+            const source = typeof raw?.repo_owner === 'string' && typeof raw?.repo_name === 'string'
+              ? `${raw.repo_owner}/${raw.repo_name}`
+              : ''
             if (source === '') return []
             return [{ name, description, installs, source }]
           })
@@ -4842,9 +4857,10 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           return Promise.resolve({ ok: true, value: {} })
         }
         case 'mcpRegistry/search': {
-          // Smithery registry search (Task 5): GET the public servers API through
-          // the desktop proxy and project the fields the 从 Smithery 搜索 section
-          // renders. Install is a UI-side conversion into an McpServerSpec that
+          // Smithery registry search: the Rust `search_smithery_servers`
+          // command does the request via the shared proxy-aware `state.http`
+          // client (the browser `http_request` bridge had a proxy-propagation
+          // gap). Install is a UI-side conversion into an McpServerSpec that
           // reuses the existing `mcpInventory/upsertServer` path — no install RPC.
           const query = (args as { query?: unknown }).query
           if (typeof query !== 'string' || query.trim().length === 0) {
@@ -4855,17 +4871,18 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             // Browser / no bridge: no registry reachable; the local list still works.
             return Promise.resolve({ ok: true, value: { servers: [] } })
           }
-          const url = `https://api.smithery.ai/servers?q=${encodeURIComponent(query.trim())}&limit=20`
-          const res = await invoke<{ status: number; body: number[] }>('http_request', {
-            req: { method: 'GET', url, headers: {}, timeout_ms: 30_000 },
-          })
-          if (res.status < 200 || res.status >= 300) {
-            throw new Error(`mcpRegistry/search: HTTP ${res.status}`)
+          let result: { servers: Array<Record<string, unknown>> }
+          try {
+            result = await invoke<typeof result>('search_smithery_servers', {
+              query: query.trim(),
+              limit: 20,
+            })
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[mcpRegistry/search] search_smithery_servers threw:', error)
+            throw new Error(`mcpRegistry/search: ${error instanceof Error ? error.message : String(error)}`)
           }
-          const text = new TextDecoder().decode(new Uint8Array(res.body))
-          const data = JSON.parse(text) as { servers?: Array<Record<string, unknown>> }
-          const servers = Array.isArray(data.servers) ? data.servers : []
-          const projected = servers.flatMap((raw) => {
+          const projected = result.servers.flatMap((raw) => {
             const qualifiedName = typeof raw?.qualifiedName === 'string' ? raw.qualifiedName : ''
             const displayName = typeof raw?.displayName === 'string' ? raw.displayName : ''
             if (qualifiedName === '' || displayName === '') return []
