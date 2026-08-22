@@ -3153,6 +3153,9 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
     api: string,
     baseUrl: string | undefined,
     history: { role: 'system' | 'user' | 'assistant'; content: string }[],
+    id: SessionId,
+    turn: number,
+    step: number,
   ): Promise<RealLlmReply> => {
     // Mount the enabled MCP servers once per turn (real initialize + tools/list;
     // stdio children stay warm across the loop rounds and are closed below).
@@ -3174,17 +3177,35 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           api,
           ...(baseUrl === undefined ? {} : { baseUrl }),
           tools: agentTools,
+          // Pipe every text fragment into the conversation pane the moment it
+          // leaves the model — without this, the UI sees the reply only
+          // after `callRealLlm` resolves and the loop's append lands one
+          // monolithic text-delta. The accumulated reply.text is identical.
+          onDelta: (text) => {
+            append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text } } })
+          },
         })
         if (reply.toolCalls === undefined || reply.toolCalls.length === 0) return reply
+        // Some providers (DeepSeek/MiniMax on the streaming path observed in
+        // dev) emit `tool_call.id === ''` for tool-call fragments arriving
+        // before the `arguments` are finalized. The OpenAI-compatible spec
+        // requires a stable non-empty id across the multi-chunk tool-call
+        // stream, and the *next* round's request rejects with
+        // `Duplicate value for 'tool_call_id' of '' in message[N]` when the
+        // same empty id reappears. Mint a deterministic id from the call's
+        // 0-index position when the model fails to provide one.
+        const toolCalls = reply.toolCalls.map((call, index) => ({
+          id: call.id.length > 0 ? call.id : `dsh-tool-${String(round)}-${String(index)}`,
+          type: 'function' as const,
+          function: { name: call.name, arguments: call.arguments },
+        }))
         messages.push({
           role: 'assistant',
           content: reply.text,
-          tool_calls: reply.toolCalls.map(call => ({
-            id: call.id, type: 'function', function: { name: call.name, arguments: call.arguments },
-          })),
+          tool_calls: toolCalls,
         })
-        for (const call of reply.toolCalls) {
-          messages.push({ role: 'tool', tool_call_id: call.id, content: await executeAgentTool(call.name, call.arguments, mount.dispatch) })
+        for (const tcall of toolCalls) {
+          messages.push({ role: 'tool', tool_call_id: tcall.id, content: await executeAgentTool(tcall.function.name, tcall.function.arguments, mount.dispatch) })
         }
       }
       return { text: '（已达到最大工具调用轮次，请稍后再试）' }
@@ -3274,7 +3295,7 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
       // Route through an agent loop (interim pi-agent mediation): the model
       // gets a harness system prompt + tools, may call tools, and only the
       // final assistant text streams — not a bare direct-chat completion.
-      return runAgentTurn(apiKey, selection.model, providerApi, effectiveBaseUrl, buildChatMessages(id))
+      return runAgentTurn(apiKey, selection.model, providerApi, effectiveBaseUrl, buildChatMessages(id), id, turn, step)
     }).then((reply) => {
       if (reply === undefined) return
       append(id, { type: 'assistant/chunk', data: { turn, step, chunk: { type: 'text-delta', index: 0, text: reply.text } } })

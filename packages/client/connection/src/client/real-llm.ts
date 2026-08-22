@@ -157,7 +157,7 @@ function decodeBytes(body: number[]): string {
 }
 
 /** Read an SSE body into concatenated delta text (browser fetch streaming). */
-async function readSseStream(response: Response): Promise<{ text: string; usage?: ChatDelta['usage'] }> {
+async function readSseStream(response: Response, onDelta?: (text: string) => void): Promise<{ text: string; usage?: ChatDelta['usage'] }> {
   if (response.body === null) throw new Error('real-llm: response body is null')
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -183,7 +183,10 @@ async function readSseStream(response: Response): Promise<{ text: string; usage?
           continue
         }
         const piece = delta.choices?.[0]?.delta?.content
-        if (typeof piece === 'string') text += piece
+        if (typeof piece === 'string') {
+          text += piece
+          onDelta?.(piece)
+        }
         if (delta.usage !== undefined) usage = delta.usage
       }
     }
@@ -209,8 +212,17 @@ export async function callRealLlm(options: {
   api?: string
   /** OpenAI tool definitions; when present the request advertises tools. */
   tools?: unknown[]
+  /**
+   * Optional streaming hook: invoked with each incremental text delta. The
+   * completion payload arrives as small fragments (often 1-3 chars per
+   * chunk) — pushing them to the UI on every call paints the response
+   * token-by-token instead of waiting for the whole completion. Without
+   * this, the conversation pane shows the reply all-at-once even though the
+   * underlying transport is stream-shaped end-to-end.
+   */
+  onDelta?: (text: string) => void
 }): Promise<RealLlmReply> {
-  const { apiKey, model, messages, signal, baseUrl, api, tools } = options
+  const { apiKey, model, messages, signal, baseUrl, api, tools, onDelta } = options
   // A provider's baseURL is the API root (…/v1); the completions path must be
   // appended unless the caller already passed a full endpoint.
   const url = baseUrl === undefined
@@ -237,7 +249,10 @@ export async function callRealLlm(options: {
   // the upstream is still producing later deltas.
   const invoke = tauriInvoke()
   if (invoke !== undefined) {
-    return await callRealLlmTauriStream({ apiKey, url, headers, body, signal, invoke })
+    return await callRealLlmTauriStream({
+      apiKey, url, headers, body, signal, invoke,
+      ...(onDelta === undefined ? {} : { onDelta }),
+    })
   }
 
   // Browser: streaming fetch (needs provider CORS; dev fallback).
@@ -250,7 +265,7 @@ export async function callRealLlm(options: {
   if (!response.ok) {
     throw new Error(`real-llm: HTTP ${response.status}: ${(await response.text()).slice(0, 400)}`)
   }
-  const { text, usage } = await readSseStream(response)
+  const { text, usage } = await readSseStream(response, onDelta)
   const reply: RealLlmReply = { text }
   if (usage != null) {
     reply.usage = {
@@ -299,8 +314,9 @@ async function callRealLlmTauriStream(options: {
   body: string
   signal: AbortSignal | undefined
   invoke: TauriInvoke
+  onDelta?: (text: string) => void
 }): Promise<RealLlmReply> {
-  const { url, headers, body, signal, invoke } = options
+  const { url, headers, body, signal, invoke, onDelta } = options
   const streamId = cryptoRandomId()
   const startTopic = `${TAURI_STREAM_PREFIX}:${streamId}:start`
   const chunkTopic = `${TAURI_STREAM_PREFIX}:${streamId}:chunk`
@@ -384,7 +400,15 @@ async function callRealLlmTauriStream(options: {
         sseBuffer += decodeBytes(event.payload.bytes)
         const parsed = drainSseBuffer(sseBuffer)
         sseBuffer = parsed.remainder
-        if (parsed.text !== '') text += parsed.text
+        if (parsed.text !== '') {
+          text += parsed.text
+          // Push the freshly-arrived fragment to the consumer immediately
+          // (the conversation pane paints as deltas arrive). When the
+          // consumer passes no hook, the underlying stream still
+          // completes — the final reply text is the same — but the UI
+          // renders in one shot at the end.
+          onDelta?.(parsed.text)
+        }
         if (parsed.usage !== undefined) usage = parsed.usage
         if (parsed.toolCalls !== undefined) {
           toolCalls = mergeToolCalls(toolCalls, parsed.toolCalls)
