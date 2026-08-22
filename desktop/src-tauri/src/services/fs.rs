@@ -15,14 +15,21 @@ pub fn is_allowed(config_dir: &Path, path: &Path) -> bool {
     canonical.starts_with(config_canonical)
 }
 
-/// Allow a path when it lives under EITHER the Tauri app config dir OR the DSH
-/// home (`~/.dsh`). The skill inventory reads `~/.dsh/skills`, which sits under
-/// `dsh_home` — a sibling of the app config dir — so the single-root check alone
-/// would reject it. Both roots are canonicalized before comparison so a
-/// symlinked path still resolves within the allowlist.
-pub fn is_allowed_roots(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool {
+/// Allow a path when it lives under the Tauri app config dir, the DSH home
+/// (`~/.dsh`), or the agent root (`~/.agents`). The skill inventory reads
+/// `~/.dsh/skills`, which sits under `dsh_home`; that root aggregates the
+/// agent skills as directory junctions whose canonical form resolves under
+/// `~/.agents` — so reads through those junctions must also be allowed.
+/// All roots are canonicalized before comparison so a symlinked path still
+/// resolves within the allowlist.
+pub fn is_allowed_roots(
+    config_dir: &Path,
+    dsh_home: &Path,
+    agents_home: &Path,
+    path: &Path,
+) -> bool {
     let Ok(canonical) = path.canonicalize() else { return false };
-    [config_dir, dsh_home].iter().any(|root| {
+    [config_dir, dsh_home, agents_home].iter().any(|root| {
         root.canonicalize()
             .map(|root_canonical| canonical.starts_with(root_canonical))
             .unwrap_or(false)
@@ -64,8 +71,13 @@ fn is_creatable_allowed(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool
     false
 }
 
-pub fn read(config_dir: &Path, dsh_home: &Path, path: &Path) -> AppResult<Vec<u8>> {
-    if !is_allowed_roots(config_dir, dsh_home, path) {
+pub fn read(
+    config_dir: &Path,
+    dsh_home: &Path,
+    agents_home: &Path,
+    path: &Path,
+) -> AppResult<Vec<u8>> {
+    if !is_allowed_roots(config_dir, dsh_home, agents_home, path) {
         return Err(AppError::FsPermissionDenied {
             path: path.to_string_lossy().into_owned(),
         });
@@ -77,6 +89,9 @@ pub fn read(config_dir: &Path, dsh_home: &Path, path: &Path) -> AppResult<Vec<u8
 
 pub fn write(config_dir: &Path, dsh_home: &Path, path: &Path, content: &[u8]) -> AppResult<()> {
     if !is_creatable_allowed(config_dir, dsh_home, path) {
+        // NOTE: fs_write intentionally does NOT allow the agent root — creation
+        // stays confined to config_dir + dsh_home; the agent root is read-only
+        // via the aggregation junctions.
         return Err(AppError::FsPermissionDenied {
             path: path.to_string_lossy().into_owned(),
         });
@@ -93,8 +108,13 @@ pub fn write(config_dir: &Path, dsh_home: &Path, path: &Path, content: &[u8]) ->
     })
 }
 
-pub fn list(config_dir: &Path, dsh_home: &Path, dir: &Path) -> AppResult<Vec<FsEntry>> {
-    if !is_allowed_roots(config_dir, dsh_home, dir) {
+pub fn list(
+    config_dir: &Path,
+    dsh_home: &Path,
+    agents_home: &Path,
+    dir: &Path,
+) -> AppResult<Vec<FsEntry>> {
+    if !is_allowed_roots(config_dir, dsh_home, agents_home, dir) {
         return Err(AppError::FsPermissionDenied {
             path: dir.to_string_lossy().into_owned(),
         });
@@ -118,8 +138,8 @@ pub fn list(config_dir: &Path, dsh_home: &Path, dir: &Path) -> AppResult<Vec<FsE
     Ok(out)
 }
 
-pub fn exists(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool {
-    is_allowed_roots(config_dir, dsh_home, path) && path.exists()
+pub fn exists(config_dir: &Path, dsh_home: &Path, agents_home: &Path, path: &Path) -> bool {
+    is_allowed_roots(config_dir, dsh_home, agents_home, path) && path.exists()
 }
 
 #[cfg(test)]
@@ -139,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn allowlist_accepts_dsh_home_root() {
+    fn allowlist_accepts_dsh_home_and_agents_home_roots() {
         let config = temp_dir().join("dsh_test_config");
         let dsh_home = temp_dir().join("dsh_test_home");
         std::fs::create_dir_all(&config).unwrap();
@@ -149,11 +169,19 @@ mod tests {
         let skill_file = skills.join("SKILL.md");
         std::fs::write(&skill_file, b"x").unwrap();
         // A path under dsh_home is allowed even when it lives outside config_dir.
-        assert!(is_allowed_roots(&config, &dsh_home, &skill_file));
-        // A sibling of dsh_home (~/.agents/skills) stays outside both roots.
         let agents = temp_dir().join("dsh_test_agents");
         std::fs::create_dir_all(&agents).unwrap();
-        assert!(!is_allowed_roots(&config, &dsh_home, &agents));
+        let agent_skill = agents.join("skills").join("one").join("SKILL.md");
+        std::fs::create_dir_all(agent_skill.parent().unwrap()).unwrap();
+        std::fs::write(&agent_skill, b"x").unwrap();
+        assert!(is_allowed_roots(&config, &dsh_home, &agents, &skill_file));
+        // The agent root (~/.agents) is also an allowed read root — aggregation
+        // junctions canonicalize into it.
+        assert!(is_allowed_roots(&config, &dsh_home, &agents, &agent_skill));
+        // A sibling outside all three roots stays rejected.
+        let outside = temp_dir().join("dsh_test_outside_dir");
+        std::fs::create_dir_all(&outside).unwrap();
+        assert!(!is_allowed_roots(&config, &dsh_home, &agents, &outside.join("x")));
     }
 
     #[test]

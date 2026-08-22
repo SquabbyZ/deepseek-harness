@@ -4,10 +4,19 @@ use crate::state::SharedState;
 use std::path::{Path, PathBuf};
 use tauri::State;
 
+/** `~/.agents` — the agent skill root, a sibling of `~/.dsh` under the home dir. */
+fn agents_home_from_dsh_home(dsh_home: &Path) -> PathBuf {
+    dsh_home
+        .parent()
+        .map(|home| home.join(".agents"))
+        .unwrap_or_else(|| PathBuf::from(".agents"))
+}
+
 #[tauri::command]
 pub fn fs_read(path: String, state: State<'_, SharedState>) -> AppResult<Vec<u8>> {
     let s = state.read();
-    fs::read(&s.config_dir, &s.dsh_home, &PathBuf::from(path))
+    let agents_home = agents_home_from_dsh_home(&s.dsh_home);
+    fs::read(&s.config_dir, &s.dsh_home, &agents_home, &PathBuf::from(path))
 }
 
 #[tauri::command]
@@ -23,13 +32,15 @@ pub fn fs_write(
 #[tauri::command]
 pub fn fs_list(dir: String, state: State<'_, SharedState>) -> AppResult<Vec<FsEntry>> {
     let s = state.read();
-    fs::list(&s.config_dir, &s.dsh_home, &PathBuf::from(dir))
+    let agents_home = agents_home_from_dsh_home(&s.dsh_home);
+    fs::list(&s.config_dir, &s.dsh_home, &agents_home, &PathBuf::from(dir))
 }
 
 #[tauri::command]
 pub fn fs_exists(path: String, state: State<'_, SharedState>) -> AppResult<bool> {
     let s = state.read();
-    Ok(fs::exists(&s.config_dir, &s.dsh_home, &PathBuf::from(path)))
+    let agents_home = agents_home_from_dsh_home(&s.dsh_home);
+    Ok(fs::exists(&s.config_dir, &s.dsh_home, &agents_home, &PathBuf::from(path)))
 }
 
 /// Resolve `path` against the host's launch directory (when relative) and
@@ -192,11 +203,7 @@ fn ensure_skill_roots(dsh_home: &Path, agents_home: &Path) -> Vec<String> {
 #[tauri::command]
 pub fn skill_roots_ensure(state: State<'_, SharedState>) -> AppResult<()> {
     let s = state.read();
-    let agents_home = s
-        .dsh_home
-        .parent()
-        .map(|home| home.join(".agents"))
-        .unwrap_or_else(|| PathBuf::from(".agents"));
+    let agents_home = agents_home_from_dsh_home(&s.dsh_home);
     let failures = ensure_skill_roots(&s.dsh_home, &agents_home);
     if failures.is_empty() {
         Ok(())
