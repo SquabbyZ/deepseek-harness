@@ -56,19 +56,30 @@ pub fn run() {
                 PluginRegistry::new(&*conn).init_schema()?;
             }
             // Honor a persisted outbound proxy (the settings panel writes
-            // `proxy.url`); fall back to a direct client when none is set.
-            let persisted_proxy: Option<String> = SettingsStore::new(&*db.lock().expect("db mutex poisoned"))
+            // `proxy.url`); fall back to a direct client when none is set. The
+            // settings panel persists proxy.url to `~/.dsh/settings.yaml` (via
+            // settings_update), NOT the SQLite SettingsStore, so read the YAML
+            // file first and fall back to the (legacy) SQLite value — a proxy
+            // only configured in settings.yaml otherwise goes unapplied and
+            // every outbound request (skills.sh, Smithery, plugin fetches)
+            // fails direct on a proxied network.
+            let dsh_home = crate::services::dsh_settings::dsh_home_dir();
+            let proxy_from_yaml: Option<String> = {
+                let ns = crate::services::dsh_settings::settings_file().get_namespace("proxy");
+                ns.get("url").and_then(|u| u.as_str()).map(String::from)
+            };
+            let proxy_from_db: Option<String> = SettingsStore::new(&*db.lock().expect("db mutex poisoned"))
                 .get("proxy")
                 .ok()
                 .flatten()
                 .and_then(|v| v.get("url").and_then(|u| u.as_str()).map(String::from));
+            let persisted_proxy = proxy_from_yaml.or(proxy_from_db);
             let mut http_builder = reqwest::Client::builder()
                 .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")));
             if let Some(proxy_url) = persisted_proxy.as_deref().filter(|u| !u.trim().is_empty()) {
                 http_builder = http_builder.proxy(reqwest::Proxy::all(proxy_url)?);
             }
             let http = Arc::new(http_builder.build()?);
-            let dsh_home = crate::services::dsh_settings::dsh_home_dir();
             std::fs::create_dir_all(&dsh_home)?;
             let state = AppState {
                 config_dir,
