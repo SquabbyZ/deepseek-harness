@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {} from '../src/client/index.ts'
 import {
   McpInventorySettingsTab,
+  parseArgs,
   type McpInventorySettingsTabInjected,
   type McpInventorySettingsTabProps,
 } from '../src/client/McpInventorySettingsTab.tsx'
@@ -129,6 +130,31 @@ function buildCrudStore(initial: readonly McpInventoryEntry[]) {
   return { store, upserted, deleted, specs }
 }
 
+describe('parseArgs — quote-aware argv tokenizer', () => {
+  it('splits on whitespace', () => {
+    expect(parseArgs('@modelcontextprotocol/server-filesystem /tmp')).toEqual([
+      '@modelcontextprotocol/server-filesystem',
+      '/tmp',
+    ])
+  })
+
+  it('keeps quoted arguments as one token (double and single quotes)', () => {
+    expect(parseArgs('a "b c" d')).toEqual(['a', 'b c', 'd'])
+    expect(parseArgs("run --path 'C:/Program Files/app' --flag")).toEqual([
+      'run',
+      '--path',
+      'C:/Program Files/app',
+      '--flag',
+    ])
+  })
+
+  it('returns no args for a blank string and tolerates an unmatched quote', () => {
+    expect(parseArgs('')).toEqual([])
+    expect(parseArgs('   ')).toEqual([])
+    expect(parseArgs('a "b')).toEqual(['a', 'b'])
+  })
+})
+
 describe('McpInventorySettingsTab CRUD', () => {
   it('adds a stdio server through the form and re-lists it after the upsert refresh', async () => {
     const { store, upserted } = buildCrudStore([])
@@ -200,19 +226,44 @@ describe('McpInventorySettingsTab CRUD', () => {
     expect(upsertServer).not.toHaveBeenCalled()
   })
 
-  it('deletes an existing row through deleteServer and re-lists it gone', async () => {
+  it('deletes an existing row through deleteServer after confirmation, and re-lists it gone', async () => {
     const { store, deleted } = buildCrudStore(ENTRIES)
     const deleteServer = vi.fn(async (entryId: string) => { await store.deleteServer(entryId) })
-    render(<McpInventorySettingsTab {...buildProps({ store, deleteServer })} />)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    try {
+      render(<McpInventorySettingsTab {...buildProps({ store, deleteServer })} />)
 
-    await waitFor(() => { expect(screen.getByText('existing')).toBeTruthy() })
+      await waitFor(() => { expect(screen.getByText('existing')).toBeTruthy() })
 
-    fireEvent.click(screen.getByRole('button', { name: en.delete }))
-    await waitFor(() => { expect(deleteServer).toHaveBeenCalledWith('existing') })
-    expect(deleted).toContain('existing')
+      fireEvent.click(screen.getByRole('button', { name: en.delete }))
+      expect(confirmSpy).toHaveBeenCalledWith(en.deleteConfirm.replace('{{name}}', 'existing'))
+      await waitFor(() => { expect(deleteServer).toHaveBeenCalledWith('existing') })
+      expect(deleted).toContain('existing')
 
-    // The row disappears after the delete-driven refresh re-reads the empty list.
-    await waitFor(() => { expect(screen.getByText(en.empty)).toBeTruthy() })
+      // The row disappears after the delete-driven refresh re-reads the empty list.
+      await waitFor(() => { expect(screen.getByText(en.empty)).toBeTruthy() })
+    } finally {
+      confirmSpy.mockRestore()
+    }
+  })
+
+  it('does not delete when the confirm dialog is dismissed', async () => {
+    const { store, deleted } = buildCrudStore(ENTRIES)
+    const deleteServer = vi.fn(async (entryId: string) => { await store.deleteServer(entryId) })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    try {
+      render(<McpInventorySettingsTab {...buildProps({ store, deleteServer })} />)
+
+      await waitFor(() => { expect(screen.getByText('existing')).toBeTruthy() })
+
+      fireEvent.click(screen.getByRole('button', { name: en.delete }))
+      expect(confirmSpy).toHaveBeenCalledWith(en.deleteConfirm.replace('{{name}}', 'existing'))
+      expect(deleteServer).not.toHaveBeenCalled()
+      expect(deleted).toHaveLength(0)
+      expect(screen.getByText('existing')).toBeTruthy()
+    } finally {
+      confirmSpy.mockRestore()
+    }
   })
 
   it('pre-fills the form when editing a row and keeps the same entry on save', async () => {

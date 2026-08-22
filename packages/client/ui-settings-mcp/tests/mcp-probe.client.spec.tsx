@@ -12,7 +12,7 @@
  *     failure, with other rows' test buttons disabled while one is in flight.
  */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 // Type-only side effect: loads the plugin's LocaleNamespaceMap merge.
 import type {} from '../src/client/index.ts'
 import { probeMcpServer, type ProbeResult } from '../src/client/mcp-probe.ts'
@@ -304,6 +304,25 @@ describe('probeMcpServer', () => {
     expect(mock.calls.filter(call => call.cmd === 'mcp_stdio_read').every(call => call.args?.connId === 1)).toBe(true)
   })
 
+  it('honors opts.timeoutMs for the http_request timeout', async () => {
+    const mock = installTauriMock({ http_request: httpProbeHandler(['a']) })
+    const result = await probeMcpServer(HTTP_SPEC, { timeoutMs: 1234 })
+    expect(result).toEqual({ ok: true, toolCount: 1 })
+    const httpCalls = mock.calls.filter(call => call.cmd === 'http_request')
+    expect(httpCalls).toHaveLength(2)
+    for (const call of httpCalls) {
+      expect((call.args?.req as { timeout_ms?: number }).timeout_ms).toBe(1234)
+    }
+  })
+
+  it('defaults the http_request timeout to 30s when no opts.timeoutMs is given', async () => {
+    const mock = installTauriMock({ http_request: httpProbeHandler(['a']) })
+    await probeMcpServer(HTTP_SPEC)
+    for (const call of mock.calls.filter(call => call.cmd === 'http_request')) {
+      expect((call.args?.req as { timeout_ms?: number }).timeout_ms).toBe(30_000)
+    }
+  })
+
   it('returns unavailable without a Tauri bridge', async () => {
     const result = await probeMcpServer(HTTP_SPEC)
     expect(result).toEqual({ ok: false, toolCount: 0, error: 'unavailable' })
@@ -427,5 +446,59 @@ describe('McpInventorySettingsTab test button', () => {
       expect(restored).toHaveLength(2)
       for (const button of restored) expect((button as HTMLButtonElement).disabled).toBe(false)
     })
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  Probe result lifecycle: stale results clear on delete/edit          */
+/* ------------------------------------------------------------------ */
+
+/** A store that mirrors the fixture's id-from-name upsert/delete so a row can be re-added. */
+function buildReaddStore(initial: readonly McpInventoryEntry[]): McpInventoryStore {
+  const specs = new Map<string, McpServerSpec>()
+  for (const entry of initial) specs.set(entry.entryId, entry.spec)
+  return createMcpInventoryStore({
+    list: async () => {
+      const byId = new Map<string, McpInventoryEntry>()
+      for (const [entryId, spec] of specs) byId.set(entryId, project(spec))
+      return { entries: [...byId.values()] }
+    },
+    upsertServer: async (spec) => { specs.set(slug(spec.serverName), spec) },
+    deleteServer: async (entryId) => { specs.delete(entryId) },
+    search: async () => ({ servers: [] }),
+  }, () => undefined)
+}
+
+describe('McpInventorySettingsTab probe result lifecycle', () => {
+  it('clears the stale probe result when the row is deleted and re-added with the same slug', async () => {
+    installTauriMock({ http_request: httpProbeHandler(['a']) })
+    const store = buildReaddStore([project(HTTP_SPEC)])
+    const deleteServer = vi.fn(async (entryId: string) => { await store.deleteServer(entryId) })
+    const upsertServer = vi.fn(async (spec: McpServerSpec) => { await store.upsertServer(spec) })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    try {
+      render(<McpInventorySettingsTab {...buildProps({ store, upsertServer, deleteServer })} />)
+
+      await waitFor(() => { expect(screen.getByText('remote')).toBeTruthy() })
+      fireEvent.click(screen.getByRole('button', { name: en.test }))
+      await waitFor(() => { expect(screen.getByText(en.probeOk.replace('{{count}}', '1'))).toBeTruthy() })
+
+      // Delete the row (confirm accepted) → the probe badge must not resurface
+      // when a server with the same slug is added back before being re-tested.
+      fireEvent.click(screen.getByRole('button', { name: en.delete }))
+      await waitFor(() => { expect(screen.getByText(en.empty)).toBeTruthy() })
+
+      fireEvent.click(screen.getByRole('button', { name: en.addServer }))
+      fireEvent.change(screen.getByLabelText(en.transport), { target: { value: 'streamable-http' } })
+      fireEvent.change(screen.getByLabelText(en.serverName), { target: { value: 'remote' } })
+      fireEvent.change(screen.getByLabelText(en.url), { target: { value: 'https://mcp.example.com/mcp' } })
+      fireEvent.click(screen.getByRole('button', { name: en.save }))
+
+      await waitFor(() => { expect(screen.getByText('remote')).toBeTruthy() })
+      expect(screen.queryByRole('status')).toBeNull()
+      expect(screen.queryByText(en.probeOk.replace('{{count}}', '1'))).toBeNull()
+    } finally {
+      confirmSpy.mockRestore()
+    }
   })
 })

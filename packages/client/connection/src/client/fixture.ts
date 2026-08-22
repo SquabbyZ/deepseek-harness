@@ -100,7 +100,9 @@ function isWindowsHost(): boolean {
  * Parse YAML frontmatter from a skill's SKILL.md (`---\n...\n---`) with simple
  * line parsing (no YAML dependency). Only top-level string fields feed the
  * inventory: `name`, `description`, `whenToUse`. Quoted scalars and folded
- * block scalars (`|` / `>`) are handled; everything else is ignored.
+ * block scalars (`|` / `>`) are handled; everything else is ignored. A block
+ * scalar with no indented content before `---` yields `''` (rather than being
+ * dropped), and trailing blank block lines are trimmed from the folded value.
  */
 export function parseSkillFrontmatter(markdown: string): { name?: string; description?: string; whenToUse?: string } {
   const out: { name?: string; description?: string; whenToUse?: string } = {}
@@ -119,23 +121,38 @@ export function parseSkillFrontmatter(markdown: string): { name?: string; descri
     const key = line.slice(0, colon).trim()
     if (key !== 'name' && key !== 'description' && key !== 'whenToUse') continue
     let value = line.slice(colon + 1).trim()
+    let isBlockScalar = false
     if (value === '|' || value === '>') {
+      isBlockScalar = true
       const block: string[] = []
       i++
       while (i < lines.length && text(i).trim() !== '---' && (text(i).startsWith(' ') || text(i).startsWith('\t'))) {
         block.push(text(i).trim())
         i++
       }
-      value = block.join(' ')
+      // Fold the block into one line; trailing indented blank lines would
+      // otherwise inject a trailing space (and an empty block yields '').
+      value = block.join(' ').replace(/\s+$/, '')
       i--
     } else if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
       value = value.slice(1, -1)
     } else if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
       value = value.slice(1, -1)
     }
-    if (value !== '') out[key as 'name' | 'description' | 'whenToUse'] = value
+    // A block scalar is stored even when empty (''), so `description: |` with
+    // no content still surfaces a (blank) description rather than no key.
+    if (value !== '' || isBlockScalar) out[key as 'name' | 'description' | 'whenToUse'] = value
   }
   return out
+}
+
+/**
+ * Derive the user's home directory from the DSH config dir (`~/.dsh`): strip
+ * any trailing path separators, then the final path segment.
+ * `C:/Users/x/.dsh` → `C:/Users/x`; `C:/Users/x/.dsh/` → `C:/Users/x`.
+ */
+export function homeFromDshConfigDir(dshConfigDir: string): string {
+  return dshConfigDir.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]+$/, '')
 }
 
 /**
@@ -4663,15 +4680,22 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           try {
             const dshHome = await invoke<string>('dsh_config_dir')
             if (typeof dshHome === 'string' && dshHome.length > 0) {
-              const home = dshHome.replace(/[\\/]+$/, '')
+              const home = homeFromDshConfigDir(dshHome)
               if (home.length > 0) {
-                entries.push(...await readSkillDir(invoke, `${home}/skills`, 'user-dsh'))
-                const parent = home.replace(/[\\/][^\\/]+$/, '')
-                if (parent.length > 0) entries.push(...await readSkillDir(invoke, `${parent}/.agents/skills`, 'user-agents'))
+                entries.push(...await readSkillDir(invoke, `${home}/.dsh/skills`, 'user-dsh'))
+                entries.push(...await readSkillDir(invoke, `${home}/.agents/skills`, 'user-agents'))
               }
             }
           } catch {
             // dsh_config_dir unavailable → no roots; keep the empty list.
+          }
+          // Real-mode fallback: when the real read yields nothing AND the user
+          // has not persisted any skill toggles, surface the curated defaults
+          // so an empty (or unreadable) ~/.dsh does not render a blank
+          // 技能管理 panel. Persisted toggles are respected — once the user has
+          // configured the inventory, the real (possibly empty) result stands.
+          if (entries.length === 0 && skillEnabled.size === 0) {
+            entries.push(...fixtureSkills.map(skill => ({ ...skill, enabled: skill.enabled })))
           }
           return Promise.resolve({ ok: true, value: { entries } })
         }
@@ -4777,17 +4801,11 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
           return Promise.resolve({ ok: true, value: { ok: true as const } })
         }
         case 'mcpInventory/list': {
-          const invoke = tauriInvoke()
-          if (invoke === undefined) {
-            // Browser / no bridge: seed once so the persisted `mcp-inventory`
-            // namespace is applied, then project the persisted servers (the
-            // source of truth) — mirrors the Tauri branch.
-            await seedSettings()
-            const entries = [...mcpServers.entries()].map(projectMcpEntry)
-            return Promise.resolve({ ok: true, value: { entries } })
-          }
-          // Tauri: seed once so the persisted `mcp-inventory` namespace is
-          // applied, then project the persisted servers (the source of truth).
+          // Seed once so the persisted `mcp-inventory` namespace is applied,
+          // then project the persisted servers (the source of truth). The
+          // no-bridge browser path is identical to the Tauri path: settings_get
+          // is a no-op without the bridge, so mcpServers holds only what the
+          // session mutated in memory.
           await seedSettings()
           const entries = [...mcpServers.entries()].map(projectMcpEntry)
           return Promise.resolve({ ok: true, value: { entries } })

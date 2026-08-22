@@ -116,9 +116,13 @@ export function createSkillInventoryStore(
     for (const listener of [...listeners]) listener()
   }
 
-  /** Single-flight read of the registry; a no-op while one is already in flight. */
-  const read = (): void => {
-    if (inFlight !== undefined) return
+  /**
+   * Single-flight read of the registry; a no-op while one is already in flight.
+   * Returns the settled promise so callers (e.g. `install`) can await the
+   * refreshed snapshot.
+   */
+  const read = (): Promise<void> => {
+    if (inFlight !== undefined) return inFlight
     const issued = generation
     const controller = new AbortController()
     inFlight = port.list(controller.signal).then(
@@ -142,6 +146,7 @@ export function createSkillInventoryStore(
     ).finally(() => {
       if (issued === generation) inFlight = undefined
     })
+    return inFlight
   }
 
   return {
@@ -159,7 +164,9 @@ export function createSkillInventoryStore(
     search: query => port.search(query),
     install: async (target) => {
       await port.install(target)
-      read()
+      // Await the re-read so the freshly installed entry is visible in the
+      // snapshot by the time the install promise settles.
+      await read()
     },
   }
 }

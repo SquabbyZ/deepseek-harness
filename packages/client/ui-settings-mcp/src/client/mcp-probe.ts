@@ -43,6 +43,8 @@ const MCP_CLIENT_NAME = 'deepseek-harness'
 const MCP_CLIENT_VERSION = '0.1.0'
 /** How long a stdio exchange waits for a complete response line before giving up. */
 const STDIO_TIMEOUT_MS = 5000
+/** Default timeout for each streamable-http POST (overridable via `opts.timeoutMs`). */
+const HTTP_TIMEOUT_MS = 30_000
 /** Pause between stdio read polls (each bridge read already waits ~50ms internally). */
 const STDIO_POLL_MS = 10
 
@@ -105,11 +107,12 @@ async function httpPost(
   url: string,
   request: { id: number; method: string; params?: unknown },
   sessionId?: string,
+  timeoutMs?: number,
 ): Promise<TauriHttpResponse> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (sessionId !== undefined) headers['mcp-session-id'] = sessionId
   const res = await invoke<TauriHttpResponse>('http_request', {
-    req: { method: 'POST', url, headers, body: jsonBytes({ jsonrpc: '2.0', ...request }), timeout_ms: 30_000 },
+    req: { method: 'POST', url, headers, body: jsonBytes({ jsonrpc: '2.0', ...request }), timeout_ms: timeoutMs ?? HTTP_TIMEOUT_MS },
   })
   if (res.status < 200 || res.status >= 300) {
     throw new Error(`HTTP ${res.status}: ${decodeBytes(res.body).slice(0, 400)}`)
@@ -120,6 +123,7 @@ async function httpPost(
 async function probeStreamableHttp(
   invoke: TauriInvoke,
   spec: Extract<McpServerSpec, { transport: 'streamable-http' }>,
+  timeoutMs?: number,
 ): Promise<ProbeResult> {
   const initialize = await httpPost(invoke, spec.url, {
     id: 1,
@@ -129,12 +133,12 @@ async function probeStreamableHttp(
       capabilities: {},
       clientInfo: { name: MCP_CLIENT_NAME, version: MCP_CLIENT_VERSION },
     },
-  })
+  }, undefined, timeoutMs)
   // Surface a JSON-RPC error on initialize; its result body is otherwise unused
   // beyond proving the handshake (the session id is the state we carry forward).
   parseJsonRpc(decodeBytes(initialize.body))
   const sessionId = headerValue(initialize.headers, 'mcp-session-id')
-  const list = await httpPost(invoke, spec.url, { id: 2, method: 'tools/list' }, sessionId)
+  const list = await httpPost(invoke, spec.url, { id: 2, method: 'tools/list' }, sessionId, timeoutMs)
   const parsed = parseJsonRpc(decodeBytes(list.body))
   return { ok: true, toolCount: toolsOf(parsed.result) }
 }
@@ -208,7 +212,7 @@ async function probeStdio(
  * Probe one MCP server with a real connection handshake.
  * @param spec - the persisted server spec (stdio or streamable-http).
  * @param opts - optional probe knobs; `timeoutMs` bounds the stdio exchange
- *   (default 5s, shortened by tests).
+ *   (default 5s) and each streamable-http POST (default 30s), shortened by tests.
  * @returns `{ ok, toolCount, error? }` per the plan contract.
  */
 export async function probeMcpServer(
@@ -221,7 +225,7 @@ export async function probeMcpServer(
     if (spec.transport === 'stdio') {
       return await probeStdio(invoke, spec, opts?.timeoutMs ?? STDIO_TIMEOUT_MS)
     }
-    return await probeStreamableHttp(invoke, spec)
+    return await probeStreamableHttp(invoke, spec, opts?.timeoutMs ?? HTTP_TIMEOUT_MS)
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     return { ok: false, toolCount: 0, error: reason }

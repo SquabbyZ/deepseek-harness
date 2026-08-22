@@ -9,7 +9,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SessionId } from '../src/client/api.ts'
-import { createFixtureFaces, parseSkillFrontmatter } from '../src/client/fixture.ts'
+import { createFixtureFaces, homeFromDshConfigDir, parseSkillFrontmatter } from '../src/client/fixture.ts'
 
 const sid = (id: string): SessionId => id as SessionId
 
@@ -115,6 +115,38 @@ description: |
 
   it('returns empty when there is no frontmatter', () => {
     expect(parseSkillFrontmatter('# No frontmatter\n\ntext')).toEqual({})
+  })
+
+  it('produces an empty string for an empty block scalar (`description: |` then `---`)', () => {
+    expect(parseSkillFrontmatter(`---
+name: shell
+description: |
+---`)).toEqual({ name: 'shell', description: '' })
+  })
+
+  it('trims trailing indented blank lines from a folded block scalar', () => {
+    expect(parseSkillFrontmatter(`---
+description: |
+  第一行
+  ${'  '}
+  ${'  '}
+---`)).toEqual({ description: '第一行' })
+  })
+
+  it('folds a `>` block scalar the same way as `|`', () => {
+    expect(parseSkillFrontmatter(`---
+description: >
+  第一行
+  第二行
+---`)).toEqual({ description: '第一行 第二行' })
+  })
+})
+
+describe('homeFromDshConfigDir', () => {
+  it('strips trailing separators and the final path segment', () => {
+    expect(homeFromDshConfigDir('C:/Users/test/.dsh')).toBe('C:/Users/test')
+    expect(homeFromDshConfigDir('C:/Users/test/.dsh/')).toBe('C:/Users/test')
+    expect(homeFromDshConfigDir('/home/test/.dsh')).toBe('/home/test')
   })
 })
 
@@ -236,6 +268,26 @@ describe('skillInventory/list — real directories under Tauri', () => {
     const entries = await skillList(rpc)
     expect(entries.map(e => e.entryId)).toEqual(['shell', 'web-search', 'agent-loop'])
     expect(entries[0]?.source).toBe('builtin')
+  })
+
+  it('degrades to the curated defaults when both real roots are unreadable and no toggles are persisted', async () => {
+    installTauriMock({
+      listErrors: [SKILLS_DIR, AGENTS_DIR],
+    })
+    const { rpc } = createFixtureFaces()
+    const entries = await skillList(rpc)
+    expect(entries.map(e => e.entryId)).toEqual(['shell', 'web-search', 'agent-loop'])
+    expect(entries[0]?.source).toBe('builtin')
+  })
+
+  it('keeps the empty real list when the user has persisted toggles (no default fallback)', async () => {
+    installTauriMock({
+      listErrors: [SKILLS_DIR, AGENTS_DIR],
+      settingsGet: { 'skill-inventory': { enabled: { shell: false } } },
+    })
+    const { rpc } = createFixtureFaces()
+    const entries = await skillList(rpc)
+    expect(entries).toEqual([])
   })
 })
 

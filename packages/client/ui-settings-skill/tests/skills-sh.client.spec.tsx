@@ -298,6 +298,17 @@ function buildProps({
   } as SkillInventorySettingsTabProps
 }
 
+describe('createSkillInventoryStore install — awaits the re-read', () => {
+  it('publishes the freshly installed entry before the install promise settles', async () => {
+    const { store, installed } = buildSearchStore([])
+    await store.install({ name: 'Plan', source: 'vercel/ai-skill' })
+    expect(installed).toContainEqual({ name: 'Plan', source: 'vercel/ai-skill' })
+    // The store re-read the inventory and published before install resolved.
+    expect(store.getSnapshot().entries.map(entry => entry.entryId)).toEqual(['Plan'])
+    expect(store.getSnapshot().read).toBe(true)
+  })
+})
+
 describe('SkillInventorySettingsTab skills.sh search + install', () => {
   it('triggers the search port on a non-empty query and renders remote cards', async () => {
     const { store, searched } = buildSearchStore([])

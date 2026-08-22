@@ -95,10 +95,34 @@ type RemoteState =
 /** Debounce before a keystroke hits the Smithery registry. */
 const SEARCH_DEBOUNCE_MS = 200
 
-/** Split a whitespace-separated argument string into argv (empty string → no args). */
-function parseArgs(raw: string): string[] {
+/**
+ * Split an argument string into argv, respecting single/double quotes so a
+ * path or flag containing spaces stays one token (`a "b c" d` → ['a', 'b c', 'd']).
+ * Empty string → no args; an unmatched quote consumes the rest as one token.
+ */
+export function parseArgs(raw: string): string[] {
   const trimmed = raw.trim()
-  return trimmed.length === 0 ? [] : trimmed.split(/\s+/)
+  if (trimmed.length === 0) return []
+  const tokens: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+  for (const char of trimmed) {
+    if (quote !== null) {
+      if (char === quote) quote = null
+      else current += char
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (/\s/.test(char)) {
+      if (current.length > 0) {
+        tokens.push(current)
+        current = ''
+      }
+    } else {
+      current += char
+    }
+  }
+  if (current.length > 0) tokens.push(current)
+  return tokens
 }
 
 /** Stable entry id derived from a server name (slug); the tab and the fixture agree on it. */
@@ -289,6 +313,10 @@ export function McpInventorySettingsTab({
       if (editing !== null && mcpServerId(name) !== editing) {
         await deleteServer(editing)
       }
+      // The probe result is keyed by entryId and goes stale the moment the spec
+      // changes, so drop it for both the edited row and the (possibly renamed) target.
+      clearProbeResult(mcpServerId(name))
+      if (editing !== null) clearProbeResult(editing)
       closeForm()
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
@@ -299,12 +327,24 @@ export function McpInventorySettingsTab({
   }
 
   const remove = async (entry: McpInventoryEntryView): Promise<void> => {
+    if (!window.confirm(t('deleteConfirm', { name: entry.serverName }))) return
     try {
       await deleteServer(entry.entryId)
+      // A deleted row's probe result would otherwise resurface if a server with
+      // the same slug is later re-added before being re-tested.
+      clearProbeResult(entry.entryId)
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       flashError(t('deleteError', { name: entry.serverName, reason }))
     }
+  }
+
+  /** Drop the cached probe result for one row (stale after the spec changes or the row is removed). */
+  const clearProbeResult = (entryId: string): void => {
+    setProbeResults((previous) => {
+      if (!Object.hasOwn(previous, entryId)) return previous
+      return Object.fromEntries(Object.entries(previous).filter(([key]) => key !== entryId))
+    })
   }
 
   // Concurrent probes are prevented by `disabled={probeBusy}` on every test

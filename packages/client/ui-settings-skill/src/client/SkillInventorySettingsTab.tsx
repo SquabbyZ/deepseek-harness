@@ -177,7 +177,10 @@ export function SkillInventorySettingsTab({
   }, [query])
 
   const handleInstall = useCallback(async (skill: SkillRegistrySkill): Promise<void> => {
-    setInstalling(skill.name)
+    // Two registry rows can share a display name but never a source/name pair,
+    // so the busy state is keyed by the same composite id the row uses.
+    const installKey = `${skill.source}/${skill.name}`
+    setInstalling(installKey)
     try {
       await install({ name: skill.name, source: skill.source })
       store.refresh()
@@ -259,7 +262,7 @@ export function SkillInventorySettingsTab({
                       skill.description,
                       skill.installs > 0 ? t('installs', { count: String(skill.installs) }) : '',
                     ].filter(Boolean).join(' · ')
-                    const busy = installing === skill.name
+                    const busy = installing === `${skill.source}/${skill.name}`
                     return (
                       <li key={`${skill.source}/${skill.name}`} data-remote-skill={skill.name}>
                         <div className={REMOTE_ROW}>
