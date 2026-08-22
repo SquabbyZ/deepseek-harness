@@ -78,6 +78,19 @@ export function tauriInvoke(): TauriInvoke | undefined {
 }
 
 /**
+ * One envelope Tauri 2 wraps every emitted payload in. The user's data lives
+ * at `payload`; `event` is the topic name, `id` is a per-emission counter.
+ * The previous shape passed the user payload straight through (Tauri 1 / a
+ * few plugins still do), and reading `payload.status` silently returned
+ * `undefined` — which is exactly what broke the first streaming call.
+ */
+interface TauriEvent<T> {
+  readonly event: string
+  readonly id: number
+  readonly payload: T
+}
+
+/**
  * Tauri 2 event listen, without `@tauri-apps/api/event`. The webview IPC
  * exposes `__TAURI_INTERNALS__.transformCallback` to wrap a JS callback into
  * a callback id, then `invoke('plugin:event|listen', { event, target, handler })`
@@ -88,7 +101,7 @@ export function tauriInvoke(): TauriInvoke | undefined {
  */
 export function tauriListen<T>(
   event: string,
-  handler: (payload: T) => void,
+  handler: (event: TauriEvent<T>) => void,
 ): Promise<() => void> {
   const internals = (globalThis as { __TAURI_INTERNALS__?: TauriInternals }).__TAURI_INTERNALS__
   const invoke = internals?.invoke
@@ -356,15 +369,19 @@ async function callRealLlmTauriStream(options: {
       // (Rust only emits after `spawn` → `execute_streaming` reaches its
       // first `on_chunk`, which is well past the JS `await invoke(...)`
       // round-trip).
-      void tauriListen<TauriStreamStart>(startTopic, (payload) => {
-        status = payload.status
+      void tauriListen<TauriStreamStart>(startTopic, (event) => {
+        // Tauri 2 wraps every emitted payload in `{ event, id, payload }` — the
+        // user-supplied data lives at `event.payload`. Accessing `event.status`
+        // (the previous shape) silently produced `undefined` and the
+        // accumulator never filled, so the UI saw an empty assistant message.
+        status = event.payload.status
         if (status < 200 || status >= 300) settle(`HTTP ${status}`)
       }).then((unlisten) => { off.push(unlisten) }, (err: unknown) => {
         settle(err instanceof Error ? err.message : String(err))
       })
-      void tauriListen<TauriStreamChunk>(chunkTopic, (payload) => {
+      void tauriListen<TauriStreamChunk>(chunkTopic, (event) => {
         if (finished) return
-        sseBuffer += decodeBytes(payload.bytes)
+        sseBuffer += decodeBytes(event.payload.bytes)
         const parsed = drainSseBuffer(sseBuffer)
         sseBuffer = parsed.remainder
         if (parsed.text !== '') text += parsed.text
@@ -376,8 +393,8 @@ async function callRealLlmTauriStream(options: {
         settle(err instanceof Error ? err.message : String(err))
       })
       void tauriListen<TauriStreamEnd>(endTopic, () => { settle() }).then((unlisten) => { off.push(unlisten) })
-      void tauriListen<TauriStreamError>(errorTopic, (payload) => {
-        settle(payload.message)
+      void tauriListen<TauriStreamError>(errorTopic, (event) => {
+        settle(event.payload.message)
       }).then((unlisten) => { off.push(unlisten) })
 
       if (signal !== undefined && !signal.aborted) {
