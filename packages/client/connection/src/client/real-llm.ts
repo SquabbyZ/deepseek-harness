@@ -9,9 +9,9 @@
  * the snapshot-test lanes deterministic (they never set `realLlm`).
  *
  * Transport order:
- *  1. Tauri runtime (`__TAURI_INTERNALS__`): `invoke('http_request')` → the
- *     Rust reqwest client. No CORS, and the response is buffered, so the call
- *     uses `stream: false` and returns the complete reply text.
+ *  1. Tauri runtime (`__TAURI_INTERNALS__`): `invoke('http_request_stream')` →
+ *     the Rust reqwest client streams chunks back through Tauri events
+ *     (`dsh-http-stream:<id>:start|chunk|end|error`). No CORS, no buffering.
  *  2. Plain browser: `fetch` streaming (SSE) — works when the provider's
  *     API sends CORS headers (local dev without Tauri).
  *
@@ -66,16 +66,47 @@ export function realModelOf(model: string): string {
 interface TauriInvoke {
   <T>(cmd: string, args?: Record<string, unknown>): Promise<T>
 }
-interface TauriHttpResponse {
-  status: number
-  headers: Record<string, string>
-  body: number[]
+interface TauriInternals {
+  invoke?: TauriInvoke
+  transformCallback?: <T>(callback: (response: T) => void, once: boolean) => number
 }
 
 export function tauriInvoke(): TauriInvoke | undefined {
-  const internals = (globalThis as { __TAURI_INTERNALS__?: { invoke?: unknown } }).__TAURI_INTERNALS__
+  const internals = (globalThis as { __TAURI_INTERNALS__?: TauriInternals }).__TAURI_INTERNALS__
   const invoke = internals?.invoke
   return typeof invoke === 'function' ? (invoke as unknown as TauriInvoke) : undefined
+}
+
+/**
+ * Tauri 2 event listen, without `@tauri-apps/api/event`. The webview IPC
+ * exposes `__TAURI_INTERNALS__.transformCallback` to wrap a JS callback into
+ * a callback id, then `invoke('plugin:event|listen', { event, target, handler })`
+ * registers it on the event plugin. The returned `unlisten` calls
+ * `plugin:event|unlisten` to deregister — without it the listener leaks
+ * across calls. The wrapper returns a single Promise so the streaming code
+ * stays `await`-linear.
+ */
+export function tauriListen<T>(
+  event: string,
+  handler: (payload: T) => void,
+): Promise<() => void> {
+  const internals = (globalThis as { __TAURI_INTERNALS__?: TauriInternals }).__TAURI_INTERNALS__
+  const invoke = internals?.invoke
+  const transform = internals?.transformCallback
+  if (typeof invoke !== 'function' || typeof transform !== 'function') {
+    return Promise.reject(new Error('tauriListen: __TAURI_INTERNALS__ unavailable'))
+  }
+  const callbackId = transform(handler as (response: unknown) => void, false)
+  return invoke<number>('plugin:event|listen', {
+    event,
+    target: { kind: 'Any' },
+    handler: callbackId,
+  }).then(listenId => () => {
+    void invoke('plugin:event|unlisten', {
+      event,
+      eventId: listenId,
+    })
+  })
 }
 
 /** Credential transport backed by the Rust OS-keyring commands. */
@@ -184,37 +215,16 @@ export async function callRealLlm(options: {
     ? { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
     : { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` }
 
-  // Tauri: buffered Rust reqwest (no CORS). Non-streaming is unnecessary —
-  // the body is complete when the invoke resolves, so parse the SSE body.
+  // Tauri: streaming Rust reqwest (no CORS, no full-body buffering). The
+  // `http_request` command used to read `resp.bytes().await` — that single
+  // await held back every token until the LLM flushed the whole completion,
+  // which made the official UI's first response arrive all-at-once instead
+  // of streaming. `http_request_stream` mirrors the network chunks to Tauri
+  // events one-for-one so the agent's first `assistant/chunk` lands while
+  // the upstream is still producing later deltas.
   const invoke = tauriInvoke()
   if (invoke !== undefined) {
-    const res = await invoke<TauriHttpResponse>('http_request', {
-      req: {
-        method: 'POST',
-        url,
-        headers,
-        body: [...new TextEncoder().encode(body)],
-        timeout_ms: 120_000,
-      },
-    })
-    if (res.status < 200 || res.status >= 300) {
-      throw new Error(`real-llm: HTTP ${res.status}: ${decodeBytes(res.body).slice(0, 400)}`)
-    }
-    const sse = decodeBytes(res.body)
-    const parsed = parseBufferedSse(sse)
-    const reply: RealLlmReply = { text: parsed.text }
-    if (parsed.toolCalls !== undefined && parsed.toolCalls.length > 0) reply.toolCalls = parsed.toolCalls
-    // Some providers send `usage: null` (MiniMax) on a non-final chunk; the
-    // loose check also skips the null case instead of crashing on `.prompt_tokens`.
-    if (parsed.usage != null) {
-      reply.usage = {
-        inputTokens: parsed.usage.prompt_tokens ?? 0,
-        outputTokens: parsed.usage.completion_tokens ?? 0,
-        ...(parsed.usage.prompt_cache_hit_tokens !== undefined ? { cacheReadTokens: parsed.usage.prompt_cache_hit_tokens } : {}),
-        ...(parsed.usage.prompt_cache_miss_tokens !== undefined ? { cacheWriteTokens: parsed.usage.prompt_cache_miss_tokens } : {}),
-      }
-    }
-    return reply
+    return await callRealLlmTauriStream({ apiKey, url, headers, body, signal, invoke })
   }
 
   // Browser: streaming fetch (needs provider CORS; dev fallback).
@@ -240,26 +250,186 @@ export async function callRealLlm(options: {
   return reply
 }
 
-/** One streamed tool-call fragment, concatenated by index across deltas. */
-export interface RealLlmToolCall {
-  /** Server-side call id (the `id` field on the first fragment). */
-  id: string
-  name: string
-  /** Concatenated JSON argument string. */
-  arguments: string
+/** Event-name prefix matching `STREAM_EVENT_PREFIX` in `commands/http.rs`. */
+const TAURI_STREAM_PREFIX = 'dsh-http-stream'
+
+interface TauriStreamStart {
+  status: number
+  headers: Record<string, string>
+}
+interface TauriStreamChunk {
+  bytes: number[]
+}
+interface TauriStreamEnd {
+  ok: boolean
+}
+interface TauriStreamError {
+  message: string
 }
 
-/** Parse a buffered SSE document (the Tauri path delivers the body whole). */
-function parseBufferedSse(body: string): {
+/**
+ * Tauri-side real LLM call. Subscribes to the four `dsh-http-stream:<id>:*`
+ * events, invokes `http_request_stream` (which spawns a Rust task), and
+ * assembles the reply from the chunks that arrive. The first `assistant/chunk`
+ * from the agent sees text that has already streamed at least one delta, so
+ * the UI renders progressively rather than all-at-once.
+ *
+ * `signal` is optional: when supplied, aborting it cancels the Rust task via
+ * `http_request`'s `timeout_ms` expiry isn't possible, so we instead drop the
+ * in-flight reply on `signal.aborted` and let the task drain server-side
+ * (the listener is unregistered as soon as `end`/`error` fires either way).
+ */
+async function callRealLlmTauriStream(options: {
+  apiKey: string
+  url: string
+  headers: Record<string, string>
+  body: string
+  signal: AbortSignal | undefined
+  invoke: TauriInvoke
+}): Promise<RealLlmReply> {
+  const { url, headers, body, signal, invoke } = options
+  const streamId = cryptoRandomId()
+  const startTopic = `${TAURI_STREAM_PREFIX}:${streamId}:start`
+  const chunkTopic = `${TAURI_STREAM_PREFIX}:${streamId}:chunk`
+  const endTopic = `${TAURI_STREAM_PREFIX}:${streamId}:end`
+  const errorTopic = `${TAURI_STREAM_PREFIX}:${streamId}:error`
+
+  // Single subscription set; we capture each `unlisten` as it resolves and
+  // tear them all down when the terminal event fires (or the user aborts).
+  const off: Array<() => void> = []
+  const offAll = (): void => {
+    while (off.length > 0) {
+      const unlisten = off.shift()
+      if (unlisten !== undefined) unlisten()
+    }
+  }
+
+  try {
+    return await new Promise<RealLlmReply>((resolve, reject) => {
+      let status = 0
+      let sseBuffer = ''
+      let text = ''
+      let usage: ChatDelta['usage']
+      let toolCalls: RealLlmToolCall[] | undefined
+      let finished = false
+      const settle = (err?: string): void => {
+        if (finished) return
+        finished = true
+        // Tear down inside the settle so a chunk that lands between
+        // `end` and our cleanup can't push text onto a returned promise.
+        offAll()
+        if (signal !== undefined) signal.removeEventListener('abort', onAbort)
+        if (err !== undefined) {
+          reject(new Error(`real-llm: ${err}`))
+          return
+        }
+        if (status < 200 || status >= 300) {
+          reject(new Error(`real-llm: HTTP ${status}`))
+          return
+        }
+        // Flush any tail SSE the last chunk left in the buffer (server didn't
+        // terminate on a newline).
+        if (sseBuffer.length > 0) {
+          const tail = drainSseBuffer(`${sseBuffer}\n`)
+          if (tail.text !== '') text += tail.text
+          if (tail.usage !== undefined) usage = tail.usage
+          if (tail.toolCalls !== undefined) toolCalls = mergeToolCalls(toolCalls, tail.toolCalls)
+          sseBuffer = ''
+        }
+        const reply: RealLlmReply = { text }
+        if (toolCalls !== undefined && toolCalls.length > 0) reply.toolCalls = toolCalls
+        if (usage != null) {
+          reply.usage = {
+            inputTokens: usage.prompt_tokens ?? 0,
+            outputTokens: usage.completion_tokens ?? 0,
+            ...(usage.prompt_cache_hit_tokens !== undefined ? { cacheReadTokens: usage.prompt_cache_hit_tokens } : {}),
+            ...(usage.prompt_cache_miss_tokens !== undefined ? { cacheWriteTokens: usage.prompt_cache_miss_tokens } : {}),
+          }
+        }
+        resolve(reply)
+      }
+      const onAbort = (): void => {
+        settle('aborted')
+      }
+
+      // Subscribe BEFORE invoking so the first emit never lands in the void
+      // (Rust only emits after `spawn` → `execute_streaming` reaches its
+      // first `on_chunk`, which is well past the JS `await invoke(...)`
+      // round-trip).
+      void tauriListen<TauriStreamStart>(startTopic, (payload) => {
+        status = payload.status
+        if (status < 200 || status >= 300) settle(`HTTP ${status}`)
+      }).then((unlisten) => { off.push(unlisten) }, (err: unknown) => {
+        settle(err instanceof Error ? err.message : String(err))
+      })
+      void tauriListen<TauriStreamChunk>(chunkTopic, (payload) => {
+        if (finished) return
+        sseBuffer += decodeBytes(payload.bytes)
+        const parsed = drainSseBuffer(sseBuffer)
+        sseBuffer = parsed.remainder
+        if (parsed.text !== '') text += parsed.text
+        if (parsed.usage !== undefined) usage = parsed.usage
+        if (parsed.toolCalls !== undefined) {
+          toolCalls = mergeToolCalls(toolCalls, parsed.toolCalls)
+        }
+      }).then((unlisten) => { off.push(unlisten) }, (err: unknown) => {
+        settle(err instanceof Error ? err.message : String(err))
+      })
+      void tauriListen<TauriStreamEnd>(endTopic, () => { settle() }).then((unlisten) => { off.push(unlisten) })
+      void tauriListen<TauriStreamError>(errorTopic, (payload) => {
+        settle(payload.message)
+      }).then((unlisten) => { off.push(unlisten) })
+
+      if (signal !== undefined && !signal.aborted) {
+        signal.addEventListener('abort', onAbort, { once: true })
+      }
+
+      void invoke('http_request_stream', {
+        streamId,
+        req: {
+          method: 'POST',
+          url,
+          headers,
+          body: [...new TextEncoder().encode(body)],
+          timeout_ms: 120_000,
+        },
+      }).catch((err: unknown) => {
+        settle(err instanceof Error ? err.message : String(err))
+      })
+    })
+  } catch (error) {
+    // Safety net: even if `settle` couldn't fire (e.g. `offAll` threw), make
+    // sure listeners don't leak past the awaited call.
+    offAll()
+    throw error
+  }
+}
+
+/** Per-call unique id for the Tauri event subscription. */
+function cryptoRandomId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  // Fallback for environments without crypto.randomUUID (older Safari).
+  return `dsh-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+/**
+ * Drain SSE lines from `buffer`. Mirrors `parseBufferedSse` but only on
+ * complete lines so a chunk arriving mid-line doesn't split a JSON payload.
+ * The remainder is whatever's left of the partial line for the next chunk.
+ */
+function drainSseBuffer(buffer: string): {
   text: string
   usage?: ChatDelta['usage']
   toolCalls?: RealLlmToolCall[]
+  remainder: string
 } {
   let text = ''
   let usage: ChatDelta['usage']
   let toolCalls: RealLlmToolCall[] | undefined
-  for (const line of body.split('\n')) {
-    const trimmed = line.trim()
+  const lines = buffer.split('\n')
+  const remainder = lines.pop() ?? ''
+  for (const raw of lines) {
+    const trimmed = raw.trim()
     if (!trimmed.startsWith('data:')) continue
     const payload = trimmed.slice(5).trim()
     if (payload === '[DONE]') continue
@@ -290,5 +460,33 @@ function parseBufferedSse(body: string): {
     text,
     ...(usage === undefined ? {} : { usage }),
     ...(toolCalls === undefined || toolCalls.length === 0 ? {} : { toolCalls }),
+    remainder,
   }
 }
+
+/** Merge new tool-call deltas into an existing accumulator by index. */
+function mergeToolCalls(
+  previous: RealLlmToolCall[] | undefined,
+  next: RealLlmToolCall[],
+): RealLlmToolCall[] {
+  const merged = previous !== undefined ? previous.slice() : []
+  for (const call of next) {
+    const index = merged.length // caller passed index 0 in normal flow
+    merged[index] = merged[index] ?? { id: '', name: '', arguments: '' }
+    if (call.id !== '') merged[index].id = call.id
+    if (call.name !== '') merged[index].name += call.name
+    if (call.arguments !== '') merged[index].arguments += call.arguments
+  }
+  return merged
+}
+
+/** One streamed tool-call fragment, concatenated by index across deltas. */
+export interface RealLlmToolCall {
+  /** Server-side call id (the `id` field on the first fragment). */
+  id: string
+  name: string
+  /** Concatenated JSON argument string. */
+  arguments: string
+}
+
+/** Per-call unique id for the Tauri event subscription. */

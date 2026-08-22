@@ -55,6 +55,14 @@ type SkillRegistryRemote = {
     target: { name: string; source: string },
     signal?: AbortSignal,
   ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
+  uninstall(
+    target: { name: string },
+    signal?: AbortSignal,
+  ): Promise<{ ok: boolean; error?: { code: string; message: string } }>
+  readDetails(
+    target: { name: string },
+    signal?: AbortSignal,
+  ): Promise<{ ok: boolean; value: { body: string }; error?: { code: string; message: string } }>
 }
 
 /** Contribute the skill inventory tab to the Plugins settings section. */
@@ -87,6 +95,19 @@ export function apply(ctx: ClientContext): void {
           throw new Error(`skillRegistry.install failed: ${result.error?.code}: ${result.error?.message}`)
         }
       },
+      uninstall: async (target, signal) => {
+        const result = await remote.skillRegistry.uninstall(target, signal)
+        if (!result.ok) {
+          throw new Error(`skillRegistry.uninstall failed: ${result.error?.code}: ${result.error?.message}`)
+        }
+      },
+      readDetails: async (target, signal) => {
+        const result = await remote.skillRegistry.readDetails(target, signal)
+        if (!result.ok) {
+          throw new Error(`skillRegistry.readDetails failed: ${result.error?.code}: ${result.error?.message}`)
+        }
+        return result.value.body
+      },
     },
     (error) => {
       console.error('[ui-settings-skill] read failed:', error)
@@ -116,6 +137,8 @@ export function apply(ctx: ClientContext): void {
     },
     search: query => store.search(query),
     install: target => store.install(target),
+    uninstall: (target, _signal) => store.uninstall(target),
+    readDetails: (target, _signal) => store.readDetails(target),
   })
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({

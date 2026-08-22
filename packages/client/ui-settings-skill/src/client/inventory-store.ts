@@ -61,6 +61,10 @@ export interface SkillInventoryPort {
   search: (query: string) => Promise<SkillRegistrySearchResult>
   /** Install a remote skill into `~/.dsh/skills/{name}`; throws on RPC failure. */
   install: (target: SkillRegistryInstallTarget) => Promise<void>
+  /** Uninstall a skill directory; throws on RPC failure. */
+  uninstall: (target: { name: string }, signal: AbortSignal) => Promise<void>
+  /** Read a skill's SKILL.md body for the details panel; throws on RPC failure. */
+  readDetails: (target: { name: string }, signal: AbortSignal) => Promise<string>
 }
 
 /** One installable skill surfaced by the skills.sh registry. */
@@ -93,6 +97,10 @@ export interface SkillInventoryStore extends HostObservable<SkillInventoryPanelS
   search(query: string): Promise<SkillRegistrySearchResult>
   /** Install a remote skill, then re-read the local inventory so it appears. */
   install(target: SkillRegistryInstallTarget): Promise<void>
+  /** Uninstall a skill by name; re-reads the inventory on success. */
+  uninstall(target: { name: string }): Promise<void>
+  /** Read a skill's SKILL.md body (used by the details panel). */
+  readDetails(target: { name: string }): Promise<string>
 }
 
 /**
@@ -167,6 +175,17 @@ export function createSkillInventoryStore(
       // Await the re-read so the freshly installed entry is visible in the
       // snapshot by the time the install promise settles.
       await read()
+    },
+    uninstall: async (target) => {
+      const controller = new AbortController()
+      await port.uninstall(target, controller.signal)
+      // Re-read so the freshly removed entry disappears from the snapshot by
+      // the time the uninstall promise settles.
+      await read()
+    },
+    readDetails: (target) => {
+      const controller = new AbortController()
+      return port.readDetails(target, controller.signal)
     },
   }
 }

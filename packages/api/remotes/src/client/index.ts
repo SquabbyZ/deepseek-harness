@@ -237,9 +237,60 @@ const skillInstallDescriptor: InvocationDescriptor = {
   cancellation: { parameter: 'signal' },
   result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/installSkill:result', schema: z.object({ ok: z.literal(true) }) },
 }
+// Uninstall removes a previously installed skill from `~/.dsh/skills/{name}`.
+// Symlinked entries from `~/.agents/skills` are NOT uninstalled through this
+// path — the UI only enables the button for skills whose `source` is
+// `owner/repo`, which the installer stamps on install. Older hand-installed
+// skills are also covered once their frontmatter carries a source line.
+// Only `name` is required: the directory is derived (`~/.dsh/skills/{name}`).
+const skillUninstallDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-skill-inventory#skillRegistry/uninstall',
+  service: 'skillRegistry',
+  namespace: 'skillRegistry',
+  method: 'uninstall',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'target',
+      wire: 'target',
+      source: 'json',
+      codec: {
+        mode: 'strict',
+        typeSymbol: '@deepseek-ai/dsh-skill-inventory#skill-uninstall-target',
+        schema: z.object({ name: z.string() }),
+      },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/uninstall:result', schema: z.object({ ok: z.literal(true) }) },
+}
+// Read the SKILL.md body for a previously installed skill. The UI uses this
+// for the details panel — frontmatter is already shown on the row; the body
+// holds the actual instructions.
+const skillDetailsDescriptor: InvocationDescriptor = {
+  id: '@deepseek-ai/dsh-skill-inventory#skillRegistry/readDetails',
+  service: 'skillRegistry',
+  namespace: 'skillRegistry',
+  method: 'readDetails',
+  invocation: { kind: 'direct' },
+  parameters: [
+    {
+      name: 'target',
+      wire: 'target',
+      source: 'json',
+      codec: {
+        mode: 'strict',
+        typeSymbol: '@deepseek-ai/dsh-skill-inventory#skill-details-target',
+        schema: z.object({ name: z.string() }),
+      },
+    },
+  ],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-skill-inventory#skillRegistry/readDetails:result', schema: z.object({ body: z.string() }) },
+}
 const skillRegistryRemote: TypertRemoteContribution = {
   package: '@deepseek-ai/dsh-skill-registry',
-  descriptors: [skillSearchDescriptor, skillInstallDescriptor],
+  descriptors: [skillSearchDescriptor, skillInstallDescriptor, skillUninstallDescriptor, skillDetailsDescriptor],
 }
 // One persisted McpServerSpec (the `mcp-inventory` namespace value); kept exact
 // to the ui-settings-mcp store type so the fixture and the tab agree on shape.

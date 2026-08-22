@@ -99,13 +99,15 @@ function isWindowsHost(): boolean {
 /**
  * Parse YAML frontmatter from a skill's SKILL.md (`---\n...\n---`) with simple
  * line parsing (no YAML dependency). Only top-level string fields feed the
- * inventory: `name`, `description`, `whenToUse`. Quoted scalars and folded
- * block scalars (`|` / `>`) are handled; everything else is ignored. A block
- * scalar with no indented content before `---` yields `''` (rather than being
- * dropped), and trailing blank block lines are trimmed from the folded value.
+ * inventory: `name`, `description`, `whenToUse`, `source`. Quoted scalars and
+ * folded block scalars (`|` / `>`) are handled; everything else is ignored. A
+ * block scalar with no indented content before `---` yields `''` (rather than
+ * being dropped), and trailing blank block lines are trimmed from the folded
+ * value. `source` is typically written by the installer (`oil-oil/foo`) so the
+ * UI can render the GitHub link; built-in skills leave it out.
  */
-export function parseSkillFrontmatter(markdown: string): { name?: string; description?: string; whenToUse?: string } {
-  const out: { name?: string; description?: string; whenToUse?: string } = {}
+export function parseSkillFrontmatter(markdown: string): { name?: string; description?: string; whenToUse?: string; source?: string } {
+  const out: { name?: string; description?: string; whenToUse?: string; source?: string } = {}
   const lines = markdown.split(/\r?\n/)
   const text = (n: number): string => lines[n] ?? ''
   let i = 0
@@ -119,7 +121,7 @@ export function parseSkillFrontmatter(markdown: string): { name?: string; descri
     const colon = line.indexOf(':')
     if (colon <= 0) continue
     const key = line.slice(0, colon).trim()
-    if (key !== 'name' && key !== 'description' && key !== 'whenToUse') continue
+    if (key !== 'name' && key !== 'description' && key !== 'whenToUse' && key !== 'source') continue
     let value = line.slice(colon + 1).trim()
     let isBlockScalar = false
     if (value === '|' || value === '>') {
@@ -141,7 +143,7 @@ export function parseSkillFrontmatter(markdown: string): { name?: string; descri
     }
     // A block scalar is stored even when empty (''), so `description: |` with
     // no content still surfaces a (blank) description rather than no key.
-    if (value !== '' || isBlockScalar) out[key as 'name' | 'description' | 'whenToUse'] = value
+    if (value !== '' || isBlockScalar) out[key as 'name' | 'description' | 'whenToUse' | 'source'] = value
   }
   return out
 }
@@ -153,6 +155,63 @@ export function parseSkillFrontmatter(markdown: string): { name?: string; descri
  */
 export function homeFromDshConfigDir(dshConfigDir: string): string {
   return dshConfigDir.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]+$/, '')
+}
+
+/**
+ * Ensure a SKILL.md frontmatter carries a `source: <repo>` line. The installer
+ * writes this on every install so the inventory panel can show a clickable
+ * `owner/repo` link instead of an opaque `user-dsh` classification.
+ *
+ * Rules:
+ *  - If the frontmatter already has a non-empty `source:` line, leave it alone
+ *    (an upstream skill can declare its own canonical source).
+ *  - If the frontmatter is missing entirely or has no `source:`, splice one in
+ *    right after the opening `---`.
+ *  - If the document has no frontmatter at all, prepend a minimal one so the
+ *    install is still listed (and the parse-side comment about block scalars
+ *    stays accurate: a missing block is treated as `''`).
+ */
+export function stampSkillSource(markdown: string, source: string): string {
+  const trimmedSource = source.trim()
+  if (trimmedSource.length === 0) return markdown
+  const lines = markdown.split(/\r?\n/)
+  // Find the first non-blank line; it must be `---` for there to be frontmatter.
+  let start = 0
+  while (start < lines.length && lines[start]?.trim() === '') start++
+  if (start >= lines.length || lines[start]?.trim() !== '---') {
+    // No frontmatter at all — prepend a minimal one carrying the source.
+    return `---\nsource: ${trimmedSource}\n---\n${markdown}`
+  }
+  // Walk the frontmatter until the closing `---`; if `source:` is already
+  // present and non-empty, leave the document untouched.
+  const close = findFrontmatterClose(lines, start + 1)
+  if (close < 0) {
+    // Malformed (no closing `---`); rewrite as a clean frontmatter + body.
+    return `---\nsource: ${trimmedSource}\n---\n${markdown}`
+  }
+  for (let i = start + 1; i < close; i++) {
+    const line = lines[i] ?? ''
+    const m = /^source\s*:\s*(.*)$/.exec(line.trim())
+    if (m !== null) {
+      const existing = m[1]?.trim() ?? ''
+      if (existing.length > 0) return markdown
+      // Empty value — replace with the install's source.
+      lines[i] = `source: ${trimmedSource}`
+      return lines.join('\n')
+    }
+  }
+  // No `source:` key yet — insert one right after the opening `---`.
+  const insertAt = start + 1
+  lines.splice(insertAt, 0, `source: ${trimmedSource}`)
+  return lines.join('\n')
+}
+
+/** Find the closing `---` for a frontmatter opened at `openIdx`. */
+function findFrontmatterClose(lines: string[], openIdx: number): number {
+  for (let i = openIdx; i < lines.length; i++) {
+    if ((lines[i] ?? '').trim() === '---') return i
+  }
+  return -1
 }
 
 /**
@@ -4618,7 +4677,13 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         name: fm.name ?? entryId,
         description: fm.description ?? '',
         ...(fm.whenToUse !== undefined ? { whenToUse: fm.whenToUse } : {}),
-        source,
+        // Skills installed from skills.sh carry their `owner/repo` in the
+        // frontmatter `source:` line (stamped on install); built-in / hand-
+        // authored skills leave it out, so we fall back to the directory
+        // bucket (`user-dsh` / `user-agents`). The UI turns a `owner/repo`
+        // source into a clickable GitHub link; the bucket source stays
+        // un-rendered.
+        source: fm.source ?? source,
         provider: 'dsh',
         modelInvocable: true,
         userInvocable: true,
@@ -4843,7 +4908,111 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
               env: {},
             },
           })
+          // 5. Stamp the install provenance into SKILL.md's frontmatter so the
+          //    inventory can render `owner/repo` as a clickable GitHub link.
+          //    If the upstream SKILL.md already carried a `source:` line we
+          //    honor it; otherwise we insert one right after the opening
+          //    `---`. Writing the same file through `fs_write` keeps the round
+          //    trip inside the Rust fs allowlist (no shell, no glob).
+          try {
+            const skillPath = `${dest}/SKILL.md`
+            const bytes = await invoke<number[]>('fs_read', { path: skillPath })
+            const markdown = new TextDecoder().decode(new Uint8Array(bytes))
+            const stamped = stampSkillSource(markdown, source)
+            if (stamped !== markdown) {
+              await invoke('fs_write', {
+                path: skillPath,
+                content: [...new TextEncoder().encode(stamped)],
+              })
+            }
+          } catch {
+            // SKILL.md missing or unreadable after extract — the inventory
+            // list will skip this entry on the next read, which is the same
+            // outcome as a hand-written skill without frontmatter.
+          }
           return Promise.resolve({ ok: true, value: { ok: true as const } })
+        }
+        case 'skillRegistry/uninstall': {
+          // Removes a previously installed skill. The UI only enables this for
+          // skills whose frontmatter `source:` is `owner/repo` (i.e. they came
+          // through `installSkill`); symlinked `~/.agents/skills` entries
+          // stay put. Without a desktop bridge there is nothing to uninstall.
+          const invoke = tauriInvoke()
+          if (invoke === undefined) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill uninstall requires the desktop bridge', details: {} },
+            })
+          }
+          const target = (args as { target?: { name?: unknown } }).target
+          const name = typeof target?.name === 'string' ? target.name.trim() : ''
+          if (name.length === 0) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill uninstall missing name', details: {} },
+            })
+          }
+          const dshHome = await invoke<string>('dsh_config_dir')
+          if (typeof dshHome !== 'string' || dshHome.length === 0) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill uninstall could not resolve ~/.dsh', details: {} },
+            })
+          }
+          const home = dshHome.replace(/[\\/]+$/, '')
+          const targetDir = `${home}/skills/${name}`
+          // Use `shell_spawn` with `rm -rf` on POSIX and `rmdir /s /q` on
+          // Windows; the shell whitelist gates these commands.
+          await invoke('shell_spawn', {
+            spec: {
+              cmd: isWindowsHost() ? 'rmdir' : 'rm',
+              args: isWindowsHost()
+                ? ['/s', '/q', targetDir]
+                : ['-rf', targetDir],
+              env: {},
+            },
+          })
+          return Promise.resolve({ ok: true, value: { ok: true as const } })
+        }
+        case 'skillRegistry/readDetails': {
+          // Read the SKILL.md body for a previously installed skill so the
+          // details panel can render its instructions (the frontmatter is
+          // already on the row). Without a desktop bridge the body is empty.
+          const invoke = tauriInvoke()
+          if (invoke === undefined) {
+            return Promise.resolve({ ok: true, value: { body: '' } })
+          }
+          const target = (args as { target?: { name?: unknown } }).target
+          const name = typeof target?.name === 'string' ? target.name.trim() : ''
+          if (name.length === 0) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill readDetails missing name', details: {} },
+            })
+          }
+          const dshHome = await invoke<string>('dsh_config_dir')
+          if (typeof dshHome !== 'string' || dshHome.length === 0) {
+            return Promise.resolve({
+              ok: false,
+              error: { code: 'internal', message: 'skill readDetails could not resolve ~/.dsh', details: {} },
+            })
+          }
+          const home = dshHome.replace(/[\\/]+$/, '')
+          const skillPath = `${home}/skills/${name}/SKILL.md`
+          try {
+            const bytes = await invoke<number[]>('fs_read', { path: skillPath })
+            const body = new TextDecoder().decode(new Uint8Array(bytes))
+            return Promise.resolve({ ok: true, value: { body } })
+          } catch (error) {
+            return Promise.resolve({
+              ok: false,
+              error: {
+                code: 'internal',
+                message: `skill readDetails: ${error instanceof Error ? error.message : String(error)}`,
+                details: {},
+              },
+            })
+          }
         }
         case 'mcpInventory/list': {
           // Seed once so the persisted `mcp-inventory` namespace is applied,

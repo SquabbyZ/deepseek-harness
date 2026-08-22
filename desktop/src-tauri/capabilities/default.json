@@ -17,6 +17,7 @@
     "opener:default",
     "log:default",
     "dialog:default",
-    "deep-link:default"
+    "deep-link:default",
+    "core:event:default"
   ]
 }

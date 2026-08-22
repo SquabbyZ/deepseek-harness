@@ -20,7 +20,8 @@ import {
   type SkillRegistrySearchResult,
   type SkillRegistrySkill,
 } from './inventory-store.ts'
-import type { SkillInventoryLocaleKey } from './locales.ts'
+// (SkillInventoryLocaleKey is no longer imported — the source classification
+// keys are no longer read by this tab; the row renders `owner/repo` instead.)
 
 /** Registration-side Remote face used by the section. */
 export interface SkillInventorySettingsTabInjected {
@@ -36,6 +37,10 @@ export interface SkillInventorySettingsTabInjected {
   search: (query: string) => Promise<SkillRegistrySearchResult>
   /** Install a remote skill into `~/.dsh/skills/{name}`; throws on RPC failure. */
   install: (target: SkillRegistryInstallTarget) => Promise<void>
+  /** Uninstall a previously installed skill; throws on RPC failure. */
+  uninstall: (target: { name: string }, options: { signal: AbortSignal }) => Promise<void>
+  /** Read a skill's SKILL.md body for the details panel; throws on RPC failure. */
+  readDetails: (target: { name: string }, options: { signal: AbortSignal }) => Promise<string>
 }
 
 /** Full component props assembled by the Settings slot renderer. */
@@ -73,7 +78,30 @@ const REMOTE_ROW =
 const REMOTE_LEADING = 'flex min-w-0 flex-col'
 const REMOTE_NAME = 'm-0 truncate text-sm leading-5 font-semibold text-[var(--dsw-alias-label-primary)]'
 const REMOTE_CAPTION = 'm-0 truncate text-[12px] leading-[18px] text-[var(--dsw-alias-label-tertiary)]'
+const REMOTE_SOURCE = 'truncate text-[12px] leading-[18px] text-[var(--dsw-alias-label-tertiary)] hover:text-[var(--dsw-alias-label-primary)] underline-offset-2 hover:underline'
 const INSTALL_BUTTON = 'h-auto flex-none rounded-md px-2.5 py-1 text-[13px] leading-5'
+const SWITCH_ROW_SOURCE = REMOTE_SOURCE
+const DETAILS_BUTTON = 'h-auto flex-none rounded-md border-border bg-transparent px-2.5 py-1 text-[12px] leading-[18px] font-normal text-[var(--dsw-alias-label-secondary)] hover:bg-transparent hover:text-foreground focus-visible:ring-0 aria-pressed:bg-[var(--dsw-alias-bg-layer-2)]'
+const UNINSTALL_BUTTON = 'h-auto flex-none rounded-md border-[var(--dsw-alias-state-error-primary)] bg-transparent px-2.5 py-1 text-[12px] leading-[18px] font-normal text-[var(--dsw-alias-state-error-primary)] hover:bg-transparent hover:text-[var(--dsw-alias-state-error-primary)] focus-visible:ring-0 disabled:opacity-60'
+const DETAILS_PANEL = 'mt-1 rounded-[8px] border border-[var(--dsw-alias-border-l2)] bg-[var(--dsw-alias-bg-layer-2)] p-3'
+const DETAILS_BODY = 'm-0 max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[12px] leading-[18px] text-[var(--dsw-alias-label-secondary)] font-mono'
+
+/**
+ * Detect whether an inventory `source` value is an `owner/repo` GitHub
+ * pointer (the form the installer stamps into SKILL.md) versus a bucket
+ * classification (`user-dsh`, `user-agents`, `runtime`, etc.). The two shapes
+ * are distinguished by a single `/` separator and the GitHub owner-name rule
+ * (no dots, no empty halves).
+ */
+function isOwnerRepoSource(source: string): boolean {
+  if (source.length === 0) return false
+  const slash = source.indexOf('/')
+  if (slash <= 0 || slash === source.length - 1) return false
+  const owner = source.slice(0, slash)
+  const repo = source.slice(slash + 1)
+  if (owner.includes('.') || repo.includes('.')) return false
+  return true
+}
 
 /** Render the user-toggleable skill inventory + skills.sh search / install. */
 export function SkillInventorySettingsTab({
@@ -82,6 +110,8 @@ export function SkillInventorySettingsTab({
   refresh,
   search,
   install,
+  uninstall,
+  readDetails,
   t,
 }: SkillInventorySettingsTabProps): ReactNode {
   const [request, setRequest] = useState(0)
@@ -91,6 +121,10 @@ export function SkillInventorySettingsTab({
   const toastSeq = useRef(0)
   const [remote, setRemote] = useState<RemoteState>({ status: 'idle' })
   const [installing, setInstalling] = useState<string | null>(null)
+  const [uninstalling, setUninstalling] = useState<string | null>(null)
+  // The details panel reads SKILL.md on demand — keyed by entryId, not name,
+  // so a UI retry reuses the same row identity. `null` means closed.
+  const [details, setDetails] = useState<{ entryId: string; name: string; status: 'loading' | 'ready'; body: string; error?: string } | null>(null)
 
   useEffect(() => {
     if (!snapshot.read) store.refresh()
@@ -193,6 +227,40 @@ export function SkillInventorySettingsTab({
     }
   }, [install, store, t, flashError, flashSuccess])
 
+  const handleUninstall = useCallback(async (entry: SkillInventoryEntryView): Promise<void> => {
+    setUninstalling(entry.entryId)
+    // Close the details panel if it was open for the same skill — the next
+    // refresh no longer carries this entry.
+    if (details?.entryId === entry.entryId) setDetails(null)
+    try {
+      const controller = new AbortController()
+      await uninstall({ name: entry.name }, { signal: controller.signal })
+      store.refresh()
+      flashSuccess(t('uninstallSuccess', { name: entry.name }))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      flashError(t('uninstallFailed', { name: entry.name, reason }))
+    } finally {
+      setUninstalling(null)
+    }
+  }, [uninstall, store, details, t, flashError, flashSuccess])
+
+  const handleDetails = useCallback(async (entry: SkillInventoryEntryView): Promise<void> => {
+    setDetails({ entryId: entry.entryId, name: entry.name, status: 'loading', body: '' })
+    try {
+      const controller = new AbortController()
+      const body = await readDetails({ name: entry.name }, { signal: controller.signal })
+      setDetails(prev => prev?.entryId === entry.entryId
+        ? { entryId: entry.entryId, name: entry.name, status: 'ready', body }
+        : prev)
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      setDetails(prev => prev?.entryId === entry.entryId
+        ? { entryId: entry.entryId, name: entry.name, status: 'ready', body: '', error: reason }
+        : prev)
+    }
+  }, [readDetails])
+
   const sectionRef = useRef<HTMLDivElement | null>(null)
 
   return (
@@ -228,17 +296,83 @@ export function SkillInventorySettingsTab({
               {filteredEntries.map((entry) => {
                 const intended = intendedSnapshot().get(entry.entryId)
                 const effective = intended !== undefined ? intended : entry.enabled
-                const sourceKey = `source${entry.source.charAt(0).toUpperCase()}${entry.source.slice(1).replace(/-./g, x => x.slice(1).toUpperCase())}` as SkillInventoryLocaleKey
-                const sourceLabel = t(sourceKey)
+                // Skills installed from skills.sh carry their `owner/repo` in
+                // the frontmatter `source:` line (stamped on install); the
+                // row renders it as a clickable GitHub link. Built-in /
+                // hand-authored skills leave the source as a bucket like
+                // `user-dsh`, which isn't an owner/repo and never renders.
+                const sourceHref = isOwnerRepoSource(entry.source)
+                  ? `https://github.com/${entry.source}`
+                  : null
+                // Uninstall is only offered for skills that came from the
+                // installer (`owner/repo` source); builtins and symlinked
+                // agent skills stay put.
+                const canUninstall = sourceHref !== null
+                const busyUninstall = uninstalling === entry.entryId
+                const isDetailsOpen = details?.entryId === entry.entryId
                 return (
                   <li key={entry.entryId} data-skill-entry={entry.entryId}>
                     <SwitchRow
                       entryId={entry.entryId}
                       label={entry.name}
-                      caption={entry.description || sourceLabel}
+                      caption={entry.description}
                       checked={effective}
                       onCheckedChange={(next) => { scheduleToggle(entry.entryId, next) }}
+                      actions={
+                        <span className="inline-flex items-center gap-2">
+                          {sourceHref !== null ? (
+                            <a
+                              className={SWITCH_ROW_SOURCE}
+                              href={sourceHref}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              data-skill-source={entry.source}
+                              title={entry.source}
+                            >
+                              {entry.source}
+                            </a>
+                          ) : null}
+                          <ShadcnButton
+                            size="sm"
+                            variant="outline"
+                            className={DETAILS_BUTTON}
+                            aria-pressed={isDetailsOpen}
+                            onClick={() => {
+                              if (isDetailsOpen) setDetails(null)
+                              else { void handleDetails(entry) }
+                            }}
+                            data-skill-action="details"
+                          >
+                            {t('details')}
+                          </ShadcnButton>
+                          {canUninstall ? (
+                            <ShadcnButton
+                              size="sm"
+                              variant="outline"
+                              className={UNINSTALL_BUTTON}
+                              disabled={busyUninstall}
+                              onClick={() => { void handleUninstall(entry) }}
+                              data-skill-action="uninstall"
+                            >
+                              {busyUninstall ? t('uninstalling') : t('uninstall')}
+                            </ShadcnButton>
+                          ) : null}
+                        </span>
+                      }
                     />
+                    {isDetailsOpen ? (
+                      <div className={DETAILS_PANEL} data-skill-details={entry.entryId}>
+                        {details?.status === 'loading' ? (
+                          <p className={STATUS}>{t('detailsLoading')}</p>
+                        ) : details?.error !== undefined ? (
+                          <p className={FAILURE} role="alert">
+                            {t('detailsError', { reason: details.error })}
+                          </p>
+                        ) : (
+                          <pre className={DETAILS_BODY}>{details?.body ?? ''}</pre>
+                        )}
+                      </div>
+                    ) : null}
                   </li>
                 )
               })}

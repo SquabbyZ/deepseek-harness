@@ -8,7 +8,7 @@ use crate::commands::credentials::{credentials_delete, credentials_get, credenti
 use crate::commands::deeplink::{deeplink_import, deeplink_parse};
 use crate::commands::dialog::{dialog_message, dialog_open, dialog_save};
 use crate::commands::fs::{cwd_resolve, fs_exists, fs_list, fs_read, fs_write, skill_roots_ensure};
-use crate::commands::http::{http_request, http_set_proxy, proxy_test};
+use crate::commands::http::{http_request, http_request_stream, http_set_proxy, proxy_test};
 use crate::commands::inventory::inventory_set_enabled;
 use crate::commands::mcp_stdio::{
     mcp_stdio_close, mcp_stdio_read, mcp_stdio_spawn, mcp_stdio_write,
@@ -43,6 +43,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
+        // The streaming HTTP command emits `dsh-http-stream:<id>:*` events
+        // through Tauri 2's built-in event API (`tauri::Emitter` on the Rust
+        // side, `plugin:event|listen` on the webview side). No plugin
+        // registration is required — the core runtime handles both directions
+        // and the `core:event:default` capability grants the webview the
+        // listen/emit permissions it needs.
         .setup(|app| {
             let config_dir = app
                 .path()
@@ -101,7 +107,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, dsh_read_credentials, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_set_proxy, proxy_test, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, skill_roots_ensure, search_skills_sh, search_smithery_servers, dsh_config_dir, dsh_read_workspaces, shell_spawn, which, mcp_stdio_close, mcp_stdio_read, mcp_stdio_spawn, mcp_stdio_write])
+        .invoke_handler(tauri::generate_handler![app_config_dir, app_version, crash_log_path, credentials_delete, credentials_get, credentials_set, dsh_read_credentials, cwd_resolve, deeplink_import, deeplink_parse, dialog_message, dialog_open, dialog_save, fs_exists, fs_list, fs_read, fs_write, http_request, http_request_stream, http_set_proxy, proxy_test, inventory_set_enabled, plugin_get_manifest, plugin_install, plugin_list, plugin_read_file, plugin_reload, plugin_uninstall, settings_get, settings_update, skill_roots_ensure, search_skills_sh, search_smithery_servers, dsh_config_dir, dsh_read_workspaces, shell_spawn, which, mcp_stdio_close, mcp_stdio_read, mcp_stdio_spawn, mcp_stdio_write])
         .run(tauri::generate_context!())
         .expect("error while running DSH desktop");
 }

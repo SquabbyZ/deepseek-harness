@@ -259,13 +259,20 @@ function buildSearchStore(initial: readonly SkillInventoryEntry[]) {
         entryId: id(target.name),
         name: target.name,
         description: '',
-        source: 'user-dsh',
+        source: target.source,
         provider: 'dsh',
         modelInvocable: true,
         userInvocable: true,
         enabled: true,
       }
       entries.set(entry.entryId, entry)
+    },
+    uninstall: async (target: { name: string }) => {
+      entries.delete(target.name)
+    },
+    readDetails: async (target: { name: string }) => {
+      const entry = entries.get(target.name)
+      return entry === undefined ? '' : `# ${entry.name}\n\ndescription`
     },
   }, () => undefined)
   return { store, installed, searched }
@@ -275,6 +282,8 @@ function buildProps({
   store,
   search,
   install,
+  uninstall,
+  readDetails,
   setEnabled = vi.fn(async () => undefined),
   list = vi.fn(async () => ({ entries: store.getSnapshot().entries })),
   refresh = vi.fn(),
@@ -282,6 +291,8 @@ function buildProps({
   store: SkillInventoryStore
   search?: SkillInventorySettingsTabInjected['search']
   install?: SkillInventorySettingsTabInjected['install']
+  uninstall?: SkillInventorySettingsTabInjected['uninstall']
+  readDetails?: SkillInventorySettingsTabInjected['readDetails']
   setEnabled?: SkillInventorySettingsTabInjected['setEnabled']
   list?: SkillInventorySettingsTabInjected['list']
   refresh?: SkillInventorySettingsTabInjected['refresh']
@@ -291,6 +302,8 @@ function buildProps({
     setEnabled,
     search: search ?? (() => Promise.resolve({ skills: [] })),
     install: install ?? (() => Promise.resolve()),
+    uninstall: uninstall ?? (() => Promise.resolve()),
+    readDetails: readDetails ?? (() => Promise.resolve('')),
     list,
     refresh,
     close: () => undefined,
