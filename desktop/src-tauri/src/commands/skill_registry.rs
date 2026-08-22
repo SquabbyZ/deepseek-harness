@@ -35,7 +35,10 @@ pub struct SkillsShSearchResult {
 struct SkillsShApiSkill {
     #[serde(default)]
     id: String,
-    #[serde(default)]
+    // skills.sh ships `skillId` (camelCase); the previous snake_case field
+    // name silently dropped the value through `#[serde(default)]`, so the
+    // install path always fell back to `name` as the directory.
+    #[serde(default, rename = "skillId", alias = "skill_id")]
     skill_id: String,
     #[serde(default)]
     name: String,
@@ -101,14 +104,12 @@ pub async fn search_skills_sh(
     offset: usize,
     state: State<'_, SharedState>,
 ) -> Result<SkillsShSearchResult, String> {
-    // Skills.sh and Smithery are reachable from the dev box directly — the
-    // settings.yaml proxy is for the LLM providers, not these public registry
-    // APIs. Build a fresh, proxy-free client so we don't tunnel skills.sh
-    // through the (possibly unreachable) LLM proxy.
-    let client = reqwest::Client::builder()
-        .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .map_err(|e| format!("search_skills_sh: client build: {e}"))?;
+    // The shared-state client carries the persisted proxy from
+    // `~/.dsh/settings.yaml`. A fresh proxy-free client (the previous shape)
+    // could not reach skills.sh on a dev box whose only outbound path is
+    // through the user's VPN/proxy — every dev we ship to has one. We keep
+    // the dev log line as a sanity check when the env vars are set.
+    let client = state.read().http.clone();
     eprintln!(
         "[search_skills_sh] env: HTTP_PROXY={:?} HTTPS_PROXY={:?} ALL_PROXY={:?}",
         std::env::var("HTTP_PROXY").ok(),
@@ -198,11 +199,9 @@ pub async fn search_smithery_servers(
     limit: usize,
     state: State<'_, SharedState>,
 ) -> Result<SmitherySearchResult, String> {
-    // Same rationale as search_skills_sh: registry APIs are reached direct.
-    let client = reqwest::Client::builder()
-        .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .map_err(|e| format!("search_smithery_servers: client build: {e}"))?;
+    // Same rationale as search_skills_sh: use the shared-state client so the
+    // persisted proxy from `~/.dsh/settings.yaml` is honored.
+    let client = state.read().http.clone();
     let trimmed = query.trim();
     let limit_str = limit.to_string();
     let url = url::Url::parse_with_params(
