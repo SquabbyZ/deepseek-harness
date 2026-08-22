@@ -33,9 +33,11 @@ pub fn allowed_shell_binaries() -> &'static [&'static str] {
         // extracts a codeload tarball through it.
         &["cmd.exe", "powershell.exe", "node.exe", "tar.exe"]
     } else if cfg!(target_os = "macos") {
-        &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env", "tar"]
+        &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env", "tar", "node"]
     } else {
-        &[] // unreachable — build should have failed
+        // Linux: `tar` is sent by the skills.sh install path and `node` by MCP
+        // stdio servers (`node.exe` on Windows, `node` elsewhere).
+        &["sh", "bash", "tar", "node"]
     }
 }
 
@@ -66,9 +68,9 @@ mod tests {
         let expected: &[&str] = if cfg!(target_os = "windows") {
             &["cmd.exe", "powershell.exe", "node.exe", "tar.exe"]
         } else if cfg!(target_os = "macos") {
-            &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env", "tar"]
+            &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env", "tar", "node"]
         } else {
-            &[]
+            &["sh", "bash", "tar", "node"]
         };
         assert_eq!(allowed_shell_binaries(), expected);
     }
@@ -87,8 +89,16 @@ mod tests {
             assert!(!is_shell_binary_allowed("tar"));
         } else if cfg!(target_os = "macos") {
             assert!(is_shell_binary_allowed("tar"));
+            assert!(is_shell_binary_allowed("node"));
             assert!(!is_shell_binary_allowed("tar.exe"));
-            assert!(!is_shell_binary_allowed("node"));
+            assert!(!is_shell_binary_allowed("node.exe"));
+        } else {
+            // Linux whitelist must carry the skills.sh `tar` and the MCP stdio
+            // `node` so installs and node servers work there too.
+            assert!(is_shell_binary_allowed("tar"));
+            assert!(is_shell_binary_allowed("node"));
+            assert!(!is_shell_binary_allowed("tar.exe"));
+            assert!(!is_shell_binary_allowed("node.exe"));
         }
     }
 

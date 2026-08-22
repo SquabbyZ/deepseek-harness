@@ -24,6 +24,14 @@ use tokio::sync::Mutex;
 /// view: `Ok(None)` means "no complete line yet", and the caller may poll again.
 const READ_TIMEOUT: Duration = Duration::from_millis(50);
 
+/// Upper bound on a single line buffered from a child's stdout, in bytes.
+///
+/// A well-behaved MCP server emits newline-delimited lines, so anything this
+/// large without a `\n` is either not a line protocol or a runaway child. Cap
+/// the buffer and error out instead of letting a no-newline stream grow
+/// `child.buf` without bound.
+const MAX_LINE_BYTES: usize = 1024 * 1024; // 1 MiB
+
 /// Spec for spawning an MCP stdio server process.
 #[derive(Deserialize)]
 pub struct McpStdioSpec {
@@ -55,6 +63,13 @@ pub struct McpStdioChild {
 pub type McpStdioChildMap = HashMap<u64, Arc<Mutex<McpStdioChild>>>;
 
 // --- core implementations (testable without a Tauri runtime) ----------------
+
+/// Map an underlying IO error into the bridge's `Shell` error variant.
+fn map_shell_err(e: impl std::fmt::Display) -> AppError {
+    AppError::Shell {
+        message: e.to_string(),
+    }
+}
 
 /// Read a child's stderr to EOF and discard the bytes.
 ///
@@ -102,9 +117,7 @@ pub async fn mcp_stdio_spawn_inner(state: &SharedState, spec: McpStdioSpec) -> A
         }
         cmd.current_dir(p);
     }
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| AppError::Shell { message: e.to_string() })?;
+    let mut child = cmd.spawn().map_err(map_shell_err)?;
     let stdin = child.stdin.take().expect("stdin piped");
     let stdout = child.stdout.take().expect("stdout piped");
     let stderr = child.stderr.take().expect("stderr piped");
@@ -144,13 +157,9 @@ pub async fn mcp_stdio_write_inner(
         .stdin
         .write_all(line.as_bytes())
         .await
-        .map_err(|e| AppError::Shell { message: e.to_string() })?;
+        .map_err(map_shell_err)?;
     if !line.ends_with('\n') {
-        child
-            .stdin
-            .write_all(b"\n")
-            .await
-            .map_err(|e| AppError::Shell { message: e.to_string() })?;
+        child.stdin.write_all(b"\n").await.map_err(map_shell_err)?;
     }
     Ok(())
 }
@@ -170,6 +179,15 @@ pub async fn mcp_stdio_read_inner(state: &SharedState, conn_id: u64) -> AppResul
                 String::from_utf8_lossy(&line).trim_end().to_string(),
             ));
         }
+        // 1b. No newline yet — refuse to buffer an unbounded line. The check
+        //     runs on every iteration (including after a large `read_buf`), so
+        //     a child streaming bytes with no `\n` errors out at the cap instead
+        //     of growing `buf` without bound.
+        if buf.len() > MAX_LINE_BYTES {
+            return Err(AppError::Internal {
+                message: "mcp_stdio: line exceeds 1 MiB".to_string(),
+            });
+        }
         // 2. Otherwise try to read more, but do not block indefinitely.
         //    `tokio::process::ChildStdout` only implements `AsyncRead` (no
         //    `std::io::Read`), so a non-blocking `try_read_buf` is unavailable;
@@ -178,11 +196,7 @@ pub async fn mcp_stdio_read_inner(state: &SharedState, conn_id: u64) -> AppResul
         match tokio::time::timeout(READ_TIMEOUT, stdout.read_buf(&mut *buf)).await {
             Ok(Ok(0)) => return Ok(None), // EOF: no complete line available
             Ok(Ok(_)) => continue,        // read more bytes; re-check for a newline
-            Ok(Err(e)) => {
-                return Err(AppError::Shell {
-                    message: e.to_string(),
-                })
-            }
+            Ok(Err(e)) => return Err(map_shell_err(e)),
             Err(_elapsed) => return Ok(None), // no complete line within the timeout
         }
     }
@@ -357,5 +371,113 @@ mod tests {
             .await
             .expect_err("read of unknown conn should error");
         assert!(matches!(err, AppError::Internal { .. }));
+    }
+
+    #[tokio::test]
+    async fn write_unknown_connection_is_error() {
+        let state = test_state();
+        let err = mcp_stdio_write_inner(&state, 4242, "hello".to_string())
+            .await
+            .expect_err("write of unknown conn should error");
+        assert!(matches!(err, AppError::Internal { .. }));
+    }
+
+    #[tokio::test]
+    async fn close_unknown_connection_is_error() {
+        let state = test_state();
+        let err = mcp_stdio_close_inner(&state, 4242)
+            .await
+            .expect_err("close of unknown conn should error");
+        assert!(matches!(err, AppError::Internal { .. }));
+    }
+
+    #[tokio::test]
+    async fn spawn_rejects_cwd_outside_config_dir() {
+        let state = test_state();
+        // test_state() sets config_dir to the system temp dir; the repo working
+        // dir is guaranteed not to live under it.
+        let spec = McpStdioSpec {
+            command: "node.exe".to_string(),
+            args: vec![],
+            env: HashMap::new(),
+            cwd: Some(
+                std::env::current_dir()
+                    .expect("current dir")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        };
+        let err = mcp_stdio_spawn_inner(&state, spec)
+            .await
+            .expect_err("cwd outside config_dir should be denied");
+        assert!(matches!(err, AppError::PermissionDenied { .. }));
+    }
+
+    #[tokio::test]
+    async fn partial_line_accumulates_across_reads() {
+        let state = test_state();
+        let spec = McpStdioSpec {
+            command: "node.exe".to_string(),
+            args: vec![
+                "-e".to_string(),
+                // Write a partial line immediately, then complete it ~50ms later
+                // so the first read times out with the fragment still buffered.
+                r#"process.stdout.write('partial');setTimeout(()=>process.stdout.write('complete\n'),50)"#
+                    .to_string(),
+            ],
+            env: HashMap::new(),
+            cwd: None,
+        };
+        let conn = mcp_stdio_spawn_inner(&state, spec)
+            .await
+            .expect("spawn should succeed");
+        // The fragment carries no newline, so the first read returns Ok(None)
+        // and the bytes stay in the child's buffer for a later read.
+        let first = mcp_stdio_read_inner(&state, conn)
+            .await
+            .expect("read should not fail");
+        assert_eq!(first, None, "partial line should buffer, not be returned");
+        // Subsequent reads eventually see the completed line.
+        let line = read_line_with_retry(&state, conn, 100).await;
+        assert_eq!(line.as_deref(), Some("partialcomplete"));
+        mcp_stdio_close_inner(&state, conn)
+            .await
+            .expect("close should succeed");
+    }
+
+    #[tokio::test]
+    async fn oversized_line_without_newline_is_error() {
+        let state = test_state();
+        let spec = McpStdioSpec {
+            command: "node.exe".to_string(),
+            args: vec![
+                "-e".to_string(),
+                // One giant line with no newline, well over the 1 MiB cap; the
+                // read path must stop buffering and error instead of growing
+                // the buffer forever.
+                r#"process.stdout.write('x'.repeat(2*1024*1024))"#.to_string(),
+            ],
+            env: HashMap::new(),
+            cwd: None,
+        };
+        let conn = mcp_stdio_spawn_inner(&state, spec)
+            .await
+            .expect("spawn should succeed");
+        let mut err = None;
+        for _ in 0..100 {
+            match mcp_stdio_read_inner(&state, conn).await {
+                Ok(Some(_)) => panic!("oversized stream produced a line"),
+                Ok(None) => tokio::time::sleep(Duration::from_millis(10)).await,
+                Err(e) => {
+                    err = Some(e);
+                    break;
+                }
+            }
+        }
+        let err = err.expect("oversized line should eventually error");
+        assert!(matches!(err, AppError::Internal { .. }));
+        mcp_stdio_close_inner(&state, conn)
+            .await
+            .expect("close should succeed");
     }
 }

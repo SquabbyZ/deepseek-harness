@@ -38,12 +38,26 @@ pub fn is_allowed_roots(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool
 fn is_creatable_allowed(config_dir: &Path, dsh_home: &Path, path: &Path) -> bool {
     let mut current = Some(path);
     while let Some(p) = current {
-        if let Ok(canonical) = p.canonicalize() {
-            return [config_dir, dsh_home].iter().any(|root| {
-                root.canonicalize()
-                    .map(|root_canonical| canonical.starts_with(root_canonical))
-                    .unwrap_or(false)
-            });
+        match p.canonicalize() {
+            Ok(canonical) => {
+                return [config_dir, dsh_home].iter().any(|root| {
+                    root.canonicalize()
+                        .map(|root_canonical| canonical.starts_with(root_canonical))
+                        .unwrap_or(false)
+                });
+            }
+            Err(_) => {
+                // `canonicalize` failed on this component. If the component
+                // itself exists as a symlink it must be a dangling link (its
+                // target cannot be resolved): `fs::write`/`create_dir_all`
+                // would follow it and create files at the target, which may
+                // escape the roots. Reject rather than skip past it.
+                if let Ok(meta) = std::fs::symlink_metadata(p) {
+                    if meta.file_type().is_symlink() {
+                        return false;
+                    }
+                }
+            }
         }
         current = p.parent();
     }
@@ -166,5 +180,71 @@ mod tests {
         let outside = temp_dir().join("dsh_outside_new").join("SKILL.md");
         assert!(!is_creatable_allowed(&config, &dsh_home, &outside));
         assert!(write(&config, &dsh_home, &outside, b"x").is_err());
+    }
+
+    #[test]
+    fn write_rejects_dangling_symlink_leaf() {
+        let config = temp_dir().join("dsh_test_config");
+        let dsh_home = temp_dir().join("dsh_test_home");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::create_dir_all(&dsh_home).unwrap();
+        // The link points at a target that does not exist (dangling). Without
+        // the guard below, `canonicalize` fails on the leaf, the walk passes on
+        // the in-root parent, and `fs::write` creates the file at the symlink
+        // target OUTSIDE the roots.
+        let target = temp_dir().join("dsh_dangling_target");
+        let _ = std::fs::remove_file(&target); // keep it dangling
+        let link = dsh_home.join("SKILL.md");
+        let _ = std::fs::remove_file(&link);
+
+        #[cfg(unix)]
+        let created = std::os::unix::fs::symlink(&target, &link).is_ok();
+        #[cfg(windows)]
+        let created = std::os::windows::fs::symlink_file(&target, &link).is_ok();
+
+        if !created {
+            // Creating a symlink needs Developer Mode / elevation on Windows;
+            // when the OS refuses there is nothing to exercise here.
+            return;
+        }
+
+        assert!(
+            !is_creatable_allowed(&config, &dsh_home, &link),
+            "a dangling symlink leaf must not be creatable-through"
+        );
+        assert!(write(&config, &dsh_home, &link, b"x").is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn write_rejects_dangling_junction_leaf() {
+        // Directory junctions (`mklink /J`) need no admin rights, so they let
+        // the dangling-symlink guard be exercised on Windows even when creating
+        // a real file symlink would require Developer Mode / elevation.
+        let config = temp_dir().join("dsh_test_config");
+        let dsh_home = temp_dir().join("dsh_test_home");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::create_dir_all(&dsh_home).unwrap();
+        let target = temp_dir().join("dsh_junction_target_dir");
+        std::fs::create_dir_all(&target).unwrap();
+        let link = dsh_home.join("escape");
+        let _ = std::fs::remove_dir_all(&link);
+
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&target)
+            .status();
+        if !status.map(|s| s.success()).unwrap_or(false) {
+            return; // junction creation refused — nothing to exercise
+        }
+        // Break the target so the junction is dangling.
+        std::fs::remove_dir_all(&target).unwrap();
+
+        assert!(
+            !is_creatable_allowed(&config, &dsh_home, &link),
+            "a dangling junction leaf must not be creatable-through"
+        );
+        assert!(write(&config, &dsh_home, &link, b"x").is_err());
     }
 }
