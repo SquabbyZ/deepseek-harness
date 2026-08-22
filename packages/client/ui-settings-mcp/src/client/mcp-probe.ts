@@ -16,14 +16,27 @@
  */
 
 import type { McpServerSpec } from './inventory-store.ts'
+import { resolveSpawnCommand } from './inventory-store.ts'
 
 /**
  * The probe result contract (ok=false always carries a human-readable `error`,
  * so failure badges never need a fallback string).
  */
 export type ProbeResult =
-  | { readonly ok: true; readonly toolCount: number }
+  | {
+    readonly ok: true
+    readonly toolCount: number
+    /** Tool list returned by `tools/list`; surfaces in the details panel. */
+    readonly tools: readonly ToolSummary[]
+  }
   | { readonly ok: false; readonly toolCount: 0; readonly error: string }
+
+/** Compact view of one MCP tool entry from `tools/list`. */
+export interface ToolSummary {
+  readonly name: string
+  /** Description pulled from the JSON-RPC result, trimmed. */
+  readonly description: string
+}
 
 /** Tauri invoke face — mirrors real-llm.ts; duplicated to avoid a cross-package dependency. */
 interface TauriInvoke {
@@ -41,8 +54,10 @@ interface TauriHttpResponse {
 const MCP_PROTOCOL_VERSION = '2025-03-26'
 const MCP_CLIENT_NAME = 'deepseek-harness'
 const MCP_CLIENT_VERSION = '0.1.0'
-/** How long a stdio exchange waits for a complete response line before giving up. */
-const STDIO_TIMEOUT_MS = 5000
+/** How long a stdio exchange waits for a complete response line before giving up.
+ *  Default 30s so `npx -y @modelcontextprotocol/server-…` has time to download
+ *  the package on a cold cache (a no-op once npm has it cached). */
+const STDIO_TIMEOUT_MS = 30_000
 /** Default timeout for each streamable-http POST (overridable via `opts.timeoutMs`). */
 const HTTP_TIMEOUT_MS = 30_000
 /** Pause between stdio read polls (each bridge read already waits ~50ms internally). */
@@ -94,11 +109,19 @@ function parseJsonRpc(text: string): JsonRpcMessage {
   return parsed
 }
 
-/** Count the tools in a tools/list result; malformed results throw. */
-function toolsOf(result: unknown): number {
+/** Project the `tools/list` result into compact summaries; malformed result throws. */
+function toolsOf(result: unknown): readonly ToolSummary[] {
   const tools = (result as { tools?: unknown } | undefined)?.tools
   if (!Array.isArray(tools)) throw new Error('tools/list returned no tools array')
-  return tools.length
+  return tools
+    .map((raw) => {
+      if (raw === null || typeof raw !== 'object') return null
+      const entry = raw as { name?: unknown; description?: unknown }
+      if (typeof entry.name !== 'string' || entry.name.length === 0) return null
+      const description = typeof entry.description === 'string' ? entry.description.trim() : ''
+      return { name: entry.name, description }
+    })
+    .filter((entry): entry is ToolSummary => entry !== null)
 }
 
 /** POST one JSON-RPC request through the Tauri http bridge and return the raw response. */
@@ -140,7 +163,8 @@ async function probeStreamableHttp(
   const sessionId = headerValue(initialize.headers, 'mcp-session-id')
   const list = await httpPost(invoke, spec.url, { id: 2, method: 'tools/list' }, sessionId, timeoutMs)
   const parsed = parseJsonRpc(decodeBytes(list.body))
-  return { ok: true, toolCount: toolsOf(parsed.result) }
+  const tools = toolsOf(parsed.result)
+  return { ok: true, toolCount: tools.length, tools }
 }
 
 /** Write one JSON-RPC line and poll reads until the matching response line arrives. */
@@ -184,9 +208,14 @@ async function probeStdio(
   spec: Extract<McpServerSpec, { transport: 'stdio' }>,
   timeoutMs: number,
 ): Promise<ProbeResult> {
+  // Rewrite the bare command name (e.g. `npx`) to the platform-correct form
+  // (e.g. `npx.cmd`) before the Rust spawn gate sees it. This is a no-op for
+  // entries that already carry the right extension or a full path, and it
+  // makes old entries persisted before the rewrite existed work correctly.
+  const resolved = resolveSpawnCommand(spec.command)
   // An empty cwd must be omitted — the Rust bridge rejects a spawn whose cwd
   // does not live under the config dir, and an empty string never does.
-  const spawnSpec: Record<string, unknown> = { command: spec.command, args: spec.args, env: spec.env }
+  const spawnSpec: Record<string, unknown> = { command: resolved, args: spec.args, env: spec.env }
   if (spec.cwd !== '') spawnSpec.cwd = spec.cwd
   const connId = await invoke<number>('mcp_stdio_spawn', { spec: spawnSpec })
   try {
@@ -196,7 +225,8 @@ async function probeStdio(
       clientInfo: { name: MCP_CLIENT_NAME, version: MCP_CLIENT_VERSION },
     }, timeoutMs)
     const list = await stdioRequest(invoke, connId, 2, 'tools/list', undefined, timeoutMs)
-    return { ok: true, toolCount: toolsOf(list.result) }
+    const tools = toolsOf(list.result)
+    return { ok: true, toolCount: tools.length, tools }
   } finally {
     // Best-effort teardown: a close failure after a successful handshake must
     // not turn the probe into a failure.
@@ -206,6 +236,79 @@ async function probeStdio(
       /* the child is orphaned; the probe verdict already stands */
     }
   }
+}
+
+/**
+ * Render an arbitrary thrown value as a human-readable string. Tauri invoke
+ * rejections, JSON-RPC faults, and Promise.allSettled errors all surface as
+ * plain objects — `String(err)` on those returns `"[object Object]"` and the
+ * failure badge stops being useful. Pull `.message` out of common shapes and
+ * fall back to JSON.stringify so a code field survives.
+ */
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message.length > 0 ? error.message : error.name
+  }
+  if (typeof error === 'string') return error
+  if (error === null) return 'null'
+  if (error === undefined) return 'undefined'
+  if (typeof error === 'object') {
+    const obj = error as { message?: unknown; code?: unknown; reason?: unknown; detail?: unknown }
+    // Tauri serializes `AppError` as `{ code, detail }` (no flat `message`).
+    // The Rust `#[error("...")]` text never reaches JS, so reconstruct a
+    // human-readable message from the structured fields: a `PermissionDenied`
+    // surfaces as `{ code: 'PermissionDenied', detail: { cmd: 'npx.cmd' } }`
+    // — we want the user to see "Shell permission denied: npx.cmd".
+    const codeText = typeof obj.code === 'string' && obj.code.length > 0
+      ? formatAppErrorCode(obj.code)
+      : null
+    if (codeText !== null) {
+      const detailText = describeObjectDetail(obj.detail)
+      if (detailText !== null) return `${codeText}: ${detailText}`
+      return codeText
+    }
+    if (typeof obj.message === 'string' && obj.message.length > 0) {
+      return obj.message
+    }
+    if (typeof obj.reason === 'string' && obj.reason.length > 0) return obj.reason
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return Object.prototype.toString.call(error)
+    }
+  }
+  return String(error)
+}
+
+/** Map known Rust `AppError` codes to a short human label, prefixed to the detail. */
+function formatAppErrorCode(code: string): string | null {
+  switch (code) {
+    case 'PermissionDenied': return 'Shell permission denied'
+    case 'FsPermissionDenied': return 'Filesystem permission denied'
+    case 'FsIo': return 'Filesystem I/O error'
+    case 'Network': return 'Network error'
+    case 'Shell': return 'Shell error'
+    case 'DeeplinkParse': return 'Deeplink parse failed'
+    case 'InvalidManifest': return 'Plugin manifest invalid'
+    case 'PluginNotBrowserSafe': return 'Plugin not browser-safe'
+    case 'PluginHashMismatch': return 'Plugin hash mismatch'
+    case 'PluginPermissionDenied': return 'Plugin permission denied'
+    case 'Internal': return 'Internal error'
+    default: return code
+  }
+}
+
+/** Render an `AppError.detail` payload (its shape varies per variant) as a one-liner. */
+function describeObjectDetail(detail: unknown): string | null {
+  if (detail === undefined || detail === null) return null
+  if (typeof detail === 'string') return detail
+  if (typeof detail !== 'object') return null
+  const d = detail as { cmd?: unknown; path?: unknown; message?: unknown; status?: unknown }
+  if (typeof d.cmd === 'string') return `command ${d.cmd} is not in the spawn whitelist`
+  if (typeof d.path === 'string') return `path ${d.path} is not in the allowlist`
+  if (typeof d.message === 'string') return d.message
+  if (typeof d.status === 'number') return `status ${d.status}`
+  return null
 }
 
 /**
@@ -227,7 +330,6 @@ export async function probeMcpServer(
     }
     return await probeStreamableHttp(invoke, spec, opts?.timeoutMs ?? HTTP_TIMEOUT_MS)
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    return { ok: false, toolCount: 0, error: reason }
+    return { ok: false, toolCount: 0, error: describeError(error) }
   }
 }

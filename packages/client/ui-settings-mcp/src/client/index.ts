@@ -133,6 +133,12 @@ export function apply(ctx: ClientContext): void {
       if (!result.ok) {
         throw new Error(`mcpInventory.setEnabled failed: ${result.error?.code}: ${result.error?.message}`)
       }
+      // The fixture's `mcpInventory/setEnabled` handler persists the new
+      // overlay but does not emit `mcp-inventory/changed` (the future
+      // host-side gateway will, but it is not yet wired into the runtime
+      // composition). Re-read the inventory so the switch reflects the
+      // committed state instead of snapping back to the stale snapshot.
+      store.refresh()
     },
     upsertServer: spec => store.upsertServer(spec),
     deleteServer: entryId => store.deleteServer(entryId),

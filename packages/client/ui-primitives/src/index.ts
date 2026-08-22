@@ -16,6 +16,7 @@ export type {
   UseDebouncedToggleOptions,
   UseDebouncedToggleApi,
 } from './useDebouncedToggle.ts'
+export { useDebouncedValue } from './useDebouncedValue.ts'
 export { DisclosureRow } from './DisclosureRow.tsx'
 export type { DisclosureRowProps } from './DisclosureRow.tsx'
 export { Button } from './Button.tsx'

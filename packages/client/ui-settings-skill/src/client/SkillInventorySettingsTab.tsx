@@ -1,3 +1,10 @@
+/**
+ * Skill inventory settings tab: lazy list + dynamic enable/disable +
+ * skills.sh search / install + uninstall. The details affordance was
+ * removed per user request — the row already carries name / description /
+ * source / enabled state and that's enough for the management flow.
+ */
+
 import {
   useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode,
 } from 'react'
@@ -9,6 +16,7 @@ import {
   IconCheckOutline16,
   IconWarningOutline16,
   useDebouncedToggle,
+  useDebouncedValue,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
@@ -20,8 +28,6 @@ import {
   type SkillRegistrySearchResult,
   type SkillRegistrySkill,
 } from './inventory-store.ts'
-// (SkillInventoryLocaleKey is no longer imported — the source classification
-// keys are no longer read by this tab; the row renders `owner/repo` instead.)
 
 /** Registration-side Remote face used by the section. */
 export interface SkillInventorySettingsTabInjected {
@@ -39,11 +45,8 @@ export interface SkillInventorySettingsTabInjected {
   install: (target: SkillRegistryInstallTarget) => Promise<void>
   /** Uninstall a previously installed skill; throws on RPC failure. */
   uninstall: (target: { name: string }, options: { signal: AbortSignal }) => Promise<void>
-  /** Read a skill's SKILL.md body for the details panel; throws on RPC failure. */
-  readDetails: (target: { name: string }, options: { signal: AbortSignal }) => Promise<string>
 }
 
-/** Full component props assembled by the Settings slot renderer. */
 export type SkillInventorySettingsTabProps =
   PropsRuntime<'settings.section'>
   & PropsLocale<'settings.skill'>
@@ -54,14 +57,12 @@ type ViewState =
   | { readonly status: 'error' }
   | { readonly status: 'ready'; readonly entries: readonly SkillInventoryEntryView[] }
 
-/** skills.sh search section state. */
 type RemoteState =
   | { readonly status: 'idle' }
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly skills: readonly SkillRegistrySkill[] }
   | { readonly status: 'error' }
 
-/** Debounce before a keystroke hits the skills.sh registry. */
 const SEARCH_DEBOUNCE_MS = 200
 
 const SECTION = 'flex w-full max-w-[760px] flex-col gap-[14px] text-foreground'
@@ -81,10 +82,7 @@ const REMOTE_CAPTION = 'm-0 truncate text-[12px] leading-[18px] text-[var(--dsw-
 const REMOTE_SOURCE = 'truncate text-[12px] leading-[18px] text-[var(--dsw-alias-label-tertiary)] hover:text-[var(--dsw-alias-label-primary)] underline-offset-2 hover:underline'
 const INSTALL_BUTTON = 'h-auto flex-none rounded-md px-2.5 py-1 text-[13px] leading-5'
 const SWITCH_ROW_SOURCE = REMOTE_SOURCE
-const DETAILS_BUTTON = 'h-auto flex-none rounded-md border-border bg-transparent px-2.5 py-1 text-[12px] leading-[18px] font-normal text-[var(--dsw-alias-label-secondary)] hover:bg-transparent hover:text-foreground focus-visible:ring-0 aria-pressed:bg-[var(--dsw-alias-bg-layer-2)]'
 const UNINSTALL_BUTTON = 'h-auto flex-none rounded-md border-[var(--dsw-alias-state-error-primary)] bg-transparent px-2.5 py-1 text-[12px] leading-[18px] font-normal text-[var(--dsw-alias-state-error-primary)] hover:bg-transparent hover:text-[var(--dsw-alias-state-error-primary)] focus-visible:ring-0 disabled:opacity-60'
-const DETAILS_PANEL = 'mt-1 rounded-[8px] border border-[var(--dsw-alias-border-l2)] bg-[var(--dsw-alias-bg-layer-2)] p-3'
-const DETAILS_BODY = 'm-0 max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[12px] leading-[18px] text-[var(--dsw-alias-label-secondary)] font-mono'
 
 /**
  * Detect whether an inventory `source` value is an `owner/repo` GitHub
@@ -111,7 +109,6 @@ export function SkillInventorySettingsTab({
   search,
   install,
   uninstall,
-  readDetails,
   t,
 }: SkillInventorySettingsTabProps): ReactNode {
   const [request, setRequest] = useState(0)
@@ -122,9 +119,12 @@ export function SkillInventorySettingsTab({
   const [remote, setRemote] = useState<RemoteState>({ status: 'idle' })
   const [installing, setInstalling] = useState<string | null>(null)
   const [uninstalling, setUninstalling] = useState<string | null>(null)
-  // The details panel reads SKILL.md on demand — keyed by entryId, not name,
-  // so a UI retry reuses the same row identity. `null` means closed.
-  const [details, setDetails] = useState<{ entryId: string; name: string; status: 'loading' | 'ready'; body: string; error?: string } | null>(null)
+  // `source/name` keys the user installed this session. Drives the
+  // install→switch transform in the search results: a freshly installed
+  // remote skill keeps a placeholder in the search list, but its row
+  // swaps the install button for the catalog switch so the user can
+  // toggle it without leaving the search results.
+  const [installedKeys, setInstalledKeys] = useState<ReadonlySet<string>>(() => new Set())
 
   useEffect(() => {
     if (!snapshot.read) store.refresh()
@@ -186,37 +186,44 @@ export function SkillInventorySettingsTab({
     searchRef.current = search
   }, [search])
 
+  // Debounce the typed query: only fire the registry RPC once typing settles
+  // for 300ms, so a fast typer doesn't trigger one search per keystroke.
+  const debouncedQuery = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS)
+
   useEffect(() => {
-    const normalized = query.trim()
+    const normalized = debouncedQuery
     if (normalized.length === 0) {
       setRemote({ status: 'idle' })
       return
     }
     setRemote({ status: 'loading' })
     let cancelled = false
-    const timer = window.setTimeout(() => {
-      searchRef.current(normalized).then(
-        (value) => {
-          if (!cancelled) setRemote({ status: 'ready', skills: value.skills })
-        },
-        () => {
-          if (!cancelled) setRemote({ status: 'error' })
-        },
-      )
-    }, SEARCH_DEBOUNCE_MS)
+    searchRef.current(normalized).then(
+      (value) => {
+        if (!cancelled) setRemote({ status: 'ready', skills: value.skills })
+      },
+      () => {
+        if (!cancelled) setRemote({ status: 'error' })
+      },
+    )
     return () => {
       cancelled = true
-      window.clearTimeout(timer)
     }
-  }, [query])
+  }, [debouncedQuery])
 
   const handleInstall = useCallback(async (skill: SkillRegistrySkill): Promise<void> => {
-    // Two registry rows can share a display name but never a source/name pair,
-    // so the busy state is keyed by the same composite id the row uses.
     const installKey = `${skill.source}/${skill.name}`
     setInstalling(installKey)
     try {
       await install({ name: skill.name, source: skill.source })
+      // Drop the installed key into the per-session set so the search row
+      // can render the catalog switch the moment the catalog refresh lands.
+      setInstalledKeys((previous) => {
+        if (previous.has(installKey)) return previous
+        const next = new Set(previous)
+        next.add(installKey)
+        return next
+      })
       store.refresh()
       flashSuccess(t('installSuccess', { name: skill.name }))
     } catch (error) {
@@ -229,9 +236,6 @@ export function SkillInventorySettingsTab({
 
   const handleUninstall = useCallback(async (entry: SkillInventoryEntryView): Promise<void> => {
     setUninstalling(entry.entryId)
-    // Close the details panel if it was open for the same skill — the next
-    // refresh no longer carries this entry.
-    if (details?.entryId === entry.entryId) setDetails(null)
     try {
       const controller = new AbortController()
       await uninstall({ name: entry.name }, { signal: controller.signal })
@@ -243,23 +247,7 @@ export function SkillInventorySettingsTab({
     } finally {
       setUninstalling(null)
     }
-  }, [uninstall, store, details, t, flashError, flashSuccess])
-
-  const handleDetails = useCallback(async (entry: SkillInventoryEntryView): Promise<void> => {
-    setDetails({ entryId: entry.entryId, name: entry.name, status: 'loading', body: '' })
-    try {
-      const controller = new AbortController()
-      const body = await readDetails({ name: entry.name }, { signal: controller.signal })
-      setDetails(prev => prev?.entryId === entry.entryId
-        ? { entryId: entry.entryId, name: entry.name, status: 'ready', body }
-        : prev)
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error)
-      setDetails(prev => prev?.entryId === entry.entryId
-        ? { entryId: entry.entryId, name: entry.name, status: 'ready', body: '', error: reason }
-        : prev)
-    }
-  }, [readDetails])
+  }, [uninstall, store, t, flashError, flashSuccess])
 
   const sectionRef = useRef<HTMLDivElement | null>(null)
 
@@ -296,20 +284,11 @@ export function SkillInventorySettingsTab({
               {filteredEntries.map((entry) => {
                 const intended = intendedSnapshot().get(entry.entryId)
                 const effective = intended !== undefined ? intended : entry.enabled
-                // Skills installed from skills.sh carry their `owner/repo` in
-                // the frontmatter `source:` line (stamped on install); the
-                // row renders it as a clickable GitHub link. Built-in /
-                // hand-authored skills leave the source as a bucket like
-                // `user-dsh`, which isn't an owner/repo and never renders.
                 const sourceHref = isOwnerRepoSource(entry.source)
                   ? `https://github.com/${entry.source}`
                   : null
-                // Uninstall is only offered for skills that came from the
-                // installer (`owner/repo` source); builtins and symlinked
-                // agent skills stay put.
                 const canUninstall = sourceHref !== null
                 const busyUninstall = uninstalling === entry.entryId
-                const isDetailsOpen = details?.entryId === entry.entryId
                 return (
                   <li key={entry.entryId} data-skill-entry={entry.entryId}>
                     <SwitchRow
@@ -332,19 +311,6 @@ export function SkillInventorySettingsTab({
                               {entry.source}
                             </a>
                           ) : null}
-                          <ShadcnButton
-                            size="sm"
-                            variant="outline"
-                            className={DETAILS_BUTTON}
-                            aria-pressed={isDetailsOpen}
-                            onClick={() => {
-                              if (isDetailsOpen) setDetails(null)
-                              else { void handleDetails(entry) }
-                            }}
-                            data-skill-action="details"
-                          >
-                            {t('details')}
-                          </ShadcnButton>
                           {canUninstall ? (
                             <ShadcnButton
                               size="sm"
@@ -360,19 +326,6 @@ export function SkillInventorySettingsTab({
                         </span>
                       }
                     />
-                    {isDetailsOpen ? (
-                      <div className={DETAILS_PANEL} data-skill-details={entry.entryId}>
-                        {details?.status === 'loading' ? (
-                          <p className={STATUS}>{t('detailsLoading')}</p>
-                        ) : details?.error !== undefined ? (
-                          <p className={FAILURE} role="alert">
-                            {t('detailsError', { reason: details.error })}
-                          </p>
-                        ) : (
-                          <pre className={DETAILS_BODY}>{details?.body ?? ''}</pre>
-                        )}
-                      </div>
-                    ) : null}
                   </li>
                 )
               })}
@@ -396,22 +349,43 @@ export function SkillInventorySettingsTab({
                       skill.description,
                       skill.installs > 0 ? t('installs', { count: String(skill.installs) }) : '',
                     ].filter(Boolean).join(' · ')
-                    const busy = installing === `${skill.source}/${skill.name}`
+                    const installKey = `${skill.source}/${skill.name}`
+                    const busy = installing === installKey
+                    // Match the freshly installed skill against the catalog by
+                    // name so the switch can hook the same entry the inventory
+                    // row uses. The entry only appears once store.refresh()
+                    // publishes the post-install snapshot.
+                    const installedEntry = installedKeys.has(installKey)
+                      ? view.entries.find(entry => entry.name === skill.name)
+                      : undefined
                     return (
-                      <li key={`${skill.source}/${skill.name}`} data-remote-skill={skill.name}>
+                      <li key={installKey} data-remote-skill={skill.name}>
                         <div className={REMOTE_ROW}>
                           <div className={REMOTE_LEADING}>
                             <p className={REMOTE_NAME}>{skill.name}</p>
                             {caption !== '' ? <p className={REMOTE_CAPTION}>{caption}</p> : null}
                           </div>
-                          <ShadcnButton
-                            size="sm"
-                            className={INSTALL_BUTTON}
-                            disabled={busy}
-                            onClick={() => { void handleInstall(skill) }}
-                          >
-                            {busy ? t('installing') : t('install')}
-                          </ShadcnButton>
+                          {installedEntry !== undefined ? (
+                            <SwitchRow
+                              entryId={installedEntry.entryId}
+                              label={installedEntry.name}
+                              caption={installedEntry.description}
+                              checked={installedEntry.enabled}
+                              onCheckedChange={(next) => {
+                                scheduleToggle(installedEntry.entryId, next)
+                              }}
+                              data-skill-remote-switch={skill.name}
+                            />
+                          ) : (
+                            <ShadcnButton
+                              size="sm"
+                              className={INSTALL_BUTTON}
+                              disabled={busy}
+                              onClick={() => { void handleInstall(skill) }}
+                            >
+                              {busy ? t('installing') : t('install')}
+                            </ShadcnButton>
+                          )}
                         </div>
                       </li>
                     )

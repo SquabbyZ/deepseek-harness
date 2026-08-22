@@ -84,6 +84,14 @@ function installTauriMock(opts: TauriMockOpts = {}): TauriMock {
         const body = opts.httpBody ?? '{}'
         return { status, headers: {}, body: Array.from(new TextEncoder().encode(body)) }
       }
+      case 'search_smithery_servers': {
+        // The Rust `search_smithery_servers` command is the canonical entry
+        // (the fixture stopped using the `http_request` bridge path because of
+        // its proxy-propagation gap). The mock returns the same shape the
+        // production command emits.
+        const body = opts.httpBody ?? '{"servers":[]}'
+        return JSON.parse(body)
+      }
       default:
         return null
     }

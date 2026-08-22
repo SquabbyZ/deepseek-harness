@@ -56,6 +56,13 @@ function installTauriMock(opts: TauriMockOpts = {}): { calls: Array<{ cmd: strin
         return null
       case 'dsh_config_dir':
         return opts.dshConfigDir ?? 'C:/Users/test/.dsh'
+      case 'search_skills_sh': {
+        // Rust `search_skills_sh` is the canonical registry search; the fixture
+        // routes through it instead of the `http_request` bridge. Return a
+        // minimal valid shape so callers see a non-null result and can run the
+        // projection.
+        return { skills: [], totalCount: 0, query: String(args?.query ?? '') }
+      }
       default:
         return null
     }

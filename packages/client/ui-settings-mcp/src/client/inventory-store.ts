@@ -79,6 +79,58 @@ export interface McpInventoryPort {
   search: (query: string) => Promise<McpRegistrySearchResult>
 }
 
+/**
+ * True when the runtime webview is Windows. The user typically types `npx`
+ * without the `.cmd` suffix; the Rust spawn (`tokio::process::Command::new`)
+ * bypasses `cmd.exe` PATHEXT resolution, so callers that hand the command
+ * to the spawn gate must rewrite bare names to the platform-correct form
+ * first.
+ */
+export function isWindowsPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const uaData = (navigator as { userAgentData?: { platform?: string } }).userAgentData
+  if (typeof uaData?.platform === 'string') return uaData.platform.toLowerCase() === 'windows'
+  return /windows/i.test(navigator.userAgent)
+}
+
+/**
+ * Map well-known cross-platform binaries to the platform-correct spawn name.
+ * Inputs like `npx`, `uvx`, `npm` are common in MCP server docs but on
+ * Windows they live as `.cmd` shims; Rust's `Command::new` won't append the
+ * extension, so callers rewrite bare names before the spawn gate sees them.
+ *
+ * Inputs that already carry an extension (`.cmd`, `.exe`, `.bat`) or a
+ * path separator pass through untouched.
+ */
+const WINDOWS_SUFFIX: Record<string, string> = {
+  npx: 'npx.cmd',
+  npm: 'npm.cmd',
+  pnpm: 'pnpm.cmd',
+  yarn: 'yarn.cmd',
+  pnpx: 'pnpx.cmd',
+  uv: 'uv.exe',
+  uvx: 'uvx.exe',
+  pipx: 'pipx.exe',
+  bunx: 'bunx.exe',
+}
+
+export function resolveSpawnCommand(cmd: string): string {
+  const trimmed = cmd.trim()
+  if (trimmed.length === 0) return trimmed
+  if (
+    /\.(cmd|exe|bat|com)$/i.test(trimmed)
+    || /[\\/]/.test(trimmed)
+  ) {
+    return trimmed
+  }
+  if (isWindowsPlatform()) {
+    const mapped = WINDOWS_SUFFIX[trimmed.toLowerCase()]
+    if (mapped !== undefined) return mapped
+    return `${trimmed}.cmd`
+  }
+  return trimmed
+}
+
 /** One server surfaced by the Smithery registry (`/servers?q=`). */
 export interface SmitheryServer {
   /** The install id — also the streamable-http host path segment. */

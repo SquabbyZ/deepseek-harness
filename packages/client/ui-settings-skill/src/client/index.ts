@@ -134,11 +134,16 @@ export function apply(ctx: ClientContext): void {
       if (!result.ok) {
         throw new Error(`skillInventory.setEnabled failed: ${result.error?.code}: ${result.error?.message}`)
       }
+      // The fixture's `skillInventory/setEnabled` handler persists the new
+      // overlay but does not emit `skill-inventory/changed` (the future
+      // host-side gateway will, but it is not yet wired into the runtime
+      // composition). Re-read the inventory so the switch reflects the
+      // committed state instead of snapping back to the stale snapshot.
+      store.refresh()
     },
     search: query => store.search(query),
     install: target => store.install(target),
     uninstall: (target, _signal) => store.uninstall(target),
-    readDetails: (target, _signal) => store.readDetails(target),
   })
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({

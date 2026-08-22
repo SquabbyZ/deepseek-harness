@@ -61,6 +61,7 @@ struct SkillsShApiResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SmitheryServer {
     pub qualified_name: String,
     pub display_name: String,
@@ -75,6 +76,7 @@ pub struct SmitherySearchResult {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SmitheryApiServer {
     #[serde(default)]
     qualified_name: String,

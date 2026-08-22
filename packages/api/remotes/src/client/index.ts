@@ -409,7 +409,7 @@ const mcpRegistrySearchDescriptor: InvocationDescriptor = {
       name: 'query',
       wire: 'query',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-search-query', schema: z.object({ query: z.string() }) },
+      codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcp-search-query', schema: z.string() },
     },
   ],
   result: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-mcp-inventory#mcpRegistry/search:result', schema: z.object({ servers: z.array(mcpRegistryServerSchema) }) },

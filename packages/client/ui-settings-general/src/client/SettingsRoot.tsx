@@ -14,7 +14,8 @@ import { useCallback, useEffect, useId, useState } from 'react'
 import { ChartColumn, Palette } from 'lucide-react'
 import {
   IconAgentPresetOutline16, IconBrowseOutline16, IconCloseOutline16, IconDataOutline16,
-  IconDownloadOutline16, IconLinkOutline16, IconPersonalizationOutline16, IconSettingsOutline16,
+  IconFolderOpen16, IconLinkOutline16, IconPersonalizationOutline16,
+  IconSettingsOutline16, IconSkillOutline16,
   ShadcnButton, Sheet, SheetContent, SheetTitle, cn,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
@@ -43,8 +44,10 @@ function navIcon(id: string) {
   if (id === 'agent-presets') return <IconAgentPresetOutline16 className="flex-none" size={16} />
   if (id === 'plugins') return <IconPersonalizationOutline16 className="flex-none" size={16} />
   if (id === 'plugin-inventory') return <IconBrowseOutline16 className="flex-none" size={16} />
+  if (id === 'skill-manager') return <IconSkillOutline16 className="flex-none" size={16} />
+  if (id === 'mcp-manager') return <IconBrowseOutline16 className="flex-none" size={16} />
   if (id === 'proxy') return <IconLinkOutline16 className="flex-none" size={16} />
-  if (id === 'dshmarket') return <IconDownloadOutline16 className="flex-none" size={16} />
+  if (id === 'dshmarket') return <IconFolderOpen16 className="flex-none" size={16} />
   if (id === 'usage') return <ChartColumn size={16} strokeWidth={1.5} className="flex-none" />
   if (id === 'personalization') return <Palette size={16} strokeWidth={1.5} className="flex-none" />
   return <IconSettingsOutline16 className="flex-none" size={16} />

@@ -82,6 +82,14 @@ function installTauriMock(opts: TauriMockOpts = {}): TauriMock {
         const body = opts.httpBody ?? '{}'
         return { status, headers: {}, body: Array.from(new TextEncoder().encode(body)) }
       }
+      case 'search_skills_sh': {
+        // The Rust `search_skills_sh` command is the canonical registry search;
+        // the fixture stopped using the `http_request` bridge path. The mock
+        // parses the test-supplied `httpBody` as the registry response shape
+        // so the projection suite can drive the fixture end-to-end.
+        const body = opts.httpBody ?? '{"skills":[],"totalCount":0,"query":""}'
+        return JSON.parse(body)
+      }
       case 'fs_write':
         return null
       case 'shell_spawn':
@@ -128,8 +136,8 @@ async function installSkill(
 const SEARCH_BODY = JSON.stringify({
   count: 2,
   skills: [
-    { id: 'wshobson/agents/shellcheck-configuration', skillId: 'shellcheck-configuration', name: 'shellcheck-configuration', installs: 9187, source: 'wshobson/agents' },
-    { id: 'vercel/ai-skill/plan', skillId: 'plan', name: 'Plan', installs: 300, source: 'vercel/ai-skill' },
+    { id: 'wshobson/agents/shellcheck-configuration', skillId: 'shellcheck-configuration', name: 'shellcheck-configuration', installs: 9187, repo_owner: 'wshobson', repo_name: 'agents' },
+    { id: 'vercel/ai-skill/plan', skillId: 'plan', name: 'Plan', installs: 300, repo_owner: 'vercel', repo_name: 'ai-skill' },
   ],
 })
 
@@ -283,7 +291,6 @@ function buildProps({
   search,
   install,
   uninstall,
-  readDetails,
   setEnabled = vi.fn(async () => undefined),
   list = vi.fn(async () => ({ entries: store.getSnapshot().entries })),
   refresh = vi.fn(),
@@ -292,7 +299,6 @@ function buildProps({
   search?: SkillInventorySettingsTabInjected['search']
   install?: SkillInventorySettingsTabInjected['install']
   uninstall?: SkillInventorySettingsTabInjected['uninstall']
-  readDetails?: SkillInventorySettingsTabInjected['readDetails']
   setEnabled?: SkillInventorySettingsTabInjected['setEnabled']
   list?: SkillInventorySettingsTabInjected['list']
   refresh?: SkillInventorySettingsTabInjected['refresh']
@@ -303,7 +309,6 @@ function buildProps({
     search: search ?? (() => Promise.resolve({ skills: [] })),
     install: install ?? (() => Promise.resolve()),
     uninstall: uninstall ?? (() => Promise.resolve()),
-    readDetails: readDetails ?? (() => Promise.resolve('')),
     list,
     refresh,
     close: () => undefined,
