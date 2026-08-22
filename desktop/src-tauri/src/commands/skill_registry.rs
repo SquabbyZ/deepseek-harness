@@ -101,7 +101,20 @@ pub async fn search_skills_sh(
     offset: usize,
     state: State<'_, SharedState>,
 ) -> Result<SkillsShSearchResult, String> {
-    let client = { state.read().http.clone() };
+    // Skills.sh and Smithery are reachable from the dev box directly — the
+    // settings.yaml proxy is for the LLM providers, not these public registry
+    // APIs. Build a fresh, proxy-free client so we don't tunnel skills.sh
+    // through the (possibly unreachable) LLM proxy.
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("search_skills_sh: client build: {e}"))?;
+    eprintln!(
+        "[search_skills_sh] env: HTTP_PROXY={:?} HTTPS_PROXY={:?} ALL_PROXY={:?}",
+        std::env::var("HTTP_PROXY").ok(),
+        std::env::var("HTTPS_PROXY").ok(),
+        std::env::var("ALL_PROXY").ok(),
+    );
     let trimmed = query.trim();
     let limit_str = limit.to_string();
     let offset_str = offset.to_string();
@@ -185,7 +198,11 @@ pub async fn search_smithery_servers(
     limit: usize,
     state: State<'_, SharedState>,
 ) -> Result<SmitherySearchResult, String> {
-    let client = { state.read().http.clone() };
+    // Same rationale as search_skills_sh: registry APIs are reached direct.
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("DeepSeek-Harness/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("search_smithery_servers: client build: {e}"))?;
     let trimmed = query.trim();
     let limit_str = limit.to_string();
     let url = url::Url::parse_with_params(

@@ -126,13 +126,23 @@ pub fn list(
         let entry = entry.map_err(|e| AppError::FsIo {
             message: e.to_string(),
         })?;
-        let metadata = entry.metadata().map_err(|e| AppError::FsIo {
+        // `entry.file_type()` follows symlinks/junctions on every platform
+        // (Windows FILE_ATTRIBUTE_DIRECTORY for a directory reparse point),
+        // whereas `entry.metadata().is_dir()` returns the link's own attributes
+        // and reports is_dir=false for a directory junction. The latter broke
+        // the skill inventory once we linked ~/.agents/skills/* into
+        // ~/.dsh/skills as junctions.
+        let file_type = entry.file_type().map_err(|e| AppError::FsIo {
             message: e.to_string(),
         })?;
+        let size = entry
+            .metadata()
+            .map(|m| m.len())
+            .map_err(|e| AppError::FsIo { message: e.to_string() })?;
         out.push(FsEntry {
             name: entry.file_name().to_string_lossy().into_owned(),
-            is_dir: metadata.is_dir(),
-            size: metadata.len(),
+            is_dir: file_type.is_dir(),
+            size,
         });
     }
     Ok(out)

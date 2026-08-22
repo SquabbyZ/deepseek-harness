@@ -30,8 +30,10 @@ impl Platform {
 pub fn allowed_shell_binaries() -> &'static [&'static str] {
     if cfg!(target_os = "windows") {
         // tar.exe ships in System32 on Windows 10+; the skills.sh install path
-        // extracts a codeload tarball through it.
-        &["cmd.exe", "powershell.exe", "node.exe", "tar.exe"]
+        // extracts a codeload tarball through it. code.cmd/code.exe are the
+        // VS Code CLI, used by the settings "Open file" affordance when the
+        // user has VS Code installed.
+        &["cmd.exe", "powershell.exe", "node.exe", "tar.exe", "code.cmd", "code.exe", "code.CMD", "code.EXE"]
     } else if cfg!(target_os = "macos") {
         &["sh", "bash", "zsh", "/bin/sh", "/usr/bin/env", "tar", "node"]
     } else {

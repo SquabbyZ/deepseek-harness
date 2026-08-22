@@ -4121,11 +4121,35 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
         const invoke = tauriInvoke()
         if (invoke !== undefined) {
           try {
-            // The settings panel's 打开配置文件 opens ~/.dsh (the DSH CLI home),
-            // not the Tauri app dir.
+            // The settings panel's 打开配置文件 opens the settings document
+            // (`~/.dsh/settings.yaml`) directly when VS Code is on PATH
+            // (`code <file>`), or falls back to opening the parent directory
+            // (`~/.dsh`) in the system file manager otherwise.
             const dir = await invoke<string>('dsh_config_dir')
-            await invoke('shell_spawn', { spec: { program: 'cmd', args: ['/c', 'start', '', dir] } })
+            const file = `${dir}/settings.yaml`
+            const code = await invoke<string | null>('which', { name: 'code' })
+            // eslint-disable-next-line no-console
+            console.error('[openDocument] dir=', dir, 'code=', code, 'file=', file)
+            if (typeof code === 'string' && code.length > 0) {
+              // VS Code is installed — open the file directly. `code` may
+              // resolve to `code.cmd` or `code.exe`; the shell whitelist
+              // (platform.rs allowed_shell_binaries) accepts both spellings
+              // on Windows.
+              const exe = code.split(/[\\/]/).pop() ?? 'code'
+              await invoke('shell_spawn', {
+                spec: { cmd: exe, args: [file] },
+              })
+            } else {
+              // No VS Code — let Windows open the directory in Explorer.
+              // `start "" "<dir>"` is the cmd.exe invocation that uses the
+              // built-in handler without invoking explorer.exe directly.
+              await invoke('shell_spawn', {
+                spec: { cmd: 'cmd.exe', args: ['/c', 'start', '', dir] },
+              })
+            }
           } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[openDocument] threw:', error)
             return err(request, {
               code: 'internal',
               message: error instanceof Error ? error.message : String(error),
@@ -4133,6 +4157,9 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             })
           }
         }
+        // Browser / no bridge: the system file-manager affordance is
+        // unavailable. Deterministic no-op success keeps the UI affordance
+        // renderable in web dev (see playwright probe).
         return ok(request, { opened: true as const })
       },
       update: (request) => {
