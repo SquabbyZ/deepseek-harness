@@ -1669,6 +1669,33 @@ interface ReasoningChunkStormState {
   emitting: boolean
 }
 
+/** One seeded session carried by {@link FixtureSeedDescriptor}. */
+export interface FixtureSeedSession {
+  /** Session-summary overrides; absent fields take the fixture defaults. */
+  summary?: {
+    cwd?: string
+    running?: boolean
+    blank?: boolean
+    parentSessionId?: string
+  }
+  /** The full event log (seq/time already assigned). */
+  events: SessionEvent[]
+}
+
+/**
+ * URL-seed descriptor: materialize arbitrary sessions into the fixture world
+ * at boot. The client-first web e2e scaffold builds this from recorded
+ * session.jsonl so seeded-history scenarios render without a real host.
+ * Purely additive — absent by default, and the resident fx-* sessions and the
+ * 164-test fixture behavior are untouched when it is not supplied.
+ */
+export interface FixtureSeedDescriptor {
+  /** Session id → its summary overrides + event log. */
+  sessions: Record<string, FixtureSeedSession>
+  /** Optional workspace the seeded sessions land under (created when missing). */
+  workspace?: { workspaceId: string; path: string; title: string }
+}
+
 /** Deterministic fixture branches used by keyless Web assembly tests. */
 export interface FixtureOptions {
   /** Start with no real Workspace or Session. */
@@ -1689,6 +1716,12 @@ export interface FixtureOptions {
   realLlm?: boolean
   /** Override the completions base URL (real-LLM testing against a local mock). */
   llmUrl?: string
+  /**
+   * Materialize sessions into the fixture world at boot (the web e2e scaffold's
+   * URL-seed path). Optional and additive; when absent the world boots the
+   * resident fx-* sessions exactly as before.
+   */
+  seed?: FixtureSeedDescriptor
 }
 
 /** Inbox pump shared by both stream generators (FrameQueue pattern: ONE abort listener hung
@@ -2408,6 +2441,49 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
   }
 
   const summaryOf = (id: SessionId): SessionSummary | undefined => sessions.find(s => s.sessionId === id)
+  // URL-seed materialization (client-first e2e scaffold): when `options.seed`
+  // is present, push its sessions into the in-memory state graph before any
+  // RPC is served. Additive — absent by default, so the resident fx-* world
+  // and the 164-test fixture behavior are unchanged.
+  if (options.seed !== undefined) {
+    const seed = options.seed
+    const seedWs = seed.workspace
+    let seedWorkspace = seedWs === undefined
+      ? undefined
+      : workspaces.find(w => w.workspaceId === wid(seedWs.workspaceId))
+    if (seed.workspace !== undefined && seedWorkspace === undefined) {
+      seedWorkspace = {
+        workspaceId: wid(seed.workspace.workspaceId),
+        path: seed.workspace.path,
+        title: seed.workspace.title,
+        sessionIds: [],
+        createdAt: fixtureEpoch,
+        updatedAt: fixtureEpoch,
+      }
+      workspaces.push(seedWorkspace)
+    }
+    for (const [rawId, spec] of Object.entries(seed.sessions)) {
+      const sessionId = sid(rawId)
+      const existing = sessions.find(s => s.sessionId === sessionId)
+      const summary: SessionSummary = {
+        sessionId,
+        updatedAt: Date.now(),
+        running: spec.summary?.running ?? false,
+        blank: spec.summary?.blank ?? true,
+        cwd: spec.summary?.cwd ?? '/tmp/fixture',
+        ...spec.summary?.parentSessionId === undefined
+          ? {}
+          : { parentSessionId: sid(spec.summary.parentSessionId) },
+      }
+      if (existing === undefined) sessions.push(summary)
+      else Object.assign(existing, summary)
+      logs.set(sessionId, spec.events)
+      modelSelections.set(sessionId, { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+      if (seedWorkspace !== undefined && !seedWorkspace.sessionIds.includes(sessionId)) {
+        seedWorkspace.sessionIds = [sessionId, ...seedWorkspace.sessionIds]
+      }
+    }
+  }
   /** Shared session guard for sessionId-addressed catalog routes: the error
    *  response when the session is unknown, undefined when it exists. */
   const requireSession = (request: RpcRequest<{ sessionId: SessionId }>): Promise<RpcResponse<never>> | undefined => {
@@ -4987,6 +5063,21 @@ export class FixtureApiClient extends AbstractApiClient {
   }
 }
 
+/** Decode the `seed` query parameter into a seed descriptor, or undefined on malformed input. */
+function parseSeedDescriptor(raw: string): FixtureSeedDescriptor | undefined {
+  try {
+    const value = JSON.parse(raw) as { sessions?: unknown; workspace?: unknown }
+    if (value === null || typeof value !== 'object'
+      || typeof value.sessions !== 'object' || value.sessions === null) {
+      return undefined
+    }
+    return value as FixtureSeedDescriptor
+  } catch {
+    // Malformed seed query: boot the resident world (never crash the UI).
+    return undefined
+  }
+}
+
 /** Browser query mapping; direct unit callers pass FixtureOptions explicitly. */
 function fixtureOptionsFromLocation(): FixtureOptions {
   if (typeof location === 'undefined') return {}
@@ -4994,6 +5085,8 @@ function fixtureOptionsFromLocation(): FixtureOptions {
   // Under Tauri (dev and the installed build) the fixture must not fabricate
   // demo workspaces/sessions — the desktop starts from the real ~/.dsh state.
   const underTauri = typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis
+  const seedRaw = query.get('seed')
+  const seed = seedRaw === null ? undefined : parseSeedDescriptor(seedRaw)
   return {
     empty: query.get('fixture') === 'empty' || underTauri,
     rejectPrompt: query.get('fixturePrompt') === 'reject',
@@ -5005,5 +5098,6 @@ function fixtureOptionsFromLocation(): FixtureOptions {
     // self-hosted providers); the WebView2 shell sets both via the URL.
     realLlm: query.get('realLlm') === '1',
     ...(query.get('llmUrl') !== null ? { llmUrl: query.get('llmUrl') as string } : {}),
+    ...(seed !== undefined ? { seed } : {}),
   }
 }
