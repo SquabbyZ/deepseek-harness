@@ -59,21 +59,23 @@ describe('mcpInventory/list strict-codec boundary', () => {
     const parsed = mcpListResultSchema.parse(FIXTURE_LIST_RESULT)
 
     expect(parsed.entries).toHaveLength(2)
-    const [stdio, http] = parsed.entries
-    expect(stdio.spec).toBeDefined()
-    expect(stdio.spec).toMatchObject({
+    // zod 解析后的 entries 是 discriminated union 数组;不能用解构 + 直接
+    // 访问 union 某一支的字段(TS 视为可能 undefined)。按 transport 查找。
+    const stdioEntry = parsed.entries.find(e => e.spec.transport === 'stdio')
+    const httpEntry = parsed.entries.find(e => e.spec.transport === 'streamable-http')
+    if (!stdioEntry || !httpEntry) throw new Error('expected one stdio and one http entry')
+    expect(stdioEntry.spec).toMatchObject({
       transport: 'stdio',
       serverName: 'filesystem',
       command: 'npx -y @modelcontextprotocol/server-filesystem',
     })
-    expect(stdio.spec.command).toBe(STDIO_SPEC.command)
-    expect(http.spec).toBeDefined()
-    expect(http.spec).toMatchObject({
+    expect(stdioEntry.spec).toMatchObject({ command: STDIO_SPEC.command })
+    expect(httpEntry.spec).toMatchObject({
       transport: 'streamable-http',
       serverName: 'remote-catalog',
       url: 'https://mcp.example.com/catalog',
     })
-    expect(http.spec.url).toBe(HTTP_SPEC.url)
+    expect(httpEntry.spec).toMatchObject({ url: HTTP_SPEC.url })
   })
 
   it('keeps spec on a single entry parsed through the entry schema', () => {
