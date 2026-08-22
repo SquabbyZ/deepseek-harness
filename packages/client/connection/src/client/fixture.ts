@@ -4669,21 +4669,25 @@ function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorl
             const entries = fixtureSkills.map(skill => ({ ...skill, enabled: skillEnabled.get(skill.entryId) ?? skill.enabled }))
             return Promise.resolve({ ok: true, value: { entries } })
           }
-          // Real mode: resolve ~/.dsh first, then read the ABSOLUTE
-          // ~/.dsh/skills path (the fs allowlist now permits reads under
-          // dsh_home) + best-effort ~/.agents/skills (a sibling of dsh_home
-          // that stays outside the allowlist; a permission error is
-          // tolerated). Seed first so the persisted `enabled` overlay is
-          // applied to the projected entries.
+          // Real mode: `~/.dsh/skills` is the SINGLE aggregation root. The
+          // Rust `skill_roots_ensure` command creates it if absent and links
+          // every `~/.agents/skills/<name>` skill into it (junction/symlink,
+          // one physical copy). The browser then reads only `~/.dsh/skills`
+          // — real installs AND the agent-root skills both surface here.
+          // Seed first so the persisted `enabled` overlay is applied to the
+          // projected entries.
           await seedSettings()
           const entries: Array<Record<string, unknown>> = []
           try {
+            // Best-effort: ensure the aggregation root + agent links exist.
+            // A failure (e.g. no mklink permission) leaves the root unlinked;
+            // the read below then surfaces whatever is present.
+            await invoke('skill_roots_ensure')
             const dshHome = await invoke<string>('dsh_config_dir')
             if (typeof dshHome === 'string' && dshHome.length > 0) {
               const home = homeFromDshConfigDir(dshHome)
               if (home.length > 0) {
                 entries.push(...await readSkillDir(invoke, `${home}/.dsh/skills`, 'user-dsh'))
-                entries.push(...await readSkillDir(invoke, `${home}/.agents/skills`, 'user-agents'))
               }
             }
           } catch {

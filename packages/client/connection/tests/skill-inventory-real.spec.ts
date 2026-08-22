@@ -1,8 +1,9 @@
 /**
- * Skill inventory real-directory read + persistence (Task 2): with a Tauri
- * bridge installed (`__TAURI_INTERNALS__`), `skillInventory/list` must project
- * real skill directories — `~/.dsh/skills` via the ABSOLUTE path derived from
- * `dsh_config_dir`, and `~/.agents/skills` via the parent home path — through
+ * Skill inventory real-directory read + persistence (Task 2 + aggregation fix):
+ * with a Tauri bridge installed (`__TAURI_INTERNALS__`), `skillInventory/list`
+ * must first invoke `skill_roots_ensure` (Rust creates `~/.dsh/skills` and
+ * links every `~/.agents/skills/<name>` skill into it), then project the real
+ * `~/.dsh/skills` directory — the SINGLE aggregation root — through
  * `fs_list`/`fs_read`, overlay the persisted `enabled` map, and
  * `skillInventory/setEnabled` must persist through `settings_update`. Without a
  * bridge the fixture falls back to the hardcoded list.
@@ -49,6 +50,9 @@ function installTauriMock(opts: TauriMockOpts = {}): { calls: Array<{ cmd: strin
       }
       case 'settings_update':
         opts.settingsUpdate?.push({ key: String(args?.key), value: args?.value })
+        return null
+      case 'skill_roots_ensure':
+        // Aggregation root creation + agent-skill linking: a no-op in the mock.
         return null
       case 'dsh_config_dir':
         return opts.dshConfigDir ?? 'C:/Users/test/.dsh'
@@ -151,7 +155,7 @@ describe('homeFromDshConfigDir', () => {
 })
 
 describe('skillInventory/list — real directories under Tauri', () => {
-  it('projects ~/.dsh/skills and ~/.agents/skills into skill entries', async () => {
+  it('ensures the aggregation root then projects ~/.dsh/skills', async () => {
     const { calls } = installTauriMock({
       list: {
         [SKILLS_DIR]: [
@@ -159,25 +163,24 @@ describe('skillInventory/list — real directories under Tauri', () => {
           { name: 'web-search', is_dir: true, size: 0 },
           { name: 'README.md', is_dir: false, size: 120 },
         ],
-        [AGENTS_DIR]: [
-          { name: 'agent-loop', is_dir: true, size: 0 },
-        ],
       },
       read: {
         [`${SKILLS_DIR}/shell/SKILL.md`]: '---\nname: Shell\n描述\n---',
         [`${SKILLS_DIR}/web-search/SKILL.md`]: '---\nname: Web Search\ndescription: 联网搜索并返回结构化证据\n---',
-        [`${AGENTS_DIR}/agent-loop/SKILL.md`]: '---\nname: Agent Loop\nwhenToUse: 编排工具调用时\n---',
       },
     })
     const { rpc } = createFixtureFaces()
     const entries = await skillList(rpc)
-    // The browser must read the ABSOLUTE ~/.dsh/skills path (derived from
-    // dsh_config_dir), never the relative `skills` that canonicalizes against
-    // the (unset) process CWD and fails the Rust fs allowlist.
+    // The browser first ensures the aggregation root (+ agent links), then
+    // reads ONLY the ABSOLUTE ~/.dsh/skills path (derived from dsh_config_dir)
+    // — never the relative `skills` that canonicalizes against the (unset)
+    // process CWD and fails the Rust fs allowlist, and never a separate
+    // ~/.agents/skills read (agent skills are linked into ~/.dsh/skills).
+    expect(calls).toContainEqual({ cmd: 'skill_roots_ensure' })
     expect(calls).toContainEqual({ cmd: 'fs_list', args: { dir: SKILLS_DIR } })
     expect(calls).not.toContainEqual({ cmd: 'fs_list', args: { dir: 'skills' } })
-    expect(calls).toContainEqual({ cmd: 'fs_list', args: { dir: AGENTS_DIR } })
-    expect(entries.map(e => e.entryId)).toEqual(['shell', 'web-search', 'agent-loop'])
+    expect(calls).not.toContainEqual({ cmd: 'fs_list', args: { dir: AGENTS_DIR } })
+    expect(entries.map(e => e.entryId)).toEqual(['shell', 'web-search'])
     expect(entries[0]).toMatchObject({
       entryId: 'shell',
       name: 'Shell',
@@ -185,13 +188,6 @@ describe('skillInventory/list — real directories under Tauri', () => {
       provider: 'dsh',
       modelInvocable: true,
       userInvocable: true,
-      enabled: true,
-    })
-    expect(entries[2]).toMatchObject({
-      entryId: 'agent-loop',
-      name: 'Agent Loop',
-      whenToUse: '编排工具调用时',
-      source: 'user-agents',
       enabled: true,
     })
   })
@@ -248,21 +244,6 @@ describe('skillInventory/list — real directories under Tauri', () => {
     expect(web?.enabled).toBe(true)
   })
 
-  it('silently skips ~/.agents/skills on fs permission error', async () => {
-    installTauriMock({
-      list: {
-        [SKILLS_DIR]: [{ name: 'shell', is_dir: true, size: 0 }],
-      },
-      listErrors: [AGENTS_DIR],
-      read: {
-        [`${SKILLS_DIR}/shell/SKILL.md`]: '---\nname: Shell\n---',
-      },
-    })
-    const { rpc } = createFixtureFaces()
-    const entries = await skillList(rpc)
-    expect(entries.map(e => e.entryId)).toEqual(['shell'])
-  })
-
   it('falls back to the hardcoded fixture list without a Tauri bridge', async () => {
     const { rpc } = createFixtureFaces()
     const entries = await skillList(rpc)
@@ -270,9 +251,9 @@ describe('skillInventory/list — real directories under Tauri', () => {
     expect(entries[0]?.source).toBe('builtin')
   })
 
-  it('degrades to the curated defaults when both real roots are unreadable and no toggles are persisted', async () => {
+  it('degrades to the curated defaults when the real root is unreadable and no toggles are persisted', async () => {
     installTauriMock({
-      listErrors: [SKILLS_DIR, AGENTS_DIR],
+      listErrors: [SKILLS_DIR],
     })
     const { rpc } = createFixtureFaces()
     const entries = await skillList(rpc)
@@ -282,7 +263,7 @@ describe('skillInventory/list — real directories under Tauri', () => {
 
   it('keeps the empty real list when the user has persisted toggles (no default fallback)', async () => {
     installTauriMock({
-      listErrors: [SKILLS_DIR, AGENTS_DIR],
+      listErrors: [SKILLS_DIR],
       settingsGet: { 'skill-inventory': { enabled: { shell: false } } },
     })
     const { rpc } = createFixtureFaces()
