@@ -166,7 +166,7 @@ git commit -m "feat(web): MCP custom CRUD persists to mcp-inventory settings nam
 **Files:**
 - Modify: `packages/client/ui-settings-skill/src/client/SkillInventorySettingsTab.tsx`(搜索框复用;结果列表 + 安装按钮)
 - Modify: `packages/client/ui-settings-skill/src/client/inventory-store.ts`(search/install port)
-- Modify: `packages/client/connection/src/client/fixture.ts`(新增 `skillRegistry/search` + `skillRegistry/install` 端点)
+- Modify: `packages/client/connection/src/client/fixture.ts`(新增 `skillRegistry/search` + `skillRegistry/installSkill` 端点)
 - Modify: `packages/client/ui-settings-skill/src/client/locales.ts`
 - Test: `packages/client/ui-settings-skill/tests/skills-sh.client.spec.tsx`
 
@@ -174,19 +174,19 @@ git commit -m "feat(web): MCP custom CRUD persists to mcp-inventory settings nam
 - Consumes: `http_request`(Smithery 同族)GET `https://skills.sh/api/search?q={query}&limit=20`;`codeload.github.com/{owner}/{repo}/tar.gz/HEAD`。
 - Produces:
   - `skillRegistry/search(query) -> { skills: { name, description, installs, source }[] }`(source = `owner/repo`)。
-  - `skillRegistry/install({ name, source }) -> { ok }`(下载 tarball → `fs_write` 解压到 `~/.dsh/skills/{name}`)。
+  - `skillRegistry/installSkill({ name, source }) -> { ok }`(下载 tarball → `fs_write` 解压到 `~/.dsh/skills/{name}`)。
 
 - [ ] **Step 1: fixture `skillRegistry/search`(失败)**
 
 fixture 新增端点:经 `http_request` GET skills.sh,投影 `{ name: skill.name, description, installs, source }`(source 取 `id.split('/').slice(0,2).join('/')` 或返回的 `source` 字段)。测试:mock `http_request` 返回 skills.sh 形状,断言投影。
 
-- [ ] **Step 2: fixture `skillRegistry/install`**
+- [ ] **Step 2: fixture `skillRegistry/installSkill`**
 
 下载 `codeload.github.com/{owner}/{repo}/tar.gz/HEAD`(`http_request` GET)→ 解压 gzip+tar(浏览器无 tar 库——用 `shell_spawn` 调系统 `tar` 解压到临时目录,再 `fs_write` 移动/复制到 `~/.dsh/skills/{name}`;或纯 Node 无依赖解压 gzip 后用自定义 tar 解析)。实现选:经 `shell_spawn` 调 `tar -xzf`(Windows 下 `tar` 在 system32 可用)。
 
 - [ ] **Step 3: UI 接入**
 
-SkillInventorySettingsTab 搜索框复用:非空 query 时除本地过滤外触发 `skillRegistry/search`;结果区显示远端 skill 卡片(名称/描述/installs)+ "安装"按钮 → `skillRegistry/install` → 成功后 `store.refresh()`。
+SkillInventorySettingsTab 搜索框复用:非空 query 时除本地过滤外触发 `skillRegistry/search`;结果区显示远端 skill 卡片(名称/描述/installs)+ "安装"按钮 → `skillRegistry/installSkill` → 成功后 `store.refresh()`。
 
 - [ ] **Step 4: 测试 + 提交**
 

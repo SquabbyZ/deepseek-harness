@@ -4,8 +4,9 @@
  * `mcp-inventory` namespace's `servers` map (target = command 首词 or url),
  * overlay the persisted `enabled` map, and `setEnabled` / `upsertServer` /
  * `deleteServer` must persist through `settings_update('mcp-inventory', ...)`.
- * Without a bridge the fixture falls back to the hardcoded `fixtureMcps`
- * roster (currently empty).
+ * Without a bridge the fixture mirrors the Tauri branch: it seeds the
+ * persisted `mcp-inventory` namespace and projects the in-memory `mcpServers`
+ * map (the source of truth) — there is no longer a hardcoded fallback array.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SessionId } from '../src/client/api.ts'
