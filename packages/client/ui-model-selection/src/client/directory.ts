@@ -74,9 +74,18 @@ export class ModelDirectory {
       throw new Error(`session.models failed: ${result.error.code}: ${result.error.message}`)
     }
     const { current, routable, groups, failures } = result.value
+    // Catalog membership is advisory: the host's selection may name a
+    // model the active catalog no longer advertises (provider offline, model
+    // removed, stale persisted default). Surfacing the bare name lets the
+    // trigger and the dropdown disagree — trigger shows the model, dropdown
+    // has no row to pick. Drop `current` so the seat falls back to the
+    // "Select a model" placeholder; the next user pick promotes a real one.
+    const currentInCatalog = current === null
+      || groups.some(group => group.models.some(model =>
+        group.id === current.provider && model.id === current.model))
     this.store.update((s) => {
-      s.current = current
-      s.routable = routable
+      s.current = currentInCatalog ? current : null
+      s.routable = currentInCatalog ? routable : null
       s.groups = groups
       s.failures = failures
       s.status = 'ready'

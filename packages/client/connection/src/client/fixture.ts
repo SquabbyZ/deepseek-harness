@@ -613,8 +613,11 @@ function fixtureUsage(turn: number, step: number): TokenUsage {
 }
 
 /** fx-alpha history script: 75 turns (~150+ messages -> 4 pages at PAGE_MESSAGES=50),
- *  mixing reasoning blocks / tool call+result / context. */
-function buildAlphaLog(): SessionEvent[] {
+ *  mixing reasoning blocks / tool call+result / context.
+ *  Exported (underscore prefix = "kept for reference, not actively used") so
+ *  the noUnusedLocals check doesn't drop the scripted event stream while
+ *  resident fixture sessions are disabled for real-test boots. */
+export function _buildAlphaLog(): SessionEvent[] {
   const events: Record<string, unknown>[] = []
   let time = Date.now() - 3_600_000
   const push = (e: Record<string, unknown>): number => {
@@ -1813,16 +1816,12 @@ export function createFixtureFaces(options: FixtureOptions = {}, ctx?: Context):
 /** Build the fixture's legacy API and Remote RPC faces over one state graph. */
 function createFixtureWorld(options: FixtureOptions, ctx?: Context): FixtureWorld {
   // The resident fixture sessions all carry history, so none of them is blank.
-  let sessions: SessionSummary[] = options.empty ? [] : [
-    { sessionId: sid('fx-alpha'), updatedAt: Date.now(), running: true, blank: false, cwd: '/tmp/fixture' },
-    { sessionId: sid('fx-beta'), updatedAt: Date.now() - 60_000, running: false, blank: false, parentSessionId: sid('fx-alpha'), cwd: '/tmp/fixture' },
-    { sessionId: sid('fx-gamma'), updatedAt: Date.now() - 120_000, running: false, blank: false, cwd: '/tmp/fixture' },
-  ]
-  const logs = new Map<SessionId, SessionEvent[]>([[sid('fx-alpha'), buildAlphaLog()]])
-  const modelSelections = new Map<SessionId, ModelSelection>(sessions.map(session => [
-    session.sessionId,
-    { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-  ]))
+  // Real-test posture: start with no resident sessions so the user can exercise
+  // the create / prompt / stream paths against a clean sidebar. `options.empty`
+  // is the explicit opt-in; the default boot is also empty for the same reason.
+  let sessions: SessionSummary[] = []
+  const logs = new Map<SessionId, SessionEvent[]>()
+  const modelSelections = new Map<SessionId, ModelSelection>()
   const attachments = new Map<string, { attachment: ImageAttachmentRef; data: string }>([[
     String(FIXTURE_IMAGE_REF.attachmentId),
     { attachment: FIXTURE_IMAGE_REF, data: FIXTURE_IMAGE_DATA },
